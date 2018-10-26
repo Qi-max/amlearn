@@ -1,5 +1,5 @@
 # amlearn
-Machine learning package for amorphous materials.
+Machine LEARNing package for AMorphous materials.
 
 We integrate Fortran90 with Python (using f2py) to achieve combination of the
 flexibility and fast-computation (>10x times faster than pure Python) of features. Please see examples
