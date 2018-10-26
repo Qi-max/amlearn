@@ -5,7 +5,7 @@ from amlearn.utils.check import check_output_path
 
 
 try:
-    from amlearn.amlearn.featurize.featurizers.sro_mro import voronoi_stats, boop
+    from amlearn.featurize.featurizers.sro_mro import voronoi_stats, boop
 except Exception:
     print("import fortran file voronoi_stats error!")
 
@@ -415,34 +415,3 @@ class SROFeaturizers():
                                      columns=feature_names)
             result_df.to_csv(os.path.join(write_path, 'boop.csv'))
         return feature_names, Ql, Wlbar, coarse_Ql, coarse_Wlbar
-
-
-if __name__ == "__main__":
-    # nn = NearestNeighbor.from_file(data_path_file='/Users/Qi/Downloads/0.txt',
-    #                             cutoff=4.2, allow_neighbor_limit=300,
-    #                             n_neighbor_limit=40, pbc=[1, 1, 1])
-    # nn.voro_nn(small_face_thres=0.05, write_path='/Users/Qi/Downloads/')
-
-    nn = SROFeaturizers.from_voro_file(
-        data_path_file='/Users/Qi/Downloads/80/neighbor_list_merge_voro_nn_edit.csv',
-        n_neighbor_limit=80,
-        edge_min=3, edge_max=7,
-        include_beyond_edge_max=True,
-        feature_sets="all", fortran=True)
-
-    # nn.cn_voro(write_path='/Users/Qi/Downloads/')
-    _, voronoi_index_list = nn.voronoi_index(write_path='/Users/Qi/Downloads/80/')
-    line_percent(voronoi_index_list, feature_names=None, write_path='/Users/Qi/Downloads/80/')
-    nn.i_fold_symmetry(write_path='/Users/Qi/Downloads/80/')
-    # nn.area_wt_i_fold_symmetry(write_path='/Users/Qi/Downloads/80/')
-    # nn.vol_wt_i_fold_symmetry(write_path='/Users/Qi/Downloads/80/')
-    # nn.voronoi_area_stats(write_path='/Users/Qi/Downloads/80/')
-    # nn.voronoi_area_stats_separate(write_path='/Users/Qi/Downloads/80/')
-    # nn.voronoi_vol_stats(write_path='/Users/Qi/Downloads/80/')
-    # nn.voronoi_vol_stats_separate(write_path='/Users/Qi/Downloads/80/')
-    # nn.voronoi_distance_stats(write_path='/Users/Qi/Downloads/80/')
-    # nn.character_motif(voronoi_index_list, write_path='/Users/Qi/Downloads/80/')
-    # nn.boop(coords_path_file='/Users/Qi/Downloads/0.txt', pbc=[1, 1, 1],
-    #         low_order=1, higher_order=1, coarse_lower_order=1,
-    #         coarse_higher_order=1, write_path='/Users/Qi/Downloads/80/')
-    #

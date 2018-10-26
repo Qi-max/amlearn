@@ -5,7 +5,7 @@ import numpy as np
 from amlearn.utils.check import check_output_path
 
 try:
-    from amlearn.amlearn.featurize.featurizers.sro_mro import \
+    from amlearn.featurize.featurizers.sro_mro import \
         mro_stats, voronoi_stats
 except Exception:
     print("import fortran file voronoi_stats error!")
@@ -127,32 +127,3 @@ class MROFeaturizers():
             result_df.to_csv(os.path.join(write_path, 'csro.csv'))
 
         return result_df
-
-
-if __name__ == "__main__":
-    # nn = NearestNeighbor.from_file(data_path_file='/Users/Qi/Downloads/0.txt',
-    #                             cutoff=4.2, allow_neighbor_limit=300,
-    #                             n_neighbor_limit=40, pbc=[1, 1, 1])
-    # nn.voro_nn(small_face_thres=0.05, write_path='/Users/Qi/Downloads/')
-
-    # mro = MROFeaturizers.from_file(
-    #     data_path_file='/Users/Qi/Downloads/voronoi_distance_stats.csv',
-    #     neighbor_path_file='/Users/Qi/Downloads/neighbor_list_merge_voro_nn_edit.csv',
-    #     n_neighbor_limit=40,
-    #     feature_list="all", feature_sets="all", fortran=True)
-    # stats_types = [1, 1, 1, 1, 1, 1]
-    # mro.sro_to_mro(stats_types=stats_types, write_path='/Users/Qi/Downloads/')
-    #
-
-    data_path = r'/Users/Qi/Downloads/0_edit.txt'
-    neighbor_data_path = r'/Users/Qi/Downloads/neighbor_list_merge_voro_nn_edit.csv'
-
-    df = pd.read_csv(data_path, index_col=0, sep=' ')
-    print(df.head(10))
-    neighbor_df = pd.read_csv(neighbor_data_path, index_col=0)
-    mro = MROFeaturizers(
-        df, neighbor_df, n_neighbor_limit=40,
-        feature_list="all", feature_sets="all", fortran=True)
-
-    mro.csro(type_col='type', raw_comp=[.80, .20], type_names=['Ni', 'P'],
-             write_path='/Users/Qi/Downloads/')
