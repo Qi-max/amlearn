@@ -339,9 +339,10 @@
         REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_lists
         REAL(8), dimension(n_atoms, 1 + 3*n_elements) :: csro
 
-!f2py   intent(in) :: n_atoms
+!f2py   intent(in) :: n_atoms, n_neighbor_limit, n_elements
 !f2py   intent(in) :: atom_type
 !f2py   intent(in) :: element_comp_list
+!f2py   intent(in) :: n_neighbor_list, neighbor_lists
 !f2py   intent(in, out) :: csro
 
         integer :: i
