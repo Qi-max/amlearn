@@ -11,9 +11,10 @@
 
 
     subroutine cutoff_distance_stats(distance_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_distance_lists)
+                                     n_neighbor_list, neighbor_distance_lists &
+                                     n_atoms, n_neighbor_limit)
 
-        use :: a_stats
+        use :: a_stats, only : all_stats
 
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
@@ -36,3 +37,42 @@
 
 
 
+    subroutine cutoff_csro(csro, &
+                           atom_type, element_comp_list, &
+                           n_neighbor_list, neighbor_lists, &
+                           n_atoms, n_neighbor_limit, n_elements)
+        integer :: n_atoms
+        integer, dimension(n_atoms) :: atom_type, n_neighbor_list
+        REAL(8), dimension(n_atoms, n_elements) :: element_comp_list
+        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_lists
+        REAL(8), dimension(n_atoms, 1 + 3*n_elements) :: csro
+
+!f2py   intent(in) :: n_atoms
+!f2py   intent(in) :: atom_type
+!f2py   intent(in) :: element_comp_list
+!f2py   intent(in, out) :: csro
+
+        integer :: i
+        integer, dimension(n_elements) :: element_count
+
+        csro(:, 1) = atom_type(:)
+
+        do atom = 1, n_atoms
+            element_count = 0
+            do i = 1, n_neighbor_list(atom)
+                element_count(atom_type(neighbor_lists(i))) = element_count(atom_type(neighbor_lists(i))) + 1
+            end do
+            do j = 1, n_elements
+                csro(atom, j + 1) = element_count(j)
+            end do
+        end do
+
+        do j = 1, n_elements
+            csro(:, j + 1 + n_elements) = csro(:, j + 1) / n_neighbor_list(:)
+        end do
+
+        do j = 1, n_elements
+            csro(:, j + 1 + n_elements*2) = (csro(:, j + 1 + n_elements) - element_comp_list(j)) / element_comp_list(j)
+        end do
+
+    end subroutine cutoff_csro

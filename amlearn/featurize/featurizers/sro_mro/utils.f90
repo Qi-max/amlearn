@@ -1,3 +1,4 @@
+
     module determinant_func
     CONTAINS
         subroutine determinant(matrix, deter_value)
@@ -11,8 +12,8 @@
     end module determinant_func
 
 
-    module distance
 
+    module distance
     CONTAINS
       subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
 
@@ -45,6 +46,8 @@
 
       end subroutine distance_info
     end module distance
+
+
 
     module quicksort
     CONTAINS
@@ -95,7 +98,6 @@
 
 
 
-    ! for boop
     module CG_function
     CONTAINS
       function calculate_CG(half_l_min, half_l_max) result(CG)
@@ -150,7 +152,6 @@
 
 
 
-    ! for boop
     module angle
 
     CONTAINS
@@ -294,3 +295,21 @@
 
     end function all_stats
     end module a_stats
+
+
+
+    subroutine line_percent(percent_list, value_list, n_atoms, n_values)
+        integer :: n_atoms, n_values
+        integer, dimension(n_atoms, n_values) :: value_list
+        REAL(8), dimension(n_atoms, n_values) :: percent_list
+
+!f2py   intent(in) :: n_atoms, n_values
+!f2py   intent(in) :: value_list
+!f2py   intent(in, out) :: percent_list
+
+        integer :: atom
+
+        do atom = 1, n_atoms
+            percent_list(atom, :) = 1.0 * value_list(atom, :) / SUM(value_list(atom, :))
+        end do
+    end subroutine line_percent
