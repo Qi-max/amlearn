@@ -14,7 +14,7 @@ class BackendContext(object):
     """Utility class to prepare amlearn needed paths.
 
     Args:
-        output_path: 
+        output_path:
         temp_path:
         delete_tmp_folder:
         auto_rename:

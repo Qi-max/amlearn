@@ -16,7 +16,6 @@ def check_file_name(file_name):
 def check_output_path(output_path, msg="output path"):
     if os.path.exists(output_path):
         print("{}: {} already exists!".format(msg, output_path))
-        # print("{}: exists!".format(msg))
     else:
         os.makedirs(output_path)
         print("create {}: {} successful!".format(msg, output_path))
