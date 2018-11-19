@@ -4,6 +4,7 @@ import pickle
 
 import pandas as pd
 import numpy as np
+import yaml
 from amlearn.utils.directory import auto_rename_file, create_path, write_file, \
     read_file
 from amlearn.utils.logging import setup_logger, get_logger
@@ -157,3 +158,10 @@ class MLBackend(object):
         model = joblib.load(model_file)
         return model
 
+    @property
+    def def_env(self):
+        if not hasattr(self, "_def_env"):
+            with open(os.path.join(os.path.dirname(__file__),
+                                   'def_environment.yaml'), 'r') as lf:
+                self._def_env = yaml.load(lf)
+        return self._def_env
