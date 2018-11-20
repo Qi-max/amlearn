@@ -1,4 +1,3 @@
-
 from abc import ABCMeta, abstractmethod
 from sklearn.externals import six
 from sklearn.base import BaseEstimator

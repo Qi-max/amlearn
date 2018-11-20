@@ -162,6 +162,6 @@ class MLBackend(object):
     def def_env(self):
         if not hasattr(self, "_def_env"):
             with open(os.path.join(os.path.dirname(__file__),
-                                   'def_environment.yaml'), 'r') as lf:
+                                   'default_environment.yaml'), 'r') as lf:
                 self._def_env = yaml.load(lf)
         return self._def_env
