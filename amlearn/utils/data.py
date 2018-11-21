@@ -3,6 +3,10 @@ import numpy as np
 import pandas as pd
 
 
+def list_like():
+    return (list, np.ndarray, tuple, pd.Series)
+
+
 def read_imd(dirs, bds, atom_names):
     cell_coords = []
     types = []

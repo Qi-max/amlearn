@@ -9,7 +9,7 @@ def setup_logger(output_file=None):
                            'amlearn_logging.yaml'), 'r') as lf:
         config_dict = yaml.load(lf)
     if output_file is not None:
-        config_dict['handlers']['file_handler']['filename'] = output_file
+        config_dict['handlers']['info_file_handler']['filename'] = output_file
     logging.config.dictConfig(config_dict)
 
 

@@ -4,6 +4,10 @@ import shutil
 from amlearn.utils.check import check_output_path
 
 
+def copy_path(source_path, sink_path):
+    shutil.copytree(source_path, sink_path)
+
+
 def delete_path(path):
     if os.path.exists(path):
         shutil.rmtree(path)

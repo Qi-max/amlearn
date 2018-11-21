@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import yaml
 from amlearn.utils.directory import auto_rename_file, create_path, write_file, \
-    read_file
+    read_file, copy_path, delete_path
 from amlearn.utils.logging import setup_logger, get_logger
 from sklearn.externals import joblib
 
@@ -16,23 +16,23 @@ class BackendContext(object):
 
     Args:
         output_path:
-        temp_path:
+        tmp_path:
         delete_tmp_folder:
         auto_rename:
         overwrite_path:
         merge_path:
     """
 
-    def __init__(self, output_path, temp_path=None, delete_tmp_folder=True,
+    def __init__(self, output_path, tmp_path=None, delete_tmp_folder=True,
                  auto_rename=False, overwrite_path=False, merge_path=False):
-        if output_path == temp_path and output_path is not None:
-            raise ValueError('output_path should not be same with temp_path.')
+        if output_path == tmp_path and output_path is not None:
+            raise ValueError('output_path should not be same with tmp_path.')
 
         self.delete_tmp_folder = delete_tmp_folder
         self.auto_rename = auto_rename
         self.overwrite_path = overwrite_path
         self.merge_path = merge_path
-        self._prepare_paths(output_path, temp_path)
+        self._prepare_paths(output_path, tmp_path)
         class_name = self.__class__.__name__
         setup_logger(os.path.join(self._output_path,
                                   "amlearn_{}.log".format(class_name)))
@@ -41,14 +41,22 @@ class BackendContext(object):
     @property
     def output_path(self):
         # Return the absolute path with ~ and environment variables expanded.
-        return os.path.expanduser(os.path.expandvars(self._output_path))
+        if not hasattr(self, '_abs_output_path'):
+            self._abs_output_path = \
+                os.path.expanduser(os.path.expandvars(self._output_path))
+        return self._abs_output_path
 
     @property
-    def temp_path(self):
+    def tmp_path(self):
         # Return the absolute path with ~ and environment variables expanded.
-        return os.path.expanduser(os.path.expandvars(self._temp_path))
+        if not hasattr(self, '_abs_tmp_path'):
+            self._abs_tmp_path = \
+                os.path.expanduser(os.path.expandvars(self._tmp_path))
+            if self._abs_tmp_path.endswith('/'):
+                self._abs_tmp_path = self._abs_tmp_path[:-1]
+        return self._abs_tmp_path
 
-    def _prepare_paths(self, output_path, temp_path=None,
+    def _prepare_paths(self, output_path, tmp_path=None,
                        auto_rename=False, overwrite=False):
         timestamp = time.time()
         pid = os.getpid()
@@ -56,22 +64,22 @@ class BackendContext(object):
         self._output_path = output_path if output_path \
             else '/tmp/amlearn/task_%d/output_%d' % (pid, int(timestamp))
 
-        self._temp_path = temp_path if temp_path \
+        self._tmp_path = tmp_path if tmp_path \
             else '/tmp/amlearn/task_%d/tmp_%d' % (pid, int(timestamp))
 
         if auto_rename:
             if os.path.exists(self._output_path):
                 self._output_path = auto_rename_file(self._output_path)
-            if os.path.exists(self._temp_path):
-                self._temp_path = auto_rename_file(self._temp_path)
+            if os.path.exists(self._tmp_path):
+                self._tmp_path = auto_rename_file(self._tmp_path)
 
         create_path(self._output_path,
                     overwrite=self.overwrite_path, merge=self.merge_path)
         self._output_path_created = True
 
-        create_path(self._temp_path,
+        create_path(self._tmp_path,
                     overwrite=self.overwrite_path, merge=self.merge_path)
-        self._temp_path_created = True
+        self._tmp_path_created = True
 
 
 class MLBackend(object):
@@ -81,7 +89,7 @@ class MLBackend(object):
             raise ValueError(
                 "Output path {} does not exist.".format(self.output_path))
         self.logger = get_logger(self.__class__.__name__)
-        self.internals_path = os.path.join(self.temp_path, ".amlearn")
+        self.internals_path = os.path.join(self.tmp_path, ".amlearn")
         create_path(self.internals_path, merge=True)
 
     @property
@@ -89,8 +97,8 @@ class MLBackend(object):
         return self.context.output_path
 
     @property
-    def temp_path(self):
-        return self.context.temp_path
+    def tmp_path(self):
+        return self.context.tmp_path
 
     def _get_start_time_filename(self, seed):
         seed = int(seed)
@@ -107,8 +115,18 @@ class MLBackend(object):
         return start_time
 
     def _get_prediction_output_dir(self, name='all'):
-        return os.path.join(self.output_path,
+        return os.path.join(self.tmp_path,
                             'predictions_{}'.format(name))
+
+    @property
+    def valid_predictions_type(self):
+        if not hasattr(self, '_valid_predictions_type'):
+            functions = dir(self)
+            print(functions)
+            self._valid_predictions_type = \
+                [func.split('_')[-1] for func in functions
+                 if func.startswith('save_predictions_as_') ]
+        return self._valid_predictions_type
 
     def save_predictions_as_npy(self, predictions,
                                 seed, name='all'):
@@ -139,7 +157,7 @@ class MLBackend(object):
         predict_df.to_csv(predict_file)
 
     def _get_model_dir(self):
-        return os.path.join(self.output_path)
+        return os.path.join(self.tmp_path)
 
     def save_model(self, model, seed):
         model_dir = self._get_model_dir()
@@ -152,6 +170,19 @@ class MLBackend(object):
         model_file = os.path.join(model_dir, 'model_{}.pkl'.format(seed))
         model = joblib.load(model_file)
         return model
+
+    def tmp_persistence(self, tmp_path):
+        if self.tmp_path != tmp_path:
+            if tmp_path.startswith(self.tmp_path):
+                sub_path = tmp_path[len(self.tmp_path)+1:]
+                output_path = os.path.join(self.output_path, sub_path)
+                copy_path(tmp_path, output_path)
+                if self.context.delete_tmp_folder:
+                    delete_path(tmp_path)
+            else:
+                raise ValueError("{} should be Subfolder of {}".format(
+                    tmp_path, self.tmp_path))
+
 
     @staticmethod
     def load_model_by_file(model_file):
