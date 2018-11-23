@@ -12,3 +12,7 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
     @abstractmethod
     def get_feature_names(self):
         pass
+
+    @property
+    def dependency(self):
+        return self._dependency

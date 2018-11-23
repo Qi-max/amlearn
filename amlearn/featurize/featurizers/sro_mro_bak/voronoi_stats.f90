@@ -1,5 +1,4 @@
 
-
     subroutine cn_voro(cn, n_atoms, n_neighbor_list)
         integer, dimension(n_atoms) :: cn, n_neighbor_list
 
@@ -12,9 +11,10 @@
 
 
 
-    SUBROUTINE voronoi_index(voronoi_index_list, n_atoms, n_neighbor_limit, &
+    subroutine voronoi_index(voronoi_index_list, &
                              n_neighbor_list, neighbor_edge_lists, &
-                             edge_min, edge_max, include_beyond_edge_max)
+                             edge_min, edge_max, include_beyond_edge_max, &
+                             n_atoms, n_neighbor_limit)
 
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
@@ -41,12 +41,15 @@
             end if
           end do
         end do
-    return
-    end SUBROUTINE voronoi_index
+
+    end subroutine voronoi_index
 
 
-    subroutine i_fold_symmetry(i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
-        neighbor_edge_lists, edge_min, edge_max, include_beyond_edge_max)
+
+    subroutine i_fold_symmetry(i_symm_list, &
+                               n_neighbor_list, neighbor_edge_lists, &
+                               edge_min, edge_max, include_beyond_edge_max, &
+                               n_atoms, n_neighbor_limit)
 
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
@@ -75,25 +78,9 @@
 
 
 
-    subroutine line_percent(percent_list, value_list, n_atoms, n_values)
-        integer :: n_atoms, n_values
-        integer, dimension(n_atoms, n_values) :: value_list
-        REAL(8), dimension(n_atoms, n_values) :: percent_list
-
-!f2py   intent(in) :: n_atoms, n_values
-!f2py   intent(in) :: value_list
-!f2py   intent(in, out) :: percent_list
-
-        integer :: atom
-
-        do atom = 1, n_atoms
-            percent_list(atom, :) = 1.0 * value_list(atom, :) / SUM(value_list(atom, :))
-        end do
-    end subroutine line_percent
-
-
-    subroutine character_motif(motif_one_hot, voronoi_index_list, n_atoms, n_voro, &
-                               edge_min, target_voro_idx, n_target, frank_kasper)
+    subroutine character_motif(motif_one_hot, &
+                               voronoi_index_list, edge_min, target_voro_idx, frank_kasper, &
+                               n_atoms, n_target, n_voro)
         integer :: n_atoms, edge_min, frank_kasper
         integer, dimension(n_target, n_voro) :: target_voro_idx
         integer, dimension(n_atoms, n_voro) :: voronoi_index_list
@@ -104,9 +91,7 @@
 !f2py   intent(in) :: target_voro_idx
 !f2py   intent(in) :: frank_kasper
 !f2py   intent(in, out) :: motif_one_hot
-        write(*, *) target_voro_idx
-        write(*, *) n_target + frank_kasper
-!        motif_one_hot = 0
+
         do atom = 1, n_atoms
             do target_idx = 1, n_target
                 if(all(voronoi_index_list(atom, :)-target_voro_idx(target_idx, :)==0)) then
@@ -117,40 +102,15 @@
                 motif_one_hot(atom, n_target + frank_kasper) = 1
             end if
         end do
+
     end subroutine character_motif
-!
-!    subroutine special_polyhedron(special_polyhedron_list, i_symm_list, n_atoms)
-!
-!        integer :: n_atoms
-!        REAL(8), dimension(n_atoms, 4) :: i_symm_list
-!        REAL(8), dimension(n_atoms, 4) :: special_polyhedron_list
-!
-!!f2py   intent(in) :: n_atoms
-!!f2py   intent(in) :: i_symm_list
-!!f2py   intent(in, out) :: special_polyhedron_list
-!
-!        integer :: atom, is_00120, is_00124, is_00120_00124, is_stab_12
-!
-!        do atom = 1, n_atoms
-!            if(i_symm_list(atom, 3) == 12) then
-!                is_stab_12 = 1
-!                if((i_symm_list(atom, 1) == 0).AND.((i_symm_list(atom, 2) == 0))) then
-!
-!                end if
-!            else
-!                is_00120 = 0
-!                is_00124 = 0
-!                is_00120_00124 = 0
-!                is_stab_12 = 0
-!            end if
-!            special_polyhedron_list(atom, :) = (/is_00120, is_00124, is_00120_00124, is_stab_12/)
-!        end do
-!
-!    end subroutine special_polyhedron
 
 
-    subroutine area_wt_i_fold_symmetry(area_wt_i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
-        neighbor_edge_lists, neighbor_area_lists, edge_min, edge_max, include_beyond_edge_max)
+
+    subroutine area_wt_i_fold_symmetry(area_wt_i_symm_list, &
+                                       n_neighbor_list, neighbor_edge_lists, neighbor_area_lists, &
+                                       edge_min, edge_max, include_beyond_edge_max, &
+                                       n_atoms, n_neighbor_limit)
 
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
@@ -188,9 +148,11 @@
     end subroutine area_wt_i_fold_symmetry
 
 
-    subroutine vol_wt_i_fold_symmetry(vol_wt_i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
-        neighbor_edge_lists, neighbor_vol_lists, edge_min, edge_max, include_beyond_edge_max)
 
+    subroutine vol_wt_i_fold_symmetry(vol_wt_i_symm_list, &
+                                       n_neighbor_list, neighbor_edge_lists, neighbor_vol_lists, &
+                                       edge_min, edge_max, include_beyond_edge_max, &
+                                       n_atoms, n_neighbor_limit)
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
         integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
@@ -213,7 +175,8 @@
 
 
     subroutine voronoi_area_stats(area_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_area_lists)
+                                  n_neighbor_list, neighbor_area_lists&
+                                  n_atoms, n_neighbor_limit)
 
         use :: a_stats, only: all_stats
 
@@ -236,9 +199,11 @@
     end subroutine voronoi_area_stats
 
 
+
     subroutine voronoi_area_stats_separate(area_stats_separate, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_edge_lists, &
-        neighbor_area_lists, edge_min, edge_max, include_beyond_edge_max)
+                                           n_neighbor_list, neighbor_edge_lists, neighbor_area_lists, &
+                                           edge_min, edge_max, include_beyond_edge_max, &
+                                           n_atoms, n_neighbor_limit)
 
         use :: a_stats, only: all_stats
 
@@ -282,10 +247,14 @@
           end do
           deallocate(atom_area_stats_separate)
         end do
+
     end subroutine voronoi_area_stats_separate
 
+
+
     subroutine voronoi_vol_stats(vol_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_vol_lists)
+                                 n_neighbor_list, neighbor_vol_lists &
+                                 n_atoms, n_neighbor_limit)
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
         REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_vol_lists
@@ -297,12 +266,15 @@
 !f2py   intent(in, out) :: vol_stats
 
         call voronoi_area_stats(vol_stats, n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_vol_lists)
+
     end subroutine voronoi_vol_stats
 
 
+
     subroutine voronoi_vol_stats_separate(vol_stats_separate, &
-            n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_edge_lists, &
-            neighbor_vol_lists, edge_min, edge_max, include_beyond_edge_max)
+                                           n_neighbor_list, neighbor_edge_lists, neighbor_vol_lists, &
+                                           edge_min, edge_max, include_beyond_edge_max, &
+                                           n_atoms, n_neighbor_limit)
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
         integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
@@ -313,6 +285,7 @@
         REAL(8), dimension(n_atoms, 5 * (edge_max - edge_min + 1)) :: vol_stats_separate
 
 !f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: avg_facet_area
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists, neighbor_vol_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
@@ -327,10 +300,11 @@
 
 
     subroutine voronoi_distance_stats(distance_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_distance_lists)
+                                      n_neighbor_list, neighbor_distance_lists, &
+                                      n_atoms, n_neighbor_limit)
 
         use :: a_stats, only : all_stats
-        use :: c_stats, only : customize_stats
+!        use :: c_stats, only : customize_stats
 
         integer :: n_atoms, n_neighbor_limit
         integer, dimension(n_atoms) :: n_neighbor_list
@@ -349,4 +323,106 @@
         do atom = 1, n_atoms
             distance_stats(atom, :) = all_stats(neighbor_distance_lists(atom, :), n_neighbor_list(atom))
         end do
+
+
     end subroutine voronoi_distance_stats
+
+
+
+    subroutine voronoi_csro(csro, &
+                            atom_type, element_comp_list, &
+                            n_neighbor_list, neighbor_lists, &
+                            n_atoms, n_neighbor_limit, n_elements)
+        integer :: n_atoms
+        integer, dimension(n_atoms) :: atom_type, n_neighbor_list
+        REAL(8), dimension(n_atoms, n_elements) :: element_comp_list
+        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_lists
+        REAL(8), dimension(n_atoms, 1 + 3*n_elements) :: csro
+
+!f2py   intent(in) :: n_atoms, n_neighbor_limit, n_elements
+!f2py   intent(in) :: atom_type
+!f2py   intent(in) :: element_comp_list
+!f2py   intent(in) :: n_neighbor_list, neighbor_lists
+!f2py   intent(in, out) :: csro
+
+        integer :: i
+        integer, dimension(n_elements) :: element_count
+
+        csro(:, 1) = atom_type(:)
+
+        do atom = 1, n_atoms
+            element_count = 0
+            do i = 1, n_neighbor_list(atom)
+                element_count(atom_type(neighbor_lists(i))) = element_count(atom_type(neighbor_lists(i))) + 1
+            end do
+            do j = 1, n_elements
+                csro(atom, j + 1) = element_count(j)
+            end do
+        end do
+
+        do j = 1, n_elements
+            csro(:, j + 1 + n_elements) = csro(:, j + 1) / n_neighbor_list(:)
+        end do
+
+        do j = 1, n_elements
+            csro(:, j + 1 + n_elements*2) = (csro(:, j + 1 + n_elements) - element_comp_list(j)) / element_comp_list(j)
+        end do
+
+    end subroutine voronoi_csro
+
+
+
+    function avg_facet_area(n_neighbor_list, neighbor_area_lists, n_atoms) result(avg_area)
+         integer, dimension(n_atoms) :: n_neighbor_list
+         integer, dimension(n_atoms, :) :: neighbor_area_lists
+
+         integer :: atom, i, sum_neighbors
+         REAL(8) :: avg_area
+
+         do atom = 1, n_atoms
+            sum_neighbors = sum_neighbors + n_neighbor_list(atom)
+            do i = 1, n_neighbor_list(atom)
+                avg_area = avg_area + neighbor_area_lists(atom, i)
+            end do
+         end do
+         avg_area = avg_area / sum_neighbors
+
+    end function avg_facet_area
+
+
+
+    function avg_sub_poly_vol(n_neighbor_list, neighbor_vol_lists, n_atoms) result(avg_vol)
+         integer, dimension(n_atoms) :: n_neighbor_list
+         integer, dimension(n_atoms, :) :: neighbor_vol_lists
+
+         integer :: atom, i, sum_neighbors
+         REAL(8) :: avg_vol
+
+         do atom = 1, n_atoms
+            sum_neighbors = sum_neighbors + n_neighbor_list(atom)
+            do i = 1, n_neighbor_list(atom)
+                avg_vol = avg_vol + neighbor_vol_lists(atom, i)
+            end do
+         end do
+         avg_vol = avg_vol / sum_neighbors
+
+    end function avg_sub_poly_vol
+
+
+
+    function avg_distance(n_neighbor_list, neighbor_distance_lists, n_atoms) result(avg_dist)
+         integer, dimension(n_atoms) :: n_neighbor_list
+         integer, dimension(n_atoms, :) :: neighbor_vol_lists
+
+         integer :: atom, i, sum_neighbors
+         REAL(8) :: avg_dist
+
+         do atom = 1, n_atoms
+            sum_neighbors = sum_neighbors + n_neighbor_list(atom)
+            do i = 1, n_neighbor_list(atom)
+                avg_dist = avg_dist + neighbor_distance_lists(atom, i)
+            end do
+         end do
+         avg_dist = avg_dist / sum_neighbors
+
+    end function avg_distance

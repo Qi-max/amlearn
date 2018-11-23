@@ -236,6 +236,12 @@ def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
     return ret
 
 
+def calc_scores(X, y, estimator, scoring=None):
+    scorers, _ = _check_multimetric_scoring(estimator, scoring=scoring)
+    scores = _multimetric_score(estimator, X, y, scorers)
+    return scores, scorers
+
+
 def cross_val_score(estimator, X, y=None, groups=None, scoring=None, cv=None,
                     n_jobs=1, verbose=0, fit_params=None,
                     pre_dispatch='2*n_jobs'):

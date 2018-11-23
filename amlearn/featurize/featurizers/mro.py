@@ -5,7 +5,7 @@ import numpy as np
 from amlearn.utils.check import check_output_path
 
 try:
-    from amlearn.featurize.featurizers.sro_mro import \
+    from amlearn.featurize.featurizers.sro_mro_bak import \
         mro_stats, voronoi_stats
 except Exception:
     print("import fortran file voronoi_stats error!")

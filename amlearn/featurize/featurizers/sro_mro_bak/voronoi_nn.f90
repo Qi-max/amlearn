@@ -85,11 +85,9 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     n_edge_max = 0
 
     do atom = 1, n_atoms
-!      if (atom > 5) then
-!              exit
-!      end if
-      write(*,*) "atom is : ", atom
-
+!        if (atom > 13) then
+!                exit
+!        end if
       vertex = 0
       vertex_info = 0
       mianvoro = 0
@@ -322,7 +320,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
             end if
           end if
         end do
-!        write(*,*) "atom is : ", atom
+        write(*,*) "atom is : ", atom
 !        write(*,*) "__________________________"
 !        write(*,*) n_neighbor_list(atom)
 !        write(*,*) "__________________________"
