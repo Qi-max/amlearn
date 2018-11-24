@@ -13,7 +13,7 @@ class Voro(BaseFeaturize):
 
     def __init__(self, n_atoms, atom_type, cutoff, atom_coords,
                  allow_neighbor_limit, n_neighbor_limit, pbc, Bds,
-                 small_face_thres):
+                 small_face_thres=0.05):
         self.n_atoms = n_atoms
         self.atom_type = atom_type
         self.cutoff = cutoff

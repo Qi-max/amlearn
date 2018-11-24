@@ -82,7 +82,7 @@ class BackendContext(object):
         self._tmp_path_created = True
 
 
-class MLBackend(object):
+class Backend(object):
     def __init__(self, context):
         self.context = context
         if not os.path.exists(self.output_path):
@@ -100,6 +100,18 @@ class MLBackend(object):
     def tmp_path(self):
         return self.context.tmp_path
 
+    def tmp_persistence(self, tmp_path):
+        if self.tmp_path != tmp_path:
+            if tmp_path.startswith(self.tmp_path):
+                sub_path = tmp_path[len(self.tmp_path) + 1:]
+                output_path = os.path.join(self.output_path, sub_path)
+                copy_path(tmp_path, output_path)
+                if self.context.delete_tmp_folder:
+                    delete_path(tmp_path)
+            else:
+                raise ValueError("{} should be Subfolder of {}".format(
+                    tmp_path, self.tmp_path))
+
     def _get_start_time_filename(self, seed):
         seed = int(seed)
         return os.path.join(self.internals_path, "start_time_%d" % seed)
@@ -114,6 +126,16 @@ class MLBackend(object):
         start_time = float(read_file(self._get_start_time_filename(seed))[0])
         return start_time
 
+    @property
+    def def_env(self):
+        if not hasattr(self, "_def_env"):
+            with open(os.path.join(os.path.dirname(__file__),
+                                   'default_environment.yaml'), 'r') as lf:
+                self._def_env = yaml.load(lf)
+        return self._def_env
+
+
+class MLBackend(Backend):
     def _get_prediction_output_dir(self, name='all'):
         return os.path.join(self.tmp_path,
                             'predictions_{}'.format(name))
@@ -125,7 +147,7 @@ class MLBackend(object):
             print(functions)
             self._valid_predictions_type = \
                 [func.split('_')[-1] for func in functions
-                 if func.startswith('save_predictions_as_') ]
+                 if func.startswith('save_predictions_as_')]
         return self._valid_predictions_type
 
     def save_predictions_as_npy(self, predictions,
@@ -147,7 +169,7 @@ class MLBackend(object):
             wf.write("\n".join(list(map(str, predictions))))
 
     def save_predictions_as_dataframe(self, predictions,
-                                seed, name='all'):
+                                      seed, name='all'):
         predict_dir = self._get_prediction_output_dir(name)
         create_path(predict_dir, merge=True)
         predict_file = os.path.join(predict_dir,
@@ -171,28 +193,21 @@ class MLBackend(object):
         model = joblib.load(model_file)
         return model
 
-    def tmp_persistence(self, tmp_path):
-        if self.tmp_path != tmp_path:
-            if tmp_path.startswith(self.tmp_path):
-                sub_path = tmp_path[len(self.tmp_path)+1:]
-                output_path = os.path.join(self.output_path, sub_path)
-                copy_path(tmp_path, output_path)
-                if self.context.delete_tmp_folder:
-                    delete_path(tmp_path)
-            else:
-                raise ValueError("{} should be Subfolder of {}".format(
-                    tmp_path, self.tmp_path))
-
-
     @staticmethod
     def load_model_by_file(model_file):
         model = joblib.load(model_file)
         return model
 
-    @property
-    def def_env(self):
-        if not hasattr(self, "_def_env"):
-            with open(os.path.join(os.path.dirname(__file__),
-                                   'default_environment.yaml'), 'r') as lf:
-                self._def_env = yaml.load(lf)
-        return self._def_env
+
+class FeatureBackend(Backend):
+    def _get_featurizer_output_dir(self, name='all'):
+        return os.path.join(self.tmp_path,
+                            'featurizer_{}'.format(name))
+
+    def save_featurizer_as_dataframe(self, output_df, name='all'):
+        featurizer_dir = self._get_featurizer_output_dir(name)
+        create_path(featurizer_dir, merge=True)
+        featurizer_file = os.path.join(featurizer_dir,
+                                       'featurizer_{}.csv'.format(name))
+
+        output_df.to_csv(featurizer_file)
