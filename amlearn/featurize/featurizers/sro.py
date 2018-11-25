@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from amlearn.featurize.featurizers.base import BaseFeaturize
-from amlearn.featurize.featurizers.voro_and_distance import VoroNN, DistanceNN
+from amlearn.featurize.featurizers.voro_and_dist import VoroNN, DistanceNN
 from amlearn.utils.check import check_featurizer_X
 
 try:
@@ -45,7 +45,7 @@ class BaseSro(BaseFeaturize):
         pass
 
 
-class CNVoro(BaseSro):
+class CN(BaseSro):
     def __init__(self, atoms_df=None, dependency="voro", tmp_save=True,
                  context=None, **nn_kwargs):
         """
@@ -55,22 +55,22 @@ class CNVoro(BaseSro):
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
         """
-        super(CNVoro, self).__init__(tmp_save=tmp_save,
-                                             context=context,
-                                             dependency=dependency,
-                                             atoms_df=atoms_df,
-                                             **nn_kwargs)
+        super(CN, self).__init__(tmp_save=tmp_save,
+                                 context=context,
+                                 dependency=dependency,
+                                 atoms_df=atoms_df,
+                                 **nn_kwargs)
 
     def fit(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         columns = X.columns
         if self._dependency is None:
             return self
-        elif self._dependency.__class__.__name__ == "VoroNN" and \
-                        'n_neighbors_voro' in columns:
+        elif self._dependency.__class__.__name__ == "VoroNN" \
+                and 'n_neighbors_voro' in columns:
             return self
-        elif self._dependency.__class__.__name__ == "DistanceNN" and \
-                        'n_neighbors_dist' in columns:
+        elif self._dependency.__class__.__name__ == "DistanceNN" \
+                and 'n_neighbors_dist' in columns:
             return self
         else:
             self.atoms_df = self._dependency.fit_transform(X)
@@ -91,8 +91,11 @@ class CNVoro(BaseSro):
                                   columns=self.get_feature_names())
 
         if self.tmp_save:
+            name = 'cn_dist' if self.dependency_name == 'dist' \
+                                or self.dependency_name == 'distance' \
+                else 'cn_voro'
             self.context.save_featurizer_as_dataframe(output_df=cn_list_df,
-                                                      name='cn_voro')
+                                                      name=name)
 
         return cn_list_df
 
