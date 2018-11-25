@@ -1,5 +1,5 @@
 # <img alt="amlearn" src="docs_rst/_static/amlearn_logo.png" width="300">
-Machine LEARNing package for AMorphous materials.
+Machine Learning package for AMorphous materials.
 
 We integrate Fortran90 with Python (using f2py) to achieve combination of the
 flexibility and fast-computation (>10x times faster than pure Python) of features. Please see examples
