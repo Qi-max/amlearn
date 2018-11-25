@@ -1,6 +1,4 @@
-import os
 import six
-import numpy as np
 from amlearn.featurize.featurizers.voro_and_distance import VoroNN, DistanceNN
 from amlearn.utils.backend import BackendContext, FeatureBackend
 from sklearn.base import BaseEstimator, TransformerMixin
