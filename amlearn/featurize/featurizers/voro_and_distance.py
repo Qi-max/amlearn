@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from amlearn.featurize.featurizers.base import BaseFeaturize
+from amlearn.utils.check import check_featurizer_X
 
 try:
     from amlearn.featurize.featurizers.sro_mro import voronoi_nn, \
@@ -70,9 +71,7 @@ class VoroNN(BaseNN):
         Returns:
 
         """
-        X = self.atoms_df if X is None else X
-        if X is None:
-            raise ValueError("Either of X and atoms_df should not be None.")
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
         n_neighbor_list = np.zeros(n_atoms, dtype=np.float128)
         neighbor_lists = np.zeros((n_atoms, self.n_neighbor_limit),
@@ -147,9 +146,7 @@ class DistanceNN(BaseNN):
 
     def transform(self, X=None):
 
-        X = self.atoms_df if X is None else X
-        if X is None:
-            raise ValueError("Either of X and atoms_df should not be None.")
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
         n_neighbor_list = np.zeros(n_atoms, dtype=np.float128)
         neighbor_lists = np.zeros((n_atoms, self.n_neighbor_limit),

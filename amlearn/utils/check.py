@@ -7,6 +7,13 @@ import numpy as np
 import pandas as pd
 
 
+def check_featurizer_X(X, atoms_df):
+    X = atoms_df if X is None else X
+    if X is None:
+        raise ValueError("Either of X and atoms_df should not be None.")
+    return X
+
+
 def check_file_name(file_name):
     if isinstance(file_name, six.string_types):
         file_name = file_name.replace('.', 'p')

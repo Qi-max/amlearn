@@ -23,7 +23,7 @@ class BackendContext(object):
         merge_path:
     """
 
-    def __init__(self, output_path, tmp_path=None, delete_tmp_folder=True,
+    def __init__(self, output_path=None, tmp_path=None, delete_tmp_folder=True,
                  auto_rename=False, overwrite_path=False, merge_path=False):
         if output_path == tmp_path and output_path is not None:
             raise ValueError('output_path should not be same with tmp_path.')
@@ -200,14 +200,12 @@ class MLBackend(Backend):
 
 
 class FeatureBackend(Backend):
-    def _get_featurizer_output_dir(self, name='all'):
-        return os.path.join(self.tmp_path,
-                            'featurizer_{}'.format(name))
+    def _get_featurizer_output_dir(self):
+        return os.path.join(self.tmp_path, 'featurizer')
 
     def save_featurizer_as_dataframe(self, output_df, name='all'):
-        featurizer_dir = self._get_featurizer_output_dir(name)
+        featurizer_dir = self._get_featurizer_output_dir()
         create_path(featurizer_dir, merge=True)
         featurizer_file = os.path.join(featurizer_dir,
                                        'featurizer_{}.csv'.format(name))
-
         output_df.to_csv(featurizer_file)
