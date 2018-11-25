@@ -1,15 +1,48 @@
 import numpy as np
 import pandas as pd
 from amlearn.featurize.featurizers.base import BaseFeaturize
+from amlearn.featurize.featurizers.voro_and_distance import VoroNN, DistanceNN
 from amlearn.utils.check import check_featurizer_X
 
 try:
     from amlearn.featurize.featurizers.sro_mro import voronoi_stats, boop
 except Exception:
-    print("import fortran file voronoi_stats error!")
+    print("import fortran file voronoi_stats error!\n")
 
 
-class CNVoro(BaseFeaturize):
+class BaseSro(BaseFeaturize):
+    def __init__(self, atoms_df=None, tmp_save=True, context=None,
+                 dependency=None, nn_kwargs=None):
+        super(self.__class__, self).__init__(tmp_save=tmp_save,
+                                             context=context,
+                                             atoms_df=atoms_df)
+        nn_kwargs = nn_kwargs if nn_kwargs else dict()
+        if dependency is None:
+            self._dependency = None
+        elif isinstance(dependency, type):
+            self.dependency_name = dependency.__class__.__name__.lower()[:-2]
+            self._dependency = dependency
+        elif isinstance(dependency, str):
+            self.dependency_name = dependency
+            if dependency == "voro" or dependency == "voronoi" :
+                self._dependency = VoroNN(**nn_kwargs)
+            elif dependency == "dist" or dependency == "distance":
+                self._dependency = DistanceNN(**nn_kwargs)
+            else:
+                raise ValueError('dependency {} if unknown, Possible values '
+                                 'are {}'.format(dependency,
+                                                 '[voro, voronoi, '
+                                                 'dist, distance]'))
+        else:
+            raise ValueError('dependency {} if unknown, Possible values '
+                             'are {} or voro/dist object.'.format(
+                              dependency, '[voro, voronoi, dist, distance]'))
+
+    def get_feature_names(self):
+        pass
+
+
+class CNVoro(BaseSro):
     def __init__(self, atoms_df=None, dependency="voro", nn_kwargs=None,
                  tmp_save=True, context=None):
         """
@@ -66,7 +99,7 @@ class CNVoro(BaseFeaturize):
         return feature_names
 
 
-class VoroIndex(BaseFeaturize):
+class VoroIndex(BaseSro):
     def __init__(self, n_neighbor_limit, include_beyond_edge_max=False,
                  atoms_df=None, dependency="voro", nn_kwargs=None,
                  tmp_save=True, context=None):

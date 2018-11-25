@@ -6,9 +6,9 @@ from amlearn.utils.check import check_featurizer_X
 
 try:
     from amlearn.featurize.featurizers.sro_mro import voronoi_nn, \
-        distance_nn, boop
+        distance_nn
 except Exception:
-    print("import fortran file voronoi_nn, distance_nn error!")
+    print("import fortran file voronoi_nn, distance_nn error!\n")
 
 
 class BaseNN(BaseFeaturize):
@@ -42,6 +42,9 @@ class BaseNN(BaseFeaturize):
                    allow_neighbor_limit=allow_neighbor_limit,
                    n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds,
                    **kwargs)
+
+    def fit_transform(self, X=None, y=None, **fit_params):
+        return self.transform(X)
 
     def get_feature_names(self):
         pass
