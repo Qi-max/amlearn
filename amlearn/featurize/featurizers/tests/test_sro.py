@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from amlearn.featurize.featurizers.sro import CNVoro
+from amlearn.featurize.featurizers.sro import CN
 from amlearn.utils.basetest import AmLearnTest
 from amlearn.featurize.featurizers.voro_and_dist import VoroNN
 
@@ -13,7 +13,7 @@ class TestSro(AmLearnTest):
         pass
 
     def test_cn_voro_from_dump_voro(self):
-        nn = CNVoro.from_file(
+        nn = CN.from_file(
             data_path_file=os.path.join(module_dir, 'data', 'dump.overall.0'),
             cutoff=4.2, allow_neighbor_limit=300,
             n_neighbor_limit=80, pbc=[1, 1, 1])
@@ -25,7 +25,7 @@ class TestSro(AmLearnTest):
         self.assertEqual(result_df['CN_Voro'].iloc[2], 16)
 
     def test_cn_voro_from_dump_dist(self):
-        nn = CNVoro.from_file(
+        nn = CN.from_file(
             data_path_file=os.path.join(module_dir, 'data', 'dump.overall.0'),
             cutoff=4.2, allow_neighbor_limit=300,
             n_neighbor_limit=80, pbc=[1, 1, 1],
@@ -33,17 +33,17 @@ class TestSro(AmLearnTest):
         result_df = nn.fit_transform(X=None)
         self.assertEqual(result_df.columns, ['CN_Dist'])
         self.assertEqual(len(result_df), 32000)
-        self.assertEqual(result_df['CN_Voro'].iloc[0], 22)
-        self.assertEqual(result_df['CN_Voro'].iloc[1], 22)
-        self.assertEqual(result_df['CN_Voro'].iloc[2], 26)
+        self.assertEqual(result_df['CN_Dist'].iloc[0], 22)
+        self.assertEqual(result_df['CN_Dist'].iloc[1], 22)
+        self.assertEqual(result_df['CN_Dist'].iloc[2], 26)
 
     def test_cn_voro_from_voro(self):
         atoms_df = pd.read_csv(os.path.join(module_dir, 'data',
                                             'voro_and_distance',
                                             'featurizer_voro_nn.csv'),
                                index_col=0)
-        nn = CNVoro(atoms_df=atoms_df, dependency="voro",
-                    tmp_save=False, context=None)
+        nn = CN(atoms_df=atoms_df, dependency="voro",
+                tmp_save=False, context=None)
         result_df = nn.fit_transform(X=None)
         self.assertEqual(result_df.columns, ['CN_Voro'])
         self.assertEqual(len(result_df), len(atoms_df))
@@ -56,12 +56,12 @@ class TestSro(AmLearnTest):
                                             'voro_and_distance',
                                             'featurizer_dist_nn.csv'),
                                index_col=0)
-        nn = CNVoro(atoms_df=atoms_df, dependency="voro",
-                    tmp_save=False, context=None)
+        nn = CN(atoms_df=atoms_df, dependency="dist",
+                tmp_save=False, context=None)
         result_df = nn.fit_transform(X=None)
         self.assertEqual(result_df.columns, ['CN_Dist'])
         self.assertEqual(len(result_df), len(atoms_df))
-        self.assertEqual(result_df['CN_Dist'].iloc[0], 15)
-        self.assertEqual(result_df['CN_Dist'].iloc[1], 13)
-        self.assertEqual(result_df['CN_Dist'].iloc[2], 16)
+        self.assertEqual(result_df['CN_Dist'].iloc[0], 22)
+        self.assertEqual(result_df['CN_Dist'].iloc[1], 22)
+        self.assertEqual(result_df['CN_Dist'].iloc[2], 26)
 
