@@ -12,36 +12,6 @@ except Exception:
 
 
 class BaseNN(BaseFeaturize):
-    @classmethod
-    def from_file(cls, data_path_file, cutoff, allow_neighbor_limit,
-                  n_neighbor_limit, pbc, **kwargs):
-        if os.path.exists(data_path_file):
-            with open(data_path_file, 'r') as rf:
-                lines = rf.readlines()
-                atom_type = list()
-                atom_coords = list()
-                Bds = [list(map(float, lines[5].strip().split())),
-                       list(map(float, lines[6].strip().split())),
-                       list(map(float, lines[7].strip().split()))]
-                i = 0
-                for line in lines:
-                    if i > 8:
-                        column_values = line.strip().split()
-                        atom_type.append(int(column_values[1]))
-                        atom_coords.append([np.float128(column_values[2]),
-                                            np.float128(column_values[3]),
-                                            np.float128(column_values[4])])
-                    i += 1
-        else:
-            raise FileNotFoundError("File {} not found".format(data_path_file))
-
-        atoms_df = pd.DataFrame(atom_coords, columns=['x', 'y', 'z'],
-                                index=range(len(atom_coords)))
-        atoms_df['type'] = pd.Series(atom_type, index=atoms_df.index)
-        return cls(cutoff=cutoff, atoms_df=atoms_df,
-                   allow_neighbor_limit=allow_neighbor_limit,
-                   n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds,
-                   **kwargs)
 
     def fit_transform(self, X=None, y=None, **fit_params):
         return self.transform(X)
@@ -94,7 +64,7 @@ class VoroNN(BaseNN):
         n_neighbor_list, neighbor_lists, \
         neighbor_area_lists, neighbor_vol_lists, neighbor_distance_lists, \
         neighbor_edge_lists, n_neighbor_max, n_edge_max = \
-            voronoi_nn.voronoi(X['type'].values(), X[['x', 'y', 'z']].values(),
+            voronoi_nn.voronoi(X['type'].values, X[['x', 'y', 'z']].values,
                                self.cutoff, self.allow_neighbor_limit,
                                self.small_face_thres,
                                self.pbc, self.Bds, n_neighbor_list,
@@ -163,7 +133,7 @@ class DistanceNN(BaseNN):
         (n_neighbor_max, n_neighbor_list, neighbor_lists,
          neighbor_distance_lists) = \
             distance_nn.distance_nn.distance_neighbor(
-                X['type'].values(), X[['x', 'y', 'z']].values(),
+                X['type'].values, X[['x', 'y', 'z']].values,
                 self.cutoff, self.allow_neighbor_limit, self.pbc,
                 self.Bds, n_neighbor_max, n_neighbor_list,
                 neighbor_lists, neighbor_distance_lists,

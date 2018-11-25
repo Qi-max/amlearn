@@ -12,13 +12,16 @@ except Exception:
 
 class BaseSro(BaseFeaturize):
     def __init__(self, atoms_df=None, tmp_save=True, context=None,
-                 dependency=None, nn_kwargs=None):
-        super(self.__class__, self).__init__(tmp_save=tmp_save,
-                                             context=context,
-                                             atoms_df=atoms_df)
-        nn_kwargs = nn_kwargs if nn_kwargs else dict()
+                 dependency=None, **nn_kwargs):
+        super(BaseSro, self).__init__(tmp_save=tmp_save,
+                                      context=context,
+                                      atoms_df=atoms_df)
+        nn_kwargs = nn_kwargs if nn_kwargs else {'cutoff': 4.2, 'allow_neighbor_limit': 300,
+            'n_neighbor_limit': 80, 'pbc': [1, 1, 1], 'Bds': [[-35.5040474, 35.5040474], [-35.5040474, 35.5040474], [-35.5040474, 35.5040474]]}
+        print(nn_kwargs)
         if dependency is None:
             self._dependency = None
+            self.dependency_name = 'voro'
         elif isinstance(dependency, type):
             self.dependency_name = dependency.__class__.__name__.lower()[:-2]
             self._dependency = dependency
@@ -43,8 +46,8 @@ class BaseSro(BaseFeaturize):
 
 
 class CNVoro(BaseSro):
-    def __init__(self, atoms_df=None, dependency="voro", nn_kwargs=None,
-                 tmp_save=True, context=None):
+    def __init__(self, atoms_df=None, dependency="voro", tmp_save=True,
+                 context=None, **nn_kwargs):
         """
 
         Args:
@@ -55,13 +58,15 @@ class CNVoro(BaseSro):
         super(self.__class__, self).__init__(tmp_save=tmp_save,
                                              context=context,
                                              dependency=dependency,
-                                             nn_kwargs=nn_kwargs,
-                                             atoms_df=atoms_df)
+                                             atoms_df=atoms_df,
+                                             **nn_kwargs)
 
     def fit(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         columns = X.columns
-        if self._dependency.__class__.__name__ == "VoroNN" and \
+        if self._dependency is None:
+            return self
+        elif self._dependency.__class__.__name__ == "VoroNN" and \
                         'n_neighbors_voro' in columns:
             return self
         elif self._dependency.__class__.__name__ == "DistanceNN" and \
@@ -79,7 +84,7 @@ class CNVoro(BaseSro):
             if self._dependency.__class__.__name__ == "DistanceNN" \
             else 'n_neighbors_voro'
         cn_list = \
-            voronoi_stats.cn_voro(cn_list, X[n_neighbor_col].values(),
+            voronoi_stats.cn_voro(cn_list, X[n_neighbor_col].values,
                                   n_atoms=len(X))
         cn_list_df = pd.DataFrame(cn_list,
                                   index=range(len(X)),
@@ -147,8 +152,8 @@ class VoroIndex(BaseSro):
         print(voronoi_stats.voronoi_index.__doc__)
         voro_index_list = \
             voronoi_stats.voronoi_index(voronoi_index_list,
-                                        X['n_neighbors_voro'].values(),
-                                        X[edge_cols].values(),
+                                        X['n_neighbors_voro'].values,
+                                        X[edge_cols].values,
                                         self.edge_min, self.edge_max,
                                         self.include_beyond_edge_max,
                                         n_atoms=n_atoms,

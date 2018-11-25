@@ -21,7 +21,7 @@ def create_path(path, overwrite=False, merge=False):
         elif merge:
             print("Path {} exists, just write files here.".format(path))
         else:
-            raise FileExistsError("path {} already exists.")
+            raise FileExistsError("path {} already exists.".format(path))
     else:
         os.makedirs(path)
     print("Create path {} successful.".format(path))

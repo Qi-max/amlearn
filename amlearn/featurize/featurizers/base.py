@@ -1,11 +1,14 @@
+import os
 import six
+import numpy as np
+import pandas as pd
 from amlearn.utils.backend import BackendContext, FeatureBackend
 from sklearn.base import BaseEstimator, TransformerMixin
 from abc import ABCMeta, abstractmethod
 
 
 def create_featurizer_backend():
-    backend_context = BackendContext()
+    backend_context = BackendContext(merge_path=True)
     featurizer_backend = FeatureBackend(backend_context)
     return featurizer_backend
 
@@ -18,6 +21,38 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
         self.context = context if context is not None \
             else create_featurizer_backend()
         self._dependency = None
+
+    @classmethod
+    def from_file(cls, data_path_file, cutoff, allow_neighbor_limit,
+                  n_neighbor_limit, pbc, **kwargs):
+        if os.path.exists(data_path_file):
+            with open(data_path_file, 'r') as rf:
+                lines = rf.readlines()
+                atom_type = list()
+                atom_coords = list()
+                Bds = [list(map(float, lines[5].strip().split())),
+                       list(map(float, lines[6].strip().split())),
+                       list(map(float, lines[7].strip().split()))]
+                print(Bds)
+                i = 0
+                for line in lines:
+                    if i > 8:
+                        column_values = line.strip().split()
+                        atom_type.append(int(column_values[1]))
+                        atom_coords.append([np.float128(column_values[2]),
+                                            np.float128(column_values[3]),
+                                            np.float128(column_values[4])])
+                    i += 1
+        else:
+            raise FileNotFoundError("File {} not found".format(data_path_file))
+
+        atoms_df = pd.DataFrame(atom_coords, columns=['x', 'y', 'z'],
+                                index=range(len(atom_coords)))
+        atoms_df['type'] = pd.Series(atom_type, index=atoms_df.index)
+        return cls(cutoff=cutoff, atoms_df=atoms_df,
+                   allow_neighbor_limit=allow_neighbor_limit,
+                   n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds,
+                   **kwargs)
 
     def transform(self, X):
         pass
