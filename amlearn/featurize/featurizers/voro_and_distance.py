@@ -25,7 +25,7 @@ class VoroNN(BaseNN):
     def __init__(self, cutoff, allow_neighbor_limit, n_neighbor_limit,
                  pbc, Bds, atoms_df=None, small_face_thres=0.05,
                  context=None, tmp_save=True):
-        super(self.__class__, self).__init__(tmp_save=tmp_save,
+        super(VoroNN, self).__init__(tmp_save=tmp_save,
                                              context=context,
                                              atoms_df=atoms_df)
         self.cutoff = cutoff
@@ -107,7 +107,7 @@ class DistanceNN(BaseNN):
 
     def __init__(self, cutoff, allow_neighbor_limit, n_neighbor_limit, pbc, Bds,
                  atoms_df=None, context=None, tmp_save=True):
-        super(self.__class__, self).__init__(tmp_save=tmp_save,
+        super(DistanceNN, self).__init__(tmp_save=tmp_save,
                                              context=context,
                                              atoms_df=atoms_df)
         self.cutoff = cutoff

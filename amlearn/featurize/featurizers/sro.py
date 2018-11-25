@@ -55,7 +55,7 @@ class CNVoro(BaseSro):
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
         """
-        super(self.__class__, self).__init__(tmp_save=tmp_save,
+        super(CNVoro, self).__init__(tmp_save=tmp_save,
                                              context=context,
                                              dependency=dependency,
                                              atoms_df=atoms_df,
@@ -115,7 +115,7 @@ class VoroIndex(BaseSro):
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
         """
-        super(self.__class__, self).__init__(tmp_save=tmp_save,
+        super(VoroIndex, self).__init__(tmp_save=tmp_save,
                                              context=context,
                                              dependency=dependency,
                                              nn_kwargs=nn_kwargs,
