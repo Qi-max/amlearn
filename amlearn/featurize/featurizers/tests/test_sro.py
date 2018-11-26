@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from amlearn.featurize.featurizers.sro import CN
+from amlearn.featurize.featurizers.sro import CN, VoroIndex
 from amlearn.utils.basetest import AmLearnTest
 from amlearn.featurize.featurizers.voro_and_dist import VoroNN
 
@@ -65,3 +65,16 @@ class TestSro(AmLearnTest):
         self.assertEqual(result_df['CN_Dist'].iloc[1], 22)
         self.assertEqual(result_df['CN_Dist'].iloc[2], 26)
 
+    def test_voro_index(self):
+        atoms_df = pd.read_csv(os.path.join(module_dir, 'data',
+                                            'voro_and_distance',
+                                            'featurizer_voro_nn.csv'),
+                               index_col=0)
+        print(atoms_df.columns)
+        nn = VoroIndex(atoms_df=atoms_df)
+        result_df = nn.fit_transform(X=None)
+        self.assertTrue('Voronoi idx_5' in result_df.columns)
+        self.assertEqual(len(result_df), len(atoms_df))
+        self.assertEqual(result_df['Voronoi idx_4'].iloc[0], 4)
+        self.assertEqual(result_df['Voronoi idx_5'].iloc[0], 3)
+        self.assertEqual(result_df['Voronoi idx_5'].iloc[2], 5)
