@@ -18,12 +18,6 @@ class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
         super(BaseSro, self).__init__(tmp_save=tmp_save,
                                       context=context,
                                       atoms_df=atoms_df)
-        nn_kwargs = nn_kwargs if nn_kwargs else \
-            {'cutoff': 4.2, 'allow_neighbor_limit': 300,
-             'n_neighbor_limit': 80, 'pbc': [1, 1, 1],
-             'Bds': [[-35.5040474, 35.5040474],
-                     [-35.5040474, 35.5040474],
-                     [-35.5040474, 35.5040474]]}
         if dependency is None:
             self._dependency = None
             self.dependency_name = 'voro'
@@ -112,7 +106,8 @@ class CN(BaseSro):
 
 
 class VoroIndex(BaseSro):
-    def __init__(self, n_neighbor_limit, include_beyond_edge_max=False,
+    def __init__(self, n_neighbor_limit=80,
+                 include_beyond_edge_max=False,
                  atoms_df=None, dependency="voro",
                  tmp_save=True, context=None, **nn_kwargs):
         """
@@ -184,10 +179,11 @@ class VoroIndex(BaseSro):
 
 
 class CharacterMotif(BaseSro):
-    def __init__(self, n_neighbor_limit, include_beyond_edge_max=False,
-                 atoms_df=None, target_voro_idx=None, frank_kasper=1,
-                 dependency="voro", tmp_save=True, context=None,
-                 **nn_kwargs):
+    def __init__(self, n_neighbor_limit=80,
+                 include_beyond_edge_max=False,
+                 atoms_df=None, target_voro_idx=None,
+                 frank_kasper=1, dependency="voro",
+                 tmp_save=True, context=None, **nn_kwargs):
         super(CharacterMotif, self).__init__(tmp_save=tmp_save,
                                              context=context,
                                              dependency=dependency,

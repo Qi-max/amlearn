@@ -16,6 +16,20 @@ except Exception:
 
 class BaseNN(six.with_metaclass(ABCMeta, BaseFeaturize)):
 
+    def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
+                 pbc=None, Bds=None, atoms_df=None, context=None,
+                 tmp_save=True):
+        super(BaseNN, self).__init__(tmp_save=tmp_save,
+                                     context=context,
+                                     atoms_df=atoms_df)
+        self.cutoff = cutoff
+        self.allow_neighbor_limit = allow_neighbor_limit
+        self.n_neighbor_limit = n_neighbor_limit
+        self.pbc = pbc if pbc else [1, 1, 1]
+        self.Bds = Bds if Bds else [[-35.5040474, 35.5040474],
+                                    [-35.5040474, 35.5040474],
+                                    [-35.5040474, 35.5040474]]
+
     def fit_transform(self, X=None, y=None, **fit_params):
         return self.transform(X)
 
@@ -26,17 +40,16 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseFeaturize)):
 
 class VoroNN(BaseNN):
 
-    def __init__(self, cutoff, allow_neighbor_limit, n_neighbor_limit,
-                 pbc, Bds, atoms_df=None, small_face_thres=0.05,
+    def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
+                 pbc=None, Bds=None, atoms_df=None, small_face_thres=0.05,
                  context=None, tmp_save=True):
         super(VoroNN, self).__init__(tmp_save=tmp_save,
-                                             context=context,
-                                             atoms_df=atoms_df)
-        self.cutoff = cutoff
-        self.allow_neighbor_limit = allow_neighbor_limit
-        self.n_neighbor_limit = n_neighbor_limit
-        self.pbc = pbc
-        self.Bds = Bds
+                                     context=context,
+                                     atoms_df=atoms_df,
+                                     cutoff=cutoff,
+                                     allow_neighbor_limit=allow_neighbor_limit,
+                                     n_neighbor_limit=n_neighbor_limit,
+                                     pbc=pbc, Bds=Bds)
         self.small_face_thres = small_face_thres
 
     def transform(self, X=None):
@@ -109,20 +122,15 @@ class VoroNN(BaseNN):
 
 class DistanceNN(BaseNN):
 
-    def __init__(self, cutoff, allow_neighbor_limit, n_neighbor_limit, pbc, Bds,
+    def __init__(self, cutoff=5, allow_neighbor_limit=300,
+                 n_neighbor_limit=80, pbc=None, Bds=None,
                  atoms_df=None, context=None, tmp_save=True):
-        super(DistanceNN, self).__init__(tmp_save=tmp_save,
-                                             context=context,
-                                             atoms_df=atoms_df)
-        self.cutoff = cutoff
-        self.allow_neighbor_limit = allow_neighbor_limit
-        self.n_neighbor_limit = n_neighbor_limit
-        self.pbc = pbc
-        self.Bds = Bds
-        self._dependency = None
+        super(DistanceNN, self).__init__(
+            tmp_save=tmp_save, context=context, atoms_df=atoms_df,
+            cutoff=cutoff, allow_neighbor_limit=allow_neighbor_limit,
+            n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds)
 
     def transform(self, X=None):
-
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
         n_neighbor_list = np.zeros(n_atoms, dtype=np.float128)

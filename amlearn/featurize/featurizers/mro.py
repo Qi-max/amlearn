@@ -9,8 +9,9 @@ except Exception:
 
 
 class MRO(BaseFeaturize):
-    def __init__(self, stats_types, n_neighbor_limit,
-                 calc_features="all", stats_names=None,  neighbor_cols="all",
+    def __init__(self, n_neighbor_limit=80,
+                 stats_types="all", stats_names=None,
+                 calc_features="all", neighbor_cols="all",
                  atoms_df=None, tmp_save=True, context=None):
         """
 
@@ -29,7 +30,8 @@ class MRO(BaseFeaturize):
         super(MRO, self).__init__(tmp_save=tmp_save,
                                   context=context,
                                   atoms_df=atoms_df)
-        self.stats_types = stats_types
+        self.stats_types = stats_types if stats_types != "all" \
+            else [1, 1, 1, 1, 1, 1]
         self.n_neighbor_limit = n_neighbor_limit
         self.neighbor_cols = check_neighbor_col(neighbor_cols)
         self.calc_features = calc_features
