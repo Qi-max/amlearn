@@ -81,3 +81,4 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
     @property
     def category(self):
         return 'voro_and_dist'
+

@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import six
+from abc import ABCMeta
 from amlearn.featurize.featurizers.base import BaseFeaturize
 from amlearn.featurize.featurizers.voro_and_dist import VoroNN, DistanceNN
 from amlearn.utils.check import check_featurizer_X, check_dependency
@@ -10,15 +12,18 @@ except Exception:
     print("import fortran file voronoi_stats error!\n")
 
 
-class BaseSro(BaseFeaturize):
+class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
     def __init__(self, atoms_df=None, tmp_save=True, context=None,
                  dependency=None, **nn_kwargs):
         super(BaseSro, self).__init__(tmp_save=tmp_save,
                                       context=context,
                                       atoms_df=atoms_df)
-        nn_kwargs = nn_kwargs if nn_kwargs else {'cutoff': 4.2, 'allow_neighbor_limit': 300,
-            'n_neighbor_limit': 80, 'pbc': [1, 1, 1], 'Bds': [[-35.5040474, 35.5040474], [-35.5040474, 35.5040474], [-35.5040474, 35.5040474]]}
-        print(nn_kwargs)
+        nn_kwargs = nn_kwargs if nn_kwargs else \
+            {'cutoff': 4.2, 'allow_neighbor_limit': 300,
+             'n_neighbor_limit': 80, 'pbc': [1, 1, 1],
+             'Bds': [[-35.5040474, 35.5040474],
+                     [-35.5040474, 35.5040474],
+                     [-35.5040474, 35.5040474]]}
         if dependency is None:
             self._dependency = None
             self.dependency_name = 'voro'
@@ -40,9 +45,6 @@ class BaseSro(BaseFeaturize):
             raise ValueError('dependency {} if unknown, Possible values '
                              'are {} or voro/dist object.'.format(
                               dependency, '[voro, voronoi, dist, distance]'))
-
-    def get_feature_names(self):
-        pass
 
     @property
     def category(self):

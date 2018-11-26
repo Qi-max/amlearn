@@ -1,6 +1,9 @@
 import os
+
 import numpy as np
 import pandas as pd
+import six
+from abc import ABCMeta
 from amlearn.featurize.featurizers.base import BaseFeaturize
 from amlearn.utils.check import check_featurizer_X
 
@@ -11,17 +14,15 @@ except Exception:
     print("import fortran file voronoi_nn, distance_nn error!\n")
 
 
-class BaseNN(BaseFeaturize):
+class BaseNN(six.with_metaclass(ABCMeta, BaseFeaturize)):
 
     def fit_transform(self, X=None, y=None, **fit_params):
         return self.transform(X)
 
-    def get_feature_names(self):
-        pass
-
     @property
     def category(self):
         return 'voro_and_dist'
+
 
 class VoroNN(BaseNN):
 

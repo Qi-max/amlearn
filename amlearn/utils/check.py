@@ -49,6 +49,13 @@ def check_neighbor_col(neighbor_col):
 
 
 # common check
+def is_abstract(c):
+    if not(hasattr(c, '__abstractmethods__')):
+        return False
+    if not len(c.__abstractmethods__):
+        return False
+    return True
+
 def check_file_name(file_name):
     if isinstance(file_name, six.string_types):
         file_name = file_name.replace('.', 'p')
