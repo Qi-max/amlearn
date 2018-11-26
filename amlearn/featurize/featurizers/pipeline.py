@@ -4,6 +4,7 @@ import pkgutil
 from operator import itemgetter
 from amlearn.featurize.featurizers.base import BaseFeaturize
 from amlearn.utils.check import check_featurizer_X, is_abstract
+from sklearn.pipeline import FeatureUnion, Pipeline
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,7 +41,6 @@ class MultiFeaturizer(BaseFeaturize):
 
     def fit(self, X=None):
         featurizer_dict = dict()
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         for featurizer in all_featurizers():
             instance = featurizer[1]()
             if instance.category in featurizer_dict.keys():
@@ -48,6 +48,32 @@ class MultiFeaturizer(BaseFeaturize):
                 featurizers.append(instance)
             else:
                 featurizer_dict[instance.category] = [instance]
+        self.featurizer_dict = featurizer_dict
+        return self
+
+    def transform(self, X=None):
+        pipeline_list = []
+        category_list = self.featurizer_dict.keys()
+        if 'voro_and_dist' in category_list:
+            pipeline_list.append(
+                ('voro_and_dist',
+                 FeatureUnion(((instance.__class__.__name__, instance)
+                               for instance in
+                               self.featurizer_dict['voro_and_dist']))))
+        if 'sro' in category_list:
+            pipeline_list.append(
+                ('sro',
+                 FeatureUnion(((instance.__class__.__name__, instance)
+                               for instance in
+                               self.featurizer_dict['sro']))))
+        if 'mro' in category_list:
+            pipeline_list.append(
+                ('mro', self.featurizer_dict['mro'][0]))
+
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+        pipe = Pipeline(pipeline_list)
+        X = pipe.fit(X)
+        return X
 
     def get_feature_names(self):
         pass
