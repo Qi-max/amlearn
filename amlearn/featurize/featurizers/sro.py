@@ -77,6 +77,10 @@ class CN(BaseSro):
         self.dist_denpend_cols = ['n_neighbors_dist']
 
     def fit(self, X=None):
+        self.n_neighbor_col = 'n_neighbors_dist' \
+            if self._dependency.__class__.__name__ == "DistanceNN" \
+            else 'n_neighbors_voro'
+
         self._dependency = self.check_dependency(X)
         if self._dependency:
             self.atoms_df = self._dependency.fit_transform(self.atoms_df)
@@ -86,12 +90,8 @@ class CN(BaseSro):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         cn_list = np.zeros(len(X))
 
-        print(self._dependency.__class__.__name__)
-        n_neighbor_col = 'n_neighbors_dist' \
-            if self._dependency.__class__.__name__ == "DistanceNN" \
-            else 'n_neighbors_voro'
         cn_list = \
-            voronoi_stats.cn_voro(cn_list, X[n_neighbor_col].values,
+            voronoi_stats.cn_voro(cn_list, X[self.n_neighbor_col].values,
                                   n_atoms=len(X))
         cn_list_df = pd.DataFrame(cn_list,
                                   index=range(len(X)),
@@ -99,7 +99,7 @@ class CN(BaseSro):
 
         cn_list_df = \
             remain_df_calc(remain_df=self.remain_df, result_df=cn_list_df,
-                           source_df=X, n_neighbor_col=n_neighbor_col)
+                           source_df=X, n_neighbor_col=self.n_neighbor_col)
 
         if self.tmp_save:
             name = 'cn_dist' if self.dependency_name == 'dist' \
