@@ -188,7 +188,6 @@ class CharacterMotif(BaseSro):
         self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
         self.dist_denpend_cols = None
 
-
     def fit(self, X=None):
         self._dependency = self.check_dependency(X)
         if self._dependency is None:

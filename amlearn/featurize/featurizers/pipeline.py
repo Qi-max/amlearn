@@ -39,8 +39,15 @@ class MultiFeaturizer(BaseFeaturize):
         self.featurizers = featurizers
 
     def fit(self, X=None):
+        featurizer_dict = dict()
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-
+        for featurizer in all_featurizers():
+            instance = featurizer[1]()
+            if instance.category in featurizer_dict.keys():
+                featurizers = featurizer_dict[instance.category]
+                featurizers.append(instance)
+            else:
+                featurizer_dict[instance.category] = [instance]
 
     def get_feature_names(self):
         pass
