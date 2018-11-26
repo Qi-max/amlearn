@@ -19,6 +19,17 @@ def create_featurizer_backend():
     return featurizer_backend
 
 
+def remain_df_calc(remain_df, result_df, source_df,
+                   n_neighbor_col='n_neighbors_voro'):
+    if remain_df:
+        result_df = source_df.join(result_df)
+    else:
+        remain_cols = [n_neighbor_col] + [col for col in source_df.columns
+                                          if col.startswith('neighbor_id_')]
+        result_df = source_df[remain_cols].join(result_df)
+    return result_df
+
+
 def line_percent(value_list):
     percent_list = np.zeros(value_list.shape)
 

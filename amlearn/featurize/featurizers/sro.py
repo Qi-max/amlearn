@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import six
 from abc import ABCMeta
-from amlearn.featurize.featurizers.base import BaseFeaturize
+from amlearn.featurize.featurizers.base import BaseFeaturize, remain_df_calc
 from amlearn.featurize.featurizers.voro_and_dist import VoroNN, DistanceNN
 from amlearn.utils.check import check_featurizer_X, check_dependency
 
@@ -14,7 +14,18 @@ except Exception:
 
 class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
     def __init__(self, atoms_df=None, tmp_save=True, context=None,
-                 dependency=None, remain_cols=True, **nn_kwargs):
+                 dependency=None, remain_df=False, **nn_kwargs):
+        """
+
+        Args:
+            atoms_df:
+            tmp_save:
+            context:
+            dependency:
+            remain_df: (boolean) default: False
+                whether remain the source dataframe cols to result dataframe.
+            **nn_kwargs:
+        """
         super(BaseSro, self).__init__(tmp_save=tmp_save,
                                       context=context,
                                       atoms_df=atoms_df)
@@ -39,7 +50,7 @@ class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
             raise ValueError('dependency {} if unknown, Possible values '
                              'are {} or voro/dist object.'.format(
                               dependency, '[voro, voronoi, dist, distance]'))
-        self.remain_cols = remain_cols
+        self.remain_df = remain_df
 
     @property
     def category(self):
@@ -48,7 +59,7 @@ class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
 
 class CN(BaseSro):
     def __init__(self, atoms_df=None, dependency="voro", tmp_save=True,
-                 context=None, **nn_kwargs):
+                 context=None, remain_df=False, **nn_kwargs):
         """
 
         Args:
@@ -60,6 +71,7 @@ class CN(BaseSro):
                                  context=context,
                                  dependency=dependency,
                                  atoms_df=atoms_df,
+                                 remain_df=remain_df,
                                  **nn_kwargs)
         self.voro_depend_cols = ['n_neighbors_voro']
         self.dist_denpend_cols = ['n_neighbors_dist']
@@ -84,6 +96,10 @@ class CN(BaseSro):
                                   index=range(len(X)),
                                   columns=self.get_feature_names())
 
+        cn_list_df = \
+            remain_df_calc(remain_df=self.remain_df, result_df=cn_list_df,
+                           source_df=X, n_neighbor_col=n_neighbor_col)
+
         if self.tmp_save:
             name = 'cn_dist' if self.dependency_name == 'dist' \
                                 or self.dependency_name == 'distance' \
@@ -105,7 +121,7 @@ class VoroIndex(BaseSro):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=False,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_cols=True,
+                 tmp_save=True, context=None, remain_df=False,
                  edge_min=3, edge_max=8, **nn_kwargs):
         """
 
@@ -118,7 +134,7 @@ class VoroIndex(BaseSro):
                                         context=context,
                                         dependency=dependency,
                                         atoms_df=atoms_df,
-                                        remain_cols=remain_cols,
+                                        remain_df=remain_df,
                                         **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -156,9 +172,9 @@ class VoroIndex(BaseSro):
         voro_index_df = pd.DataFrame(voro_index_list,
                                      index=range(n_atoms),
                                      columns=self.get_feature_names())
-        if self.remain_cols:
-            voro_index_df = X.join(voro_index_df)
-
+        voro_index_df = \
+            remain_df_calc(remain_df=self.remain_df, result_df=voro_index_df,
+                           source_df=X, n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=voro_index_df,
                                                       name='voro_index')
