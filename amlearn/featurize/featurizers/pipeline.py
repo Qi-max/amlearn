@@ -4,6 +4,7 @@ import pkgutil
 from operator import itemgetter
 from amlearn.featurize.featurizers.base import BaseFeaturize
 from amlearn.utils.check import check_featurizer_X, is_abstract
+from sklearn.base import BaseEstimator
 from sklearn.pipeline import FeatureUnion, Pipeline
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -69,15 +70,24 @@ class MultiFeaturizer(BaseFeaturize):
         if 'mro' in category_list:
             pipeline_list.append(
                 ('mro', self.featurizer_dict['mro'][0]))
+        pipeline_list.append(('final', FinalEstimator()))
 
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         pipe = Pipeline(pipeline_list)
-        X = pipe.fit(X)
+        pipe.fit(X)
+        X = pipe.named_steps['final'].data
         return X
 
     def get_feature_names(self):
         pass
 
 
+class FinalEstimator(BaseEstimator):
 
+    def fit(self, X):
+        self._data = X
+        return self
 
+    @property
+    def data(self):
+        return self._data

@@ -1,7 +1,10 @@
+import os
 import numpy as np
 import pandas as pd
 from amlearn.featurize.featurizers.base import BaseFeaturize, line_percent
 from amlearn.utils.check import check_featurizer_X, check_neighbor_col
+from amlearn.utils.directory import create_path
+
 try:
     from amlearn.featurize.featurizers.sro_mro import mro_stats, voronoi_stats
 except Exception:
@@ -9,7 +12,7 @@ except Exception:
 
 
 class MRO(BaseFeaturize):
-    def __init__(self, n_neighbor_limit=80,
+    def __init__(self, n_neighbor_limit=80, write_path="default",
                  stats_types="all", stats_names=None,
                  calc_features="all", neighbor_cols="all",
                  atoms_df=None, tmp_save=True, context=None):
@@ -19,6 +22,13 @@ class MRO(BaseFeaturize):
             dependency: (object or string) default: "voro"
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
+
+            write_path: (string) default: "default"
+                if None, the transform method don't save dataframe,
+                         just return it.
+                if string, the transform method save dataframe
+                           to the write_path and return it.
+                    if "default": set write_path as self.context.output_path.
 
             calced_sysmm: (boolean)
                 default: False and it changes in transform method
@@ -37,6 +47,8 @@ class MRO(BaseFeaturize):
         self.calc_features = calc_features
         self.stats_names = stats_names if stats_names is not None \
             else range(sum(stats_types))
+        self.write_path = self.context.output_path if write_path == "default" \
+            else write_path
         self.calced_sysmm = False
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -102,6 +114,12 @@ class MRO(BaseFeaturize):
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=result_df,
                                                       name='mro')
+        if self.write_path:
+            create_path(self.write_path, merge=True)
+            featurizer_file = os.path.join(self.write_path,
+                                           'featurizer_mro.csv')
+            result_df.to_csv(featurizer_file)
+
         return result_df
 
     def get_common_features(self):
