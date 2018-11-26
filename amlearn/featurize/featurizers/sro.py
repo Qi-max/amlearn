@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from amlearn.featurize.featurizers.base import BaseFeaturize
 from amlearn.featurize.featurizers.voro_and_dist import VoroNN, DistanceNN
-from amlearn.utils.check import check_featurizer_X
+from amlearn.utils.check import check_featurizer_X, check_dependency
 
 try:
     from amlearn.featurize.featurizers.sro_mro import voronoi_stats, boop
@@ -63,14 +63,12 @@ class CN(BaseSro):
 
     def fit(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-        columns = X.columns
         if self._dependency is None:
             return self
-        elif self._dependency.__class__.__name__ == "VoroNN" \
-                and 'n_neighbors_voro' in columns:
-            return self
-        elif self._dependency.__class__.__name__ == "DistanceNN" \
-                and 'n_neighbors_dist' in columns:
+        elif check_dependency(depend_cls=self._dependency,
+                              df_cols=X.columns,
+                              voro_depend_cols=['n_neighbors_voro'],
+                              dist_denpend_cols=['n_neighbors_dist']):
             return self
         else:
             self.atoms_df = self._dependency.fit_transform(X)
@@ -119,22 +117,22 @@ class VoroIndex(BaseSro):
                 if string, it can be "voro" or "distance"
         """
         super(VoroIndex, self).__init__(tmp_save=tmp_save,
-                                             context=context,
-                                             dependency=dependency,
-                                             nn_kwargs=nn_kwargs,
-                                             atoms_df=atoms_df)
+                                        context=context,
+                                        dependency=dependency,
+                                        nn_kwargs=nn_kwargs,
+                                        atoms_df=atoms_df)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
 
     def fit(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-        columns = X.columns
-
-        if self._dependency.__class__.__name__ == "VoroNN" and \
-                        'n_neighbors_voro' in columns:
+        voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_0']
+        if self._dependency is None:
             return self
-        elif self._dependency.__class__.__name__ == "DistanceNN" and \
-                        'n_neighbors_dist' in columns:
+        elif check_dependency(depend_cls=self._dependency,
+                              df_cols=X.columns,
+                              voro_depend_cols=voro_depend_cols,
+                              dist_denpend_cols=None):
             return self
         else:
             self.atoms_df = self._dependency.fit_transform(X)
@@ -168,7 +166,7 @@ class VoroIndex(BaseSro):
 
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=voro_index_df,
-                                                      name='cn_voro')
+                                                      name='voro_index')
 
         return voro_index_df
 

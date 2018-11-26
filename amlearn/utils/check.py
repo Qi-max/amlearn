@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 
+# featurizer check
 def check_featurizer_X(X, atoms_df):
     X = atoms_df if X is None else X
     if X is None:
@@ -14,6 +15,21 @@ def check_featurizer_X(X, atoms_df):
     return X
 
 
+def check_dependency(depend_cls, df_cols,
+                     voro_depend_cols=None, dist_denpend_cols=None):
+    if depend_cls.__class__.__name__ == "VoroNN" \
+         and set(voro_depend_cols).issubset(set(df_cols)):
+        return True
+
+    elif depend_cls.__class__.__name__ == "DistanceNN" \
+            and set(dist_denpend_cols).issubset(set(df_cols)):
+        return True
+
+    else:
+        return False
+
+
+# common check
 def check_file_name(file_name):
     if isinstance(file_name, six.string_types):
         file_name = file_name.replace('.', 'p')
