@@ -1,11 +1,9 @@
 import inspect
 import os
 import pkgutil
-
-import imblearn
+from operator import itemgetter
 from amlearn.featurize.featurizers.base import BaseFeaturize
 from amlearn.utils.check import check_featurizer_X, is_abstract
-from operator import itemgetter
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -42,6 +40,7 @@ class MultiFeaturizer(BaseFeaturize):
 
     def fit(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+
 
     def get_feature_names(self):
         pass

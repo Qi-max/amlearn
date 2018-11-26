@@ -60,19 +60,14 @@ class CN(BaseSro):
                                  dependency=dependency,
                                  atoms_df=atoms_df,
                                  **nn_kwargs)
+        self.voro_depend_cols = ['n_neighbors_voro']
+        self.dist_denpend_cols = ['n_neighbors_dist']
 
     def fit(self, X=None):
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-        if self._dependency is None:
-            return self
-        elif check_dependency(depend_cls=self._dependency,
-                              df_cols=X.columns,
-                              voro_depend_cols=['n_neighbors_voro'],
-                              dist_denpend_cols=['n_neighbors_dist']):
-            return self
-        else:
-            self.atoms_df = self._dependency.fit_transform(X)
-            return self
+        self._dependency = self.check_dependency(X)
+        if self._dependency:
+            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
+        return self
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -124,20 +119,14 @@ class VoroIndex(BaseSro):
                                         **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
+        self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
+        self.dist_denpend_cols = None
 
     def fit(self, X=None):
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-        voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
-        if self._dependency is None:
-            return self
-        elif check_dependency(depend_cls=self._dependency,
-                              df_cols=X.columns,
-                              voro_depend_cols=voro_depend_cols,
-                              dist_denpend_cols=None):
-            return self
-        else:
-            self.atoms_df = self._dependency.fit_transform(X)
-            return self
+        self._dependency = self.check_dependency(X)
+        if self._dependency:
+            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
+        return self
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -196,25 +185,20 @@ class CharacterMotif(BaseSro):
                                              [0, 0, 12, 4, 0]],
                                             dtype=np.float128)
         self.frank_kasper = frank_kasper
+        self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
+        self.dist_denpend_cols = None
+
 
     def fit(self, X=None):
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-        voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
+        self._dependency = self.check_dependency(X)
         if self._dependency is None:
-            return self
-        elif check_dependency(depend_cls=self._dependency,
-                              df_cols=X.columns,
-                              voro_depend_cols=voro_depend_cols,
-                              dist_denpend_cols=None):
-            return self
-        elif check_dependency(depend_cls=self._dependency,
-                              df_cols=X.columns,
-                              voro_depend_cols=['Voronoi idx_5'],
-                              dist_denpend_cols=None):
-            return self
-        else:
-            self.atoms_df = self._dependency.fit_transform(X)
-            return self
+            self.voro_depend_cols = ['Voronoi idx_5']
+            self._dependency = self.check_dependency(X)
+            if self._dependency is None:
+                return self
+
+        self.atoms_df = self._dependency.fit_transform(self.atoms_df)
+        return self
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)

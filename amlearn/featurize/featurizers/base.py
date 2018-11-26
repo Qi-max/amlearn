@@ -3,6 +3,7 @@ import six
 import numpy as np
 import pandas as pd
 from amlearn.utils.backend import BackendContext, FeatureBackend
+from amlearn.utils.check import check_featurizer_X, check_dependency
 from sklearn.base import BaseEstimator, TransformerMixin
 from abc import ABCMeta, abstractmethod
 try:
@@ -34,6 +35,9 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
         self.context = context if context is not None \
             else create_featurizer_backend()
         self._dependency = None
+        self.voro_depend_cols = None
+        self.dist_denpend_cols = None
+
 
     @classmethod
     def from_file(cls, data_path_file, cutoff, allow_neighbor_limit,
@@ -81,4 +85,18 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
     @property
     def category(self):
         return 'voro_and_dist'
+
+    def check_dependency(self, X):
+        self.atoms_df = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+        if self._dependency is None:
+            depend = None
+        elif check_dependency(depend_cls=self._dependency,
+                              df_cols=self.atoms_df.columns,
+                              voro_depend_cols=self.voro_depend_cols,
+                              dist_denpend_cols=self.dist_denpend_cols):
+            depend = None
+        else:
+            depend = self._dependency
+        return depend
+
 
