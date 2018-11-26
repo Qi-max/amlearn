@@ -8,6 +8,9 @@ import pandas as pd
 
 
 # featurizer check
+from amlearn.utils.data import list_like
+
+
 def check_featurizer_X(X, atoms_df):
     X = atoms_df if X is None else X
     if X is None:
@@ -27,6 +30,22 @@ def check_dependency(depend_cls, df_cols,
 
     else:
         return False
+
+
+def check_neighbor_col(neighbor_col):
+    valid_cols = ['n_neighbors_voro', 'n_neighbors_dist']
+    if neighbor_col == "all":
+        neighbor_col = ['n_neighbors_voro', 'n_neighbors_dist']
+    elif isinstance(neighbor_col, list_like):
+        neighbor_col = neighbor_col
+    else:
+        neighbor_col = [neighbor_col]
+
+    if not set(neighbor_col).issubset(valid_cols):
+        raise ValueError("neighbor_col {} is unknown. "
+                         "Possible values are: {}".format(neighbor_col,
+                                                          valid_cols))
+    return neighbor_col
 
 
 # common check
