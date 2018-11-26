@@ -69,11 +69,10 @@ class TestSro(AmLearnTest):
                                             'voro_and_distance',
                                             'featurizer_voro_nn.csv'),
                                index_col=0)
-        print(atoms_df.columns)
         nn = VoroIndex(atoms_df=atoms_df)
         result_df = nn.fit_transform(X=None)
-        self.assertTrue('Voronoi idx_5' in result_df.columns)
+        self.assertTrue('Voronoi idx5 voro' in result_df.columns)
         self.assertEqual(len(result_df), len(atoms_df))
-        self.assertEqual(result_df['Voronoi idx_4'].iloc[0], 4)
-        self.assertEqual(result_df['Voronoi idx_5'].iloc[0], 3)
-        self.assertEqual(result_df['Voronoi idx_5'].iloc[2], 5)
+        self.assertEqual(result_df['Voronoi idx4 voro'].iloc[0], 4)
+        self.assertEqual(result_df['Voronoi idx5 voro'].iloc[0], 3)
+        self.assertEqual(result_df['Voronoi idx5 voro'].iloc[2], 5)

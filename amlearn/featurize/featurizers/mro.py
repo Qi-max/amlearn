@@ -15,6 +15,7 @@ class MRO(BaseFeaturize):
     def __init__(self, n_neighbor_limit=80, write_path="default",
                  stats_types="all", stats_names=None,
                  calc_features="all", neighbor_cols="all",
+                 calc_neighbor_cols=False,
                  atoms_df=None, tmp_save=True, context=None):
         """
 
@@ -45,8 +46,9 @@ class MRO(BaseFeaturize):
         self.n_neighbor_limit = n_neighbor_limit
         self.neighbor_cols = check_neighbor_col(neighbor_cols)
         self.calc_features = calc_features
-        self.stats_names = stats_names if stats_names is not None \
-            else range(sum(self.stats_types))
+        self.calc_neighbor_cols = calc_neighbor_cols
+        self.stats_names = ['sum_NN', 'mean_NN', 'std_NN',
+                            'min_NN', 'max_NN', 'diff_NN']
         self.write_path = self.context.output_path if write_path == "default" \
             else write_path
         self.calced_sysmm = False
@@ -59,7 +61,10 @@ class MRO(BaseFeaturize):
 
         self.calc_features = list(X.columns) if self.calc_features == "all" \
             else self.calc_features
-        
+        if not self.calc_neighbor_cols:
+            self.calc_features = [col for col in self.calc_features
+                                  if not col.startswith('n_neighbors_')
+                                  and not col.startswith('neighbor_id_')]
         if not set(self.calc_features).issubset(set(list(X.columns))):
             raise ValueError("calc_features {} is unkown. "
                              "Possible values are: {}".format(self.calc_features,
@@ -79,11 +84,14 @@ class MRO(BaseFeaturize):
             self.calced_neighbor_cols.append(neighbor_col)
 
             n_neighbor_list = X[neighbor_col].values
+            neighbor_tag = neighbor_col.split('_')[-1]
             neighbor_lists = \
-                X[['neighbor_id_{}_{}'.format(num, neighbor_col.split('_')[-1])
+                X[['neighbor_id_{}_{}'.format(num, neighbor_tag)
                    for num in range(self.n_neighbor_limit)]].values
 
             for feature in self.calc_features:
+                if neighbor_tag not in feature:
+                    continue
                 mro_feature = np.zeros((n_atoms, sum(self.stats_types)))
                 mro_feature = \
                     mro_stats.sro_to_mro(X[feature].values,
@@ -125,11 +133,13 @@ class MRO(BaseFeaturize):
     def get_common_features(self):
         feature_names = list()
         for neighbor_col in self.calced_neighbor_cols:
-            neighbor_name = neighbor_col.split('_')[-1]
-            feature_names += ["{} {}_{}".format(feature, stats_name,
-                                                neighbor_name)
-                              for feature in self.calc_features
-                              for stats_name in self.stats_names]
+            neighbor_tag = neighbor_col.split('_')[-1]
+            feature_names += \
+                ["{} {}".format(feature, stats_name)
+                 for feature in self.calc_features if neighbor_tag in feature
+                 for stats_name, stats_type in zip(self.stats_names,
+                                                   self.stats_types)
+                 if stats_type == 1]
         return feature_names
 
     def get_symm_percent_features(self):

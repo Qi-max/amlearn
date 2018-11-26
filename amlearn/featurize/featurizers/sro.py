@@ -110,10 +110,10 @@ class CN(BaseSro):
         return cn_list_df
 
     def get_feature_names(self):
-        feature_names = ['CN_Dist'] \
+        feature_names = ['CN dist'] \
             if self.dependency_name == 'dist' \
                or self.dependency_name == 'distance' \
-            else ['CN_Voro']
+            else ['CN voro']
         return feature_names
 
 
@@ -182,7 +182,7 @@ class VoroIndex(BaseSro):
         return voro_index_df
 
     def get_feature_names(self):
-        feature_names = ['Voronoi idx_{}'.format(edge)
+        feature_names = ['Voronoi idx{} voro'.format(edge)
                          for edge in range(self.edge_min,
                                            self.edge_max + 1)]
         return feature_names
@@ -206,13 +206,13 @@ class CharacterMotif(BaseSro):
                                              [0, 0, 12, 4, 0]],
                                             dtype=np.float128)
         self.frank_kasper = frank_kasper
-        self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
+        self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5_voro']
         self.dist_denpend_cols = None
 
     def fit(self, X=None):
         self._dependency = self.check_dependency(X)
         if self._dependency is None:
-            self.voro_depend_cols = ['Voronoi idx_5']
+            self.voro_depend_cols = ['Voronoi idx5 voro']
             self._dependency = self.check_dependency(X)
             if self._dependency is None:
                 return self
@@ -224,7 +224,7 @@ class CharacterMotif(BaseSro):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
         columns = X.columns
-        if "Voronoi idx_5" not in columns:
+        if "Voronoi idx5 voro" not in columns:
             voro_index = \
                 VoroIndex(n_neighbor_limit=self.n_neighbor_limit,
                           include_beyond_edge_max=self.include_beyond_edge_max,
@@ -233,7 +233,7 @@ class CharacterMotif(BaseSro):
             X = voro_index.fit_transform(X)
 
         voro_index_cols = [col for col in columns
-                           if col.startswith("Voronoi idx_")]
+                           if col.startswith("Voronoi idx")]
         edge_min = min([int(col.split("_")[-1]) for col in voro_index_cols])
 
         motif_one_hot = np.zeros((n_atoms,
@@ -262,9 +262,9 @@ class CharacterMotif(BaseSro):
         return character_motif_df
 
     def get_feature_names(self):
-        feature_names = ['is <0,0,12,0,0>', 'is <0,0,12,4,0>'] + \
-                        ["_".join(map(str, v))
+        feature_names = ['is <0,0,12,0,0> voro', 'is <0,0,12,4,0> voro'] + \
+                        ["_".join(map(str, v)) + " voro"
                          for v in self.target_voro_idx[2:]] + \
-                        ['is polytetrahedral', 'is <0,0,12,0/4,0>']
+                        ['is polytetrahedral voro', 'is <0,0,12,0/4,0> voro']
         return feature_names
 
