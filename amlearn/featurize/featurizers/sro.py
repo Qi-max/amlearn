@@ -104,7 +104,8 @@ class VoroIndex(BaseSro):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=False,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, **nn_kwargs):
+                 tmp_save=True, context=None,
+                 edge_min=3, edge_max=8, **nn_kwargs):
         """
 
         Args:
@@ -119,7 +120,11 @@ class VoroIndex(BaseSro):
                                         **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
-        self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5']
+        self.edge_min = edge_min
+        self.edge_max = edge_max
+        self.voro_depend_cols = ['n_neighbors_voro'] + \
+                                ['neighbor_edge_{}_voro'.format(edge)
+                                 for edge in range(edge_min, edge_max + 1)]
         self.dist_denpend_cols = None
 
     def fit(self, X=None):
@@ -133,14 +138,10 @@ class VoroIndex(BaseSro):
         n_atoms = len(X)
         columns = X.columns
         edge_cols = [col for col in columns if col.startswith('neighbor_edge_')]
-        edge_list = [int(col.split('_')[-1]) for col in edge_cols]
-        edge_num = len(edge_list)
-        self.edge_min = min(edge_list)
-        self.edge_max = max(edge_list)
+        edge_num = self.edge_max - self.edge_min + 1
 
         voronoi_index_list = np.zeros((n_atoms, edge_num))
 
-        print(voronoi_stats.voronoi_index.__doc__)
         voro_index_list = \
             voronoi_stats.voronoi_index(voronoi_index_list,
                                         X['n_neighbors_voro'].values,
