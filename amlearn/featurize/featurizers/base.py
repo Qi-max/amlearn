@@ -5,12 +5,25 @@ import pandas as pd
 from amlearn.utils.backend import BackendContext, FeatureBackend
 from sklearn.base import BaseEstimator, TransformerMixin
 from abc import ABCMeta, abstractmethod
+try:
+    from amlearn_beta.amlearn_beta.featurize.featurizers.sro_mro \
+        import voronoi_stats
+except Exception:
+    print("import fortran file voronoi_stats error!")
 
 
 def create_featurizer_backend():
     backend_context = BackendContext(merge_path=True)
     featurizer_backend = FeatureBackend(backend_context)
     return featurizer_backend
+
+
+def line_percent(value_list):
+    percent_list = np.zeros(value_list.shape)
+
+    percent_list = \
+        voronoi_stats.line_percent(percent_list, value_list)
+    return percent_list
 
 
 class BaseFeaturize(six.with_metaclass(ABCMeta,

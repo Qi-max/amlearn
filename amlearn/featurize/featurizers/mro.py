@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from amlearn.featurize.featurizers.base import BaseFeaturize
+from amlearn.featurize.featurizers.base import BaseFeaturize, line_percent
 from amlearn.utils.check import check_featurizer_X, check_neighbor_col
 try:
     from amlearn.featurize.featurizers.sro_mro import mro_stats, voronoi_stats
@@ -18,6 +18,13 @@ class MRO(BaseFeaturize):
             dependency: (object or string) default: "voro"
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
+
+            calced_sysmm: (boolean)
+                default: False and it changes in transform method
+                if calculated the Voronoi stats, then set the flag to True, and
+                then calculate the Avg i-fold symm idx, this flag talls
+                get_feature_names() function that Avg i-fold symm idx
+                was calculated.
         """
         super(MRO, self).__init__(tmp_save=tmp_save,
                                   context=context,
@@ -28,6 +35,7 @@ class MRO(BaseFeaturize):
         self.calc_features = calc_features
         self.stats_names = stats_names if stats_names is not None \
             else range(sum(stats_types))
+        self.calced_sysmm = False
 
     def fit_transform(self, X, y=None, **fit_params):
         return self.transform(X)
@@ -58,7 +66,7 @@ class MRO(BaseFeaturize):
 
             n_neighbor_list = X[['n_neighbors']].values
             neighbor_lists = \
-                X[['neighbor_id_{}'.format(num)
+                X[['neighbor_id_{}_{}'.format(num, neighbor_col.split('_')[-1])
                    for num in range(self.n_neighbor_limit)]].values
 
             for feature in self.calc_features:
@@ -71,14 +79,30 @@ class MRO(BaseFeaturize):
                                          n_neighbor_limit=self.n_neighbor_limit)
                 concat_features = mro_feature if concat_features is None \
                     else np.append(concat_features, mro_feature, axis=1)
+
         result_df = pd.DataFrame(concat_features, index=range(n_atoms),
-                                 columns=self.get_feature_names())
+                                 columns=self.get_common_features())
+
+        voro_mean_cols = [col for col in result_df.columns
+                          if col.startswith('Voronoi idx_')
+                          and col.endswith(' mean_NN')]
+
+        if voro_mean_cols:
+            self.calced_sysmm = True
+            self.idx_list = [col.split('_')[-1].split(' ')[0]
+                             for col in voro_mean_cols]
+            percent_list = \
+                line_percent(value_list=result_df[voro_mean_cols].values)
+            percent_df = pd.DataFrame(percent_list, index=range(n_atoms),
+                                      columns=self.get_symm_percent_features())
+            result_df = result_df.join(percent_df)
+
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=result_df,
                                                       name='mro')
         return result_df
 
-    def get_feature_names(self):
+    def get_common_features(self):
         feature_names = list()
         for neighbor_col in self.calced_neighbor_cols:
             neighbor_name = neighbor_col.split('_')[-1]
@@ -86,6 +110,17 @@ class MRO(BaseFeaturize):
                                                 neighbor_name)
                               for feature in self.calc_features
                               for stats_name in self.stats_names]
+        return feature_names
+
+    def get_symm_percent_features(self):
+        feature_names = ['Avg {}-fold symm idx'.format(edge)
+                         for edge in self.idx_list]
+        return feature_names
+
+    def get_feature_names(self):
+        feature_names = self.get_common_features()
+        if self.calced_sysmm:
+            feature_names += self.get_symm_percent_features()
         return feature_names
 
     @property
