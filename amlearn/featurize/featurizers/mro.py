@@ -46,7 +46,7 @@ class MRO(BaseFeaturize):
         self.neighbor_cols = check_neighbor_col(neighbor_cols)
         self.calc_features = calc_features
         self.stats_names = stats_names if stats_names is not None \
-            else range(sum(stats_types))
+            else range(sum(self.stats_types))
         self.write_path = self.context.output_path if write_path == "default" \
             else write_path
         self.calced_sysmm = False
@@ -78,7 +78,7 @@ class MRO(BaseFeaturize):
                 continue
             self.calced_neighbor_cols.append(neighbor_col)
 
-            n_neighbor_list = X[['n_neighbors']].values
+            n_neighbor_list = X[neighbor_col].values
             neighbor_lists = \
                 X[['neighbor_id_{}_{}'.format(num, neighbor_col.split('_')[-1])
                    for num in range(self.n_neighbor_limit)]].values

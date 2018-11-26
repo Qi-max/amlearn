@@ -14,7 +14,7 @@ except Exception:
 
 class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
     def __init__(self, atoms_df=None, tmp_save=True, context=None,
-                 dependency=None, **nn_kwargs):
+                 dependency=None, remain_cols=True, **nn_kwargs):
         super(BaseSro, self).__init__(tmp_save=tmp_save,
                                       context=context,
                                       atoms_df=atoms_df)
@@ -39,6 +39,7 @@ class BaseSro(six.with_metaclass(ABCMeta, BaseFeaturize)):
             raise ValueError('dependency {} if unknown, Possible values '
                              'are {} or voro/dist object.'.format(
                               dependency, '[voro, voronoi, dist, distance]'))
+        self.remain_cols = remain_cols
 
     @property
     def category(self):
@@ -104,7 +105,7 @@ class VoroIndex(BaseSro):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=False,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None,
+                 tmp_save=True, context=None, remain_cols=True,
                  edge_min=3, edge_max=8, **nn_kwargs):
         """
 
@@ -117,6 +118,7 @@ class VoroIndex(BaseSro):
                                         context=context,
                                         dependency=dependency,
                                         atoms_df=atoms_df,
+                                        remain_cols=remain_cols,
                                         **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -154,6 +156,8 @@ class VoroIndex(BaseSro):
         voro_index_df = pd.DataFrame(voro_index_list,
                                      index=range(n_atoms),
                                      columns=self.get_feature_names())
+        if self.remain_cols:
+            voro_index_df = X.join(voro_index_df)
 
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=voro_index_df,
