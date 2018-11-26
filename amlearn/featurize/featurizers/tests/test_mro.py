@@ -17,10 +17,12 @@ class TestSro(AmLearnTest):
                                index_col=0)
         mro = MRO(atoms_df=atoms_df)
         result_df = mro.fit_transform(X=None)
-        print(result_df.head(5))
-        # self.assertEqual(result_df.columns, ['CN_Voro'])
+        self.assertTrue('Voronoi idx5 voro sum_NN' in result_df.columns)
         self.assertEqual(len(result_df), len(atoms_df))
-        # self.assertEqual(result_df['CN_Voro'].iloc[0], 15)
-        # self.assertEqual(result_df['CN_Voro'].iloc[1], 13)
-        # self.assertEqual(result_df['CN_Voro'].iloc[2], 16)
+        # self.assertAlmostEqual(result_df['Voronoi idx3 voro sum_NN'].iloc[0],
+        #                        21445)
+        # self.assertAlmostEqual(result_df['Voronoi idx4 voro std_NN'].iloc[12],
+        #                        5522.932)
+        # self.assertAlmostEqual(result_df['Voronoi idx4 voro diff_NN'].iloc[13],
+        #                        -3)
 

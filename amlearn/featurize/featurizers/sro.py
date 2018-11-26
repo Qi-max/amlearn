@@ -86,6 +86,7 @@ class CN(BaseSro):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         cn_list = np.zeros(len(X))
 
+        print(self._dependency.__class__.__name__)
         n_neighbor_col = 'n_neighbors_dist' \
             if self._dependency.__class__.__name__ == "DistanceNN" \
             else 'n_neighbors_voro'
