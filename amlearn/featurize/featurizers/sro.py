@@ -44,6 +44,10 @@ class BaseSro(BaseFeaturize):
     def get_feature_names(self):
         pass
 
+    @property
+    def category(self):
+        return 'sro'
+
 
 class CN(BaseSro):
     def __init__(self, atoms_df=None, dependency="voro", tmp_save=True,

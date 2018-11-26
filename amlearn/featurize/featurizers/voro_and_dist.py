@@ -19,6 +19,9 @@ class BaseNN(BaseFeaturize):
     def get_feature_names(self):
         pass
 
+    @property
+    def category(self):
+        return 'voro_and_dist'
 
 class VoroNN(BaseNN):
 

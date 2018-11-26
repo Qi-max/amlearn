@@ -1,0 +1,93 @@
+import numpy as np
+import pandas as pd
+from amlearn.featurize.featurizers.base import BaseFeaturize
+from amlearn.utils.check import check_featurizer_X, check_neighbor_col
+try:
+    from amlearn.featurize.featurizers.sro_mro import mro_stats, voronoi_stats
+except Exception:
+    print("import fortran file voronoi_stats error!")
+
+
+class MRO(BaseFeaturize):
+    def __init__(self, stats_types, n_neighbor_limit,
+                 calc_features="all", stats_names=None,  neighbor_cols="all",
+                 atoms_df=None, tmp_save=True, context=None):
+        """
+
+        Args:
+            dependency: (object or string) default: "voro"
+                if object, it can be "VoroNN()" or "DistanceNN()",
+                if string, it can be "voro" or "distance"
+        """
+        super(MRO, self).__init__(tmp_save=tmp_save,
+                                  context=context,
+                                  atoms_df=atoms_df)
+        self.stats_types = stats_types
+        self.n_neighbor_limit = n_neighbor_limit
+        self.neighbor_cols = check_neighbor_col(neighbor_cols)
+        self.calc_features = calc_features
+        self.stats_names = stats_names if stats_names is not None \
+            else range(sum(stats_types))
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.transform(X)
+
+    def transform(self, X=None):
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+
+        self.calc_features = list(X.columns) if self.calc_features == "all" \
+            else self.calc_features
+        
+        if not set(self.calc_features).issubset(set(list(X.columns))):
+            raise ValueError("calc_features {} is unkown. "
+                             "Possible values are: {}".format(self.calc_features,
+                                                              list(X.columns)))
+
+        self.calced_neighbor_cols = list()
+        concat_features = None
+        n_atoms = len(X)
+
+        for neighbor_col in self.neighbor_cols:
+            if neighbor_col not in list(X.columns):
+                self.context.logger.warning(
+                    "neighbor_col {} is not in atoms_df. So ignore this "
+                    "neighbor_col and continue to next neighbor_col "
+                    "calculate".format(neighbor_col))
+                continue
+            self.calced_neighbor_cols.append(neighbor_col)
+
+            n_neighbor_list = X[['n_neighbors']].values
+            neighbor_lists = \
+                X[['neighbor_id_{}'.format(num)
+                   for num in range(self.n_neighbor_limit)]].values
+
+            for feature in self.calc_features:
+                mro_feature = np.zeros((n_atoms, sum(self.stats_types)))
+                mro_feature = \
+                    mro_stats.sro_to_mro(X[feature].values,
+                                         n_neighbor_list, neighbor_lists,
+                                         self.stats_types, mro_feature,
+                                         n_atoms=n_atoms,
+                                         n_neighbor_limit=self.n_neighbor_limit)
+                concat_features = mro_feature if concat_features is None \
+                    else np.append(concat_features, mro_feature, axis=1)
+        result_df = pd.DataFrame(concat_features, index=range(n_atoms),
+                                 columns=self.get_feature_names())
+        if self.tmp_save:
+            self.context.save_featurizer_as_dataframe(output_df=result_df,
+                                                      name='mro')
+        return result_df
+
+    def get_feature_names(self):
+        feature_names = list()
+        for neighbor_col in self.calced_neighbor_cols:
+            neighbor_name = neighbor_col.split('_')[-1]
+            feature_names += ["{} {}_{}".format(feature, stats_name,
+                                                neighbor_name)
+                              for feature in self.calc_features
+                              for stats_name in self.stats_names]
+        return feature_names
+
+    @property
+    def category(self):
+        return 'mro'
