@@ -276,3 +276,67 @@ class CharacterMotif(BaseSro):
                         ['is polytetrahedral voro', 'is <0,0,12,0/4,0> voro']
         return feature_names
 
+
+class IFoldSymmetry(BaseSro):
+    def __init__(self, n_neighbor_limit=80,
+                 include_beyond_edge_max=False,
+                 atoms_df=None, dependency="voro",
+                 tmp_save=True, context=None, remain_df=False,
+                 edge_min=3, edge_max=8, **nn_kwargs):
+        super(IFoldSymmetry, self).__init__(tmp_save=tmp_save,
+                                            context=context,
+                                            dependency=dependency,
+                                            atoms_df=atoms_df,
+                                            remain_df=remain_df,
+                                            **nn_kwargs)
+        self.n_neighbor_limit = n_neighbor_limit
+        self.include_beyond_edge_max = include_beyond_edge_max
+        self.edge_min = edge_min
+        self.edge_max = edge_max
+        self.voro_depend_cols = ['n_neighbors_voro'] + \
+                                ['neighbor_edge_{}_voro'.format(edge)
+                                 for edge in range(edge_min, edge_max + 1)]
+        self.dist_denpend_cols = None
+
+    def fit(self, X=None):
+        self._dependency = self.check_dependency(X)
+        if self._dependency:
+            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
+        return self
+
+    def transform(self, X=None):
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+        n_atoms = len(X)
+        columns = X.columns
+        edge_cols = [col for col in columns if col.startswith('neighbor_edge_')]
+        edge_num = self.edge_max - self.edge_min + 1
+        i_symm_list = np.zeros((n_atoms, edge_num))
+
+        i_symm_list = \
+            voronoi_stats.i_fold_symmetry(i_symm_list,
+                                          X['n_neighbors_voro'].values,
+                                          X[edge_cols].values,
+                                          self.edge_min, self.edge_max,
+                                          self.include_beyond_edge_max,
+                                          n_atoms=n_atoms,
+                                          n_neighbor_limit=
+                                          self.n_neighbor_limit)
+
+        i_symm_df = pd.DataFrame(i_symm_list,
+                                     index=range(n_atoms),
+                                     columns=self.get_feature_names())
+        i_symm_df = \
+            remain_df_calc(remain_df=self.remain_df, result_df=i_symm_df,
+                           source_df=X, n_neighbor_col='n_neighbors_voro')
+        if self.tmp_save:
+            self.context.save_featurizer_as_dataframe(output_df=i_symm_df,
+                                                      name='i_fold_symmetry')
+
+        return i_symm_df
+
+    def get_feature_names(self):
+        feature_names = ['{}-fold symm idx'.format(edge)
+                         for edge in range(self.edge_min, self.edge_max+1)]
+        return feature_names
+
+

@@ -81,6 +81,7 @@ class MRO(BaseFeaturize):
                     "neighbor_col and continue to next neighbor_col "
                     "calculate".format(neighbor_col))
                 continue
+            # TODO: distance_nn just calculate same special features, not all
             self.calced_neighbor_cols.append(neighbor_col)
 
             n_neighbor_list = np.array(X[neighbor_col].values,
