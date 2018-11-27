@@ -408,3 +408,72 @@ class AreaWtIFoldSymmetry(BaseSro):
                          for edge in range(self.edge_min, self.edge_max + 1)]
         return feature_names
 
+
+class VolWtIFoldSymmetry(BaseSro):
+    def __init__(self, n_neighbor_limit=80,
+                 include_beyond_edge_max=False,
+                 atoms_df=None, dependency="voro",
+                 tmp_save=True, context=None, remain_df=False,
+                 edge_min=3, edge_max=8, **nn_kwargs):
+        super(VolWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
+                                            context=context,
+                                            dependency=dependency,
+                                            atoms_df=atoms_df,
+                                            remain_df=remain_df,
+                                            **nn_kwargs)
+        self.n_neighbor_limit = n_neighbor_limit
+        self.include_beyond_edge_max = include_beyond_edge_max
+        self.edge_min = edge_min
+        self.edge_max = edge_max
+        self.voro_depend_cols = ['n_neighbors_voro'] + \
+                                ['neighbor_edge_{}_voro'.format(edge)
+                                 for edge in range(edge_min, edge_max + 1)]
+        self.dist_denpend_cols = None
+
+    def fit(self, X=None):
+        self._dependency = self.check_dependency(X)
+        if self._dependency:
+            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
+        return self
+
+    def transform(self, X=None):
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+        n_atoms = len(X)
+        columns = X.columns
+        edge_cols = [col for col in columns if
+                     col.startswith('neighbor_edge_')]
+        vol_cols = [col for col in columns if
+                     col.startswith('neighbor_vol_')]
+        edge_num = self.edge_max - self.edge_min + 1
+        vol_wt_i_symm_list = np.zeros((n_atoms, edge_num))
+        vol_wt_i_symm_list = \
+            voronoi_stats.vol_wt_i_fold_symmetry(vol_wt_i_symm_list,
+                                                 X['n_neighbors_voro'].values,
+                                                 X[edge_cols].values,
+                                                 X[vol_cols].values,
+                                                 self.edge_min,
+                                                 self.edge_max,
+                                                 self.include_beyond_edge_max,
+                                                 n_atoms=n_atoms,
+                                                 n_neighbor_limit=
+                                                 self.n_neighbor_limit)
+
+        vol_wt_i_symm_df = pd.DataFrame(vol_wt_i_symm_list,
+                                         index=range(n_atoms),
+                                         columns=self.get_feature_names())
+        vol_wt_i_symm_df = \
+            remain_df_calc(remain_df=self.remain_df, source_df=X,
+                           result_df=vol_wt_i_symm_df,
+                           n_neighbor_col='n_neighbors_voro')
+        if self.tmp_save:
+            self.context.save_featurizer_as_dataframe(
+                output_df=vol_wt_i_symm_df, name='vol_wt_i_fold_symmetry')
+
+        return vol_wt_i_symm_df
+
+    def get_feature_names(self):
+        feature_names = ['Vol_wt {}-fold symm idx'.format(edge)
+                             for edge in
+                             range(self.edge_min, self.edge_max + 1)]
+        return feature_names
+
