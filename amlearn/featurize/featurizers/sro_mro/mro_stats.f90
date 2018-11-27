@@ -16,7 +16,7 @@
         integer :: atom, i, j
         REAL(8), allocatable :: list(:)
 
-        mro_feature = 0
+        h_mro_feature = 0
         list = 0
         do atom = 1, n_atoms
           allocate(list(n_neighbor_list(atom)))
@@ -27,5 +27,4 @@
           mro_feature(atom, :) = customize_stats(list, stats_types, sum_stats_types, sro_feature(atom))
           deallocate(list)
         end do
-
     end subroutine sro_to_mro

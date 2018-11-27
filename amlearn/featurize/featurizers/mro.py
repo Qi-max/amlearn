@@ -83,18 +83,22 @@ class MRO(BaseFeaturize):
                 continue
             self.calced_neighbor_cols.append(neighbor_col)
 
-            n_neighbor_list = X[neighbor_col].values
+            n_neighbor_list = np.array(X[neighbor_col].values,
+                                                  dtype=int)
             neighbor_tag = neighbor_col.split('_')[-1]
             neighbor_lists = \
-                X[['neighbor_id_{}_{}'.format(num, neighbor_tag)
-                   for num in range(self.n_neighbor_limit)]].values
+                np.array(X[['neighbor_id_{}_{}'.format(num, neighbor_tag)
+                   for num in range(self.n_neighbor_limit)]].values,
+                                                  dtype=int)
 
             for feature in self.calc_features:
                 if neighbor_tag not in feature:
                     continue
-                mro_feature = np.zeros((n_atoms, sum(self.stats_types)))
+                mro_feature = np.zeros((n_atoms, sum(self.stats_types)),
+                                       dtype=np.float128)
                 mro_feature = \
-                    mro_stats.sro_to_mro(X[feature].values,
+                    mro_stats.sro_to_mro(np.array(X[feature].values,
+                                                  dtype=np.float128),
                                          n_neighbor_list, neighbor_lists,
                                          self.stats_types, mro_feature,
                                          n_atoms=n_atoms,

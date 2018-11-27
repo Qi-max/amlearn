@@ -192,8 +192,8 @@ class VoroIndex(BaseSro):
 class CharacterMotif(BaseSro):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=False,
-                 atoms_df=None, target_voro_idx=None,
-                 frank_kasper=1, dependency="voro",
+                 atoms_df=None, dependency="voro",
+                 edge_min=3, target_voro_idx=None, frank_kasper=1,
                  tmp_save=True, context=None, **nn_kwargs):
         super(CharacterMotif, self).__init__(tmp_save=tmp_save,
                                              context=context,
@@ -209,6 +209,7 @@ class CharacterMotif(BaseSro):
         self.frank_kasper = frank_kasper
         self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5_voro']
         self.dist_denpend_cols = None
+        self.edge_min = edge_min
 
     def fit(self, X=None):
         self._dependency = self.check_dependency(X)
@@ -232,10 +233,12 @@ class CharacterMotif(BaseSro):
                           atoms_df=X, dependency=self.dependency,
                           tmp_save=False, context=self.context)
             X = voro_index.fit_transform(X)
+            print(X.columns)
 
+        columns = X.columns
         voro_index_cols = [col for col in columns
                            if col.startswith("Voronoi idx")]
-        edge_min = min([int(col.split("_")[-1]) for col in voro_index_cols])
+        edge_min = self.edge_min
 
         motif_one_hot = np.zeros((n_atoms,
                                   len(self.target_voro_idx) + self.frank_kasper))
@@ -255,6 +258,10 @@ class CharacterMotif(BaseSro):
         character_motif_df = pd.DataFrame(motif_one_hot_array,
                                           index=range(n_atoms),
                                           columns=self.get_feature_names())
+        character_motif_df = \
+            remain_df_calc(remain_df=self.remain_df,
+                           result_df=character_motif_df,
+                           source_df=X, n_neighbor_col='n_neighbors_voro')
 
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(

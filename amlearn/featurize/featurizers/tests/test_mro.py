@@ -11,13 +11,29 @@ class TestSro(AmLearnTest):
     def setUp(self):
         pass
 
-    def test_cn_voro_from_dump_voro(self):
-        atoms_df = pd.read_csv(os.path.join(module_dir, 'data',
-                                            'sro', 'featurizer_voro_index.csv'),
+    # def test_voro_index_mro(self):
+    #     atoms_df = pd.read_csv(os.path.join(module_dir, 'data',
+    #                                         'sro', 'featurizer_voro_index.csv'),
+    #                            index_col=0)
+    #     mro = MRO(atoms_df=atoms_df)
+    #     result_df = mro.fit_transform(X=None)
+    #     self.assertTrue('Voronoi idx5 voro sum_NN' in result_df.columns)
+    #     self.assertEqual(len(result_df), len(atoms_df))
+    #     # self.assertAlmostEqual(result_df['Voronoi idx3 voro sum_NN'].iloc[0],
+    #     #                        21445)
+    #     # self.assertAlmostEqual(result_df['Voronoi idx4 voro std_NN'].iloc[12],
+    #     #                        5522.932)
+    #     # self.assertAlmostEqual(result_df['Voronoi idx4 voro diff_NN'].iloc[13],
+    #     #                        -3)
+
+    def test_character_motif_mro(self):
+        atoms_df = pd.read_csv(os.path.join(module_dir, 'data', 'sro',
+                                            'featurizer_character_motif.csv'),
                                index_col=0)
         mro = MRO(atoms_df=atoms_df)
         result_df = mro.fit_transform(X=None)
-        self.assertTrue('Voronoi idx5 voro sum_NN' in result_df.columns)
+        print(result_df.head(10))
+        # self.assertTrue('Voronoi idx5 voro sum_NN' in result_df.columns)
         self.assertEqual(len(result_df), len(atoms_df))
         # self.assertAlmostEqual(result_df['Voronoi idx3 voro sum_NN'].iloc[0],
         #                        21445)
@@ -25,4 +41,3 @@ class TestSro(AmLearnTest):
         #                        5522.932)
         # self.assertAlmostEqual(result_df['Voronoi idx4 voro diff_NN'].iloc[13],
         #                        -3)
-

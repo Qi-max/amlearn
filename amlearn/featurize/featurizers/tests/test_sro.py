@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from amlearn.featurize.featurizers.sro import CN, VoroIndex
+from amlearn.featurize.featurizers.sro import CN, VoroIndex, CharacterMotif
 from amlearn.utils.basetest import AmLearnTest
 
 
@@ -76,3 +76,16 @@ class TestSro(AmLearnTest):
         self.assertEqual(result_df['Voronoi idx4 voro'].iloc[0], 4)
         self.assertEqual(result_df['Voronoi idx5 voro'].iloc[0], 3)
         self.assertEqual(result_df['Voronoi idx5 voro'].iloc[2], 5)
+
+    def test_character_motif(self):
+        atoms_df = pd.read_csv(os.path.join(module_dir, 'data',
+                                            'voro_and_distance',
+                                            'featurizer_voro_nn.csv'),
+                               index_col=0)
+        nn = CharacterMotif(atoms_df=atoms_df)
+        result_df = nn.fit_transform(X=None)
+        self.assertTrue('is polytetrahedral voro' in result_df.columns)
+        self.assertEqual(len(result_df), len(atoms_df))
+        self.assertEqual(result_df['is polytetrahedral voro'].iloc[0], 0)
+        self.assertEqual(result_df['is <0,0,12,0,0> voro'].iloc[0], 0)
+        self.assertEqual(result_df['is polytetrahedral voro'].iloc[9], 1)
