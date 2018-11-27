@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from amlearn.featurize.featurizers.sro import CN, VoroIndex, CharacterMotif, \
-    IFoldSymmetry
+    IFoldSymmetry, AreaWtIFoldSymmetry
 from amlearn.utils.basetest import AmLearnTest
 
 
@@ -103,4 +103,20 @@ class TestSro(AmLearnTest):
         self.assertEqual(result_df['8-fold symm idx'].iloc[2], 0.0625)
         self.assertAlmostEqual(result_df['5-fold symm idx'].iloc[1], 0.2307692)
         self.assertAlmostEqual(result_df['5-fold symm idx'].iloc[2], 0.3125)
+
+    def test_area_wt_i_fold_symmetry(self):
+        atoms_df = pd.read_csv(os.path.join(module_dir, 'data',
+                                            'voro_and_distance',
+                                            'featurizer_voro_nn.csv'),
+                               index_col=0)
+        nn = AreaWtIFoldSymmetry(atoms_df=atoms_df)
+        result_df = nn.fit_transform(X=None)
+        self.assertTrue('Area_wt 8-fold symm idx' in result_df.columns)
+        self.assertEqual(len(result_df), len(atoms_df))
+        self.assertAlmostEqual(result_df['Area_wt 5-fold symm idx'].iloc[0],
+                               0.1314728)
+        self.assertAlmostEqual(result_df['Area_wt 6-fold symm idx'].iloc[0],
+                               0.5387449)
+        self.assertAlmostEqual(result_df['Area_wt 4-fold symm idx'].iloc[2],
+                               0.0804660)
 
