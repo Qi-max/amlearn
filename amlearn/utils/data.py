@@ -7,21 +7,24 @@ def list_like():
     return (list, np.ndarray, tuple, pd.Series)
 
 
-def read_imd(dirs, bds, atom_names):
+def read_imd(dirs, bds=None, atom_names=None):
+    if atom_names is None:
+        atom_names = range(1, 50)
     cell_coords = []
     types = []
     coords = []
     i = 0
     with open(dirs, 'r') as file_object:
         file_lines = file_object.readlines()
-        print("file length is: {}".format(len(file_lines)))
+        Bds = [list(map(float, file_lines[5].strip().split())),
+               list(map(float, file_lines[6].strip().split())),
+               list(map(float, file_lines[7].strip().split()))]
+
         for line in file_lines:
-            # if i > 100:
-            #     continue
             i += 1
             if i == 6:
                 cell_coords.append(
-                    [float(line.strip().split()[0] ) *2, 0, 0])
+                    [float(line.strip().split()[0]) * 2, 0, 0])
             elif i == 7:
                 cell_coords.append(
                     [0, float(line.strip().split()[0]) * 2, 0])
@@ -42,9 +45,9 @@ def read_imd(dirs, bds, atom_names):
                                     validate = False
                                     break
                     else:
-                        raise TypeError("Please make sure bds is list!")
+                        raise TypeError("Please make sure bds is list or None!")
                 if validate:
-                    types.append(atom_names[int(data_line[1] ) -1])
+                    types.append(atom_names[int(data_line[1]) - 1])
                     coords.append([float(data_line[2]), float(data_line[3]),
                                    float(data_line[4])])
-    return cell_coords, types, coords
+    return cell_coords, types, coords, Bds
