@@ -122,7 +122,7 @@ class VoroNN(BaseNN):
 
 class DistanceNN(BaseNN):
 
-    def __init__(self, cutoff=5, allow_neighbor_limit=300,
+    def __init__(self, cutoff=4, allow_neighbor_limit=300,
                  n_neighbor_limit=80, pbc=None, Bds=None,
                  atoms_df=None, context=None, tmp_save=True):
         super(DistanceNN, self).__init__(

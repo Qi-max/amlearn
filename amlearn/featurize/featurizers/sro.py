@@ -117,10 +117,10 @@ class CN(BaseSRO):
 
 class VoroIndex(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=False,
+                 include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
                  tmp_save=True, context=None, remain_df=False,
-                 edge_min=3, edge_max=8, **nn_kwargs):
+                 edge_min=3, edge_max=7, **nn_kwargs):
         """
 
         Args:
@@ -182,7 +182,7 @@ class VoroIndex(BaseSRO):
 
 class CharacterMotif(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=False,
+                 include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
                  edge_min=3, target_voro_idx=None, frank_kasper=1,
                  tmp_save=True, context=None, **nn_kwargs):
@@ -270,10 +270,10 @@ class CharacterMotif(BaseSRO):
 
 class IFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=False,
+                 include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
                  tmp_save=True, context=None, remain_df=False,
-                 edge_min=3, edge_max=8, **nn_kwargs):
+                 edge_min=3, edge_max=7, **nn_kwargs):
         super(IFoldSymmetry, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
@@ -327,10 +327,10 @@ class IFoldSymmetry(BaseSRO):
 
 class AreaWtIFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=False,
+                 include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
                  tmp_save=True, context=None, remain_df=False,
-                 edge_min=3, edge_max=8, **nn_kwargs):
+                 edge_min=3, edge_max=7, **nn_kwargs):
         super(AreaWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
                                                   context=context,
                                                   dependency=dependency,
@@ -393,10 +393,10 @@ class AreaWtIFoldSymmetry(BaseSRO):
 
 class VolWtIFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=False,
+                 include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
                  tmp_save=True, context=None, remain_df=False,
-                 edge_min=3, edge_max=8, **nn_kwargs):
+                 edge_min=3, edge_max=7, **nn_kwargs):
         super(VolWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
@@ -509,8 +509,8 @@ class VoroAreaStats(BaseSRO):
 
 
 class VoroAreaStatsSeparate(BaseSRO):
-    def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=False,
-                 atoms_df=None, dependency="voro", edge_min=3, edge_max=8,
+    def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=True,
+                 atoms_df=None, dependency="voro", edge_min=3, edge_max=7,
                  tmp_save=True, context=None, remain_df=False, **nn_kwargs):
         super(VoroAreaStatsSeparate, self).__init__(tmp_save=tmp_save,
                                                     context=context,
@@ -625,8 +625,8 @@ class VoroVolStats(BaseSRO):
 
 
 class VoroVolStatsSeparate(BaseSRO):
-    def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=False,
-                 atoms_df=None, dependency="voro", edge_min=3, edge_max=8,
+    def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=True,
+                 atoms_df=None, dependency="voro", edge_min=3, edge_max=7,
                  tmp_save=True, context=None, remain_df=False, **nn_kwargs):
         super(VoroVolStatsSeparate, self).__init__(tmp_save=tmp_save,
                                             context=context,
@@ -709,7 +709,7 @@ class DistStats(BaseSRO):
         columns = X.columns
         dist_cols = [col for col in columns if
                      col.startswith('neighbor_distance_')]
-        dist_stats = np.zeros((n_atoms, len(self.stats) + 1))
+        dist_stats = np.zeros((n_atoms, len(self.stats)))
 
         dist_stats = \
             voronoi_stats.voronoi_area_stats(dist_stats,
@@ -778,12 +778,6 @@ class BOOP(BaseSRO):
                                   for idx in range(n_neighbor_limit)]
         self.bq_tags = ['4', '6', '8', '10']
 
-    def fit(self, X=None):
-        self._dependency = self.check_dependency(X)
-        if self._dependency:
-            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
-        return self
-
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
@@ -791,14 +785,15 @@ class BOOP(BaseSRO):
         id_cols = ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
                    for idx in range(self.n_neighbor_limit)]
 
-        Ql = np.zeros((n_atoms, 4))
-        Wlbar = np.zeros((n_atoms, 4))
-        coarse_Ql = np.zeros((n_atoms, 4))
-        coarse_Wlbar = np.zeros((n_atoms, 4))
+        Ql = np.zeros((n_atoms, 4), dtype=np.float128)
+        Wlbar = np.zeros((n_atoms, 4), dtype=np.float128)
+        coarse_Ql = np.zeros((n_atoms, 4), dtype=np.float128)
+        coarse_Wlbar = np.zeros((n_atoms, 4), dtype=np.float128)
         Ql, Wlbar, coarse_Ql, coarse_Wlbar = \
             boop.calculate_boop(
-                self.atom_coords,
-                self.pbc, self.Bds, X[neighbor_col].values, X[id_cols].values,
+                self.atom_coords.astype(np.float128),
+                self.pbc, np.array(self.Bds, dtype=np.float128),
+                X[neighbor_col].values, X[id_cols].values,
                 self.low_order, self.higher_order, self.coarse_lower_order,
                 self.coarse_higher_order, Ql, Wlbar, coarse_Ql, coarse_Wlbar,
                 n_atoms=n_atoms, n_neighbor_limit=self.n_neighbor_limit)
