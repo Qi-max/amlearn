@@ -7,6 +7,11 @@ in the short-range ordering (SRO) and medium-range ordering (MRO) representation
 in the featurizers folder. The SRO and MRO representation are based on a recent
 paper by Qi Wang and Anubhav Jain (to be published).
 
+
+# <img alt="amlearn" src="docs_rst/_static/schematic_ML_of_deformation.png" width="600">
+<div align='center'><strong>Figure 1. Design of the ML framework for predicting the heterogeneous, site-specific plastic response in metallic glasses from the undeformed configuration.</strong></div>
+
+
 Wrapper classes and utility functions for featurizers powered by matminer/amp and machine
 learning algorithms supported by scikit-learn are also included.
 
