@@ -1,21 +1,18 @@
 # <img alt="amlearn" src="docs_rst/_static/amlearn_logo.png" width="300">
-Machine Learning package for amorphous materials(Working in Progress).
+Machine Learning Package for Amorphous Materials (Working in Progress).
 
-We integrate Fortran90 with Python (using f2py) to achieve combination of the
+To featurize the heterogeneous atom site environments in amorphous materials, we establish a comprehensive representation (comprising of 740+ site features) that encompass short- (SRO) and medium-range order (MRO). We integrate Fortran90 with Python (using f2py) to achieve combination of the
 flexibility and fast-computation (>10x times faster than pure Python) of features. Please see examples
-in the short-range ordering (SRO) and medium-range ordering (MRO) representations
-in the featurizers folder. The SRO and MRO representation are based on a recent
-paper by Qi Wang and Anubhav Jain (to be published).
+in the SRO and MRO representations in the `amlearn.featurize`. 
+
+Please see more details in a recent paper by Qi Wang and Anubhav Jain on developing a machine learning (ML) framework for predicting the heterogeneous, site-specific plastic response of atoms in metallic glasses solely from the undeformed glass configuration (to be published).
 
 
-# <img alt="amlearn" src="docs_rst/_static/schematic_ML_of_deformation.png" width="600">
-<div align='center'><strong>Figure 1. Design of the ML framework for predicting the heterogeneous, site-specific plastic response in metallic glasses from the undeformed configuration.</strong></div>
+<div align='center'><img alt="amlearn" src="docs_rst/_static/schematic_ML_of_deformation.png" width="800"></div>   
+&nbsp;
 
-
-Wrapper classes and utility functions for featurizers powered by matminer/amp and machine
-learning algorithms supported by scikit-learn are also included.
-
-
+In addition, wrapper classes and utility functions for featurizers powered by matminer/amp and machine
+learning algorithms supported by scikit-learn are also included.         
 
 
 ## Installation
@@ -33,14 +30,14 @@ or you can find numpy installation guide from [Numpy installation instructions](
 
 Then, you can install amlearn. There are two ways to install amlearn:
 
-- **Install amlearn from PyPI (recommended):**
+**Install amlearn from PyPI (recommended):**
 
 ```sh
 pip install amlearn
 ```
 
 
-- **Alternatively: install amlearn from the GitHub source:**
+**Alternatively: install amlearn from the GitHub source:**
 
 First, clone amlearn using `git`:
 
