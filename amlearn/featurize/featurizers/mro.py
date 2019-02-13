@@ -34,7 +34,7 @@ class MRO(BaseFeaturize):
             calced_sysmm: (boolean)
                 default: False and it changes in transform method
                 if calculated the Voronoi stats, then set the flag to True, and
-                then calculate the Avg i-fold symm idx, this flag talls
+                then calculate the Avg i-fold symm idx, this flag tells
                 get_feature_names() function that Avg i-fold symm idx
                 was calculated.
         """
