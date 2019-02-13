@@ -15,7 +15,7 @@ def all_featurizers():
     for importer, modname, ispkg in pkgutil.walk_packages(
             path=[module_dir], prefix='amlearn.featurize.featurizers.',
             onerror=lambda x: None):
-        if ".tests." in modname or ".sro_mro." in modname:
+        if ".tests." in modname or ".src." in modname:
             continue
         module = __import__(modname, fromlist="dummy")
         classes = inspect.getmembers(module, inspect.isclass)

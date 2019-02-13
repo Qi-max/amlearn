@@ -48,3 +48,5 @@ nosetests.xml
 .DS_Store
 .DS_Store?
 
+# Unit test data
+#*/tests/data/*
