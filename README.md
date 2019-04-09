@@ -1,5 +1,5 @@
 # <img alt="amlearn" src="docs_rst/_static/amlearn_logo.png" width="300">
-Machine Learning Package for Amorphous Materials (Working in Progress).
+Machine Learning Package for Amorphous Materials.
 
 To featurize the heterogeneous atom site environments in amorphous materials, we establish a comprehensive representation (comprising of 740+ site features) that encompass short- (SRO) and medium-range order (MRO). We integrate Fortran90 with Python (using f2py) to achieve combination of the
 flexibility and fast-computation (>10x times faster than pure Python) of features. Please see examples
