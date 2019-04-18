@@ -9,13 +9,14 @@ import os
 import numpy as np
 from copy import copy
 
+import time
 from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import cross_validate
 from amlearn.learn.sklearn_patch import calc_scores
-from amlearn.preprocess.imblearn_preprocess import ImblearnPreprocess
-from amlearn.utils.check import check_output_path
+from amlearn.preprocess.preprocess import ImblearnPreprocess
+from amlearn.utils.backend import BackendContext, MLBackend
 from amlearn.utils.data import list_like
-from amlearn.utils.directory import write_file
+from amlearn.utils.directory import write_file, create_path
 from sklearn.base import ClassifierMixin
 from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
@@ -24,24 +25,37 @@ from sklearn.utils.validation import check_is_fitted
 
 
 class AmClassifier(AmBaseLearn):
-    """Base Classifier class of Amlearn
+    """Base Classifier class of amlearn.
 
     Args:
-        backend:
-        classifier: classifier from sklearn.
-        imblearn:
-        decimals:
-        seed:
+        backend: Backend object (default: None)
+            MLBackend object which defined output_path, environment
+            configuration, save_predictions, and so on.
+            If default, use default MLBackend object.
+        classifier: object, string or class (default: None)
+            Sklearn classifier object.
+            If default, use the default_classifier which defined in backend
+            environment configuration.
+        classifier_params: dict (default: None)
+            The classifier parameters.
+        #TODO: Define decimals and seed later.
+        decimals: int (default: None)
+            Output decimals.
+        seed: int (default: 1)
+            Random seed
 
     """
-    def __init__(self, backend, classifier=None, classifier_params=None,
+    def __init__(self, backend=None, classifier=None, classifier_params=None,
                  decimals=None, seed=1):
+        # Get all supported classifiers
         classifiers_dict = dict(self.valid_components)
+
+        # Set classifier object
         if classifier is None:
             classifier_name = self.default_classifier
         elif isinstance(classifier, ClassifierMixin):
             classifier_name = classifier.__class__.__name__
-        elif isinstance(classifier, type):
+        elif callable(classifier):
             classifier_name = classifier.__name__
         elif isinstance(classifier, str):
             classifier_name = classifier
@@ -56,57 +70,121 @@ class AmClassifier(AmBaseLearn):
             classifier_params = {}
         self.classifier = classifier if isinstance(classifier, ClassifierMixin) \
             else classifiers_dict[classifier_name](**classifier_params)
+
+        # Set backend object
+        if backend is None:
+            backend_context = BackendContext(merge_path=True)
+            backend = MLBackend(backend_context)
+
         super().__init__(backend, decimals=decimals, seed=seed)
+        self.backend.logger.info(
+            'Initialize classification, classifier is : \n\t{}'.format(
+                self.classifier))
 
-    def fit(self, X, y, random_state=None,
-            cv_num=1, cv_params=None, test_size=0.3,
+    def fit(self, X, y, random_state=None, scoring=None,
+            cv_num=1, cv_params=None, val_size=0.3,
             imblearn=False, imblearn_method=None, imblearn_params=None,
-            save_model=True, save_predict=True, save_train_test_idx=True,
-            predict_types='dataframe'):
+            save_model=True, save_predict=True, save_train_val_idx=True,
+            predict_types='dataframe', **fit_params):
+        """Fit the amlearn classifier model.
 
+        Args:
+            X: array-like
+                The data to fit. Can be for example a list, or an array.
+            y: array-like, optional, default: None
+                The target variable to try to predict in the case of
+                supervised learning.
+            random_state: int, RandomState instance or None, optional (default=0)
+                If int, random_state is the seed used by the random number generator;
+                If RandomState instance, random_state is the random number generator;
+                If None, the random number generator is the RandomState instance used
+                by `np.random`.
+            scoring: string, callable or None, optional, default: None
+                A string (see model evaluation documentation) or
+                a scorer callable object / function with signature
+                ``scorer(estimator, X, y)``.
+            cv_num: int. (default: 1)
+                Determines the cross-validation splitting strategy.
+                If cv_num is 1, not use cross_validation, just fit the
+                model by train_test_split.
+            cv_params: dict. (default: {})
+                Cross-validation parameters.
+            val_size: float, int or None, optional (default=0.3)
+                If float, should be between 0.0 and 1.0 and represent the
+                proportion of the dataset to include in the validation split.
+                If int, represents the absolute number of validation samples.
+                If None, the value is set to the complement of the train size.
+                By default, the value is set to 0.3.
+            imblearn: boolean. (default: False)
+                Use imblearn or not.
+                If the dataset is unbalanced, it's recommended to set imblearn
+                to True, it will automatically sample the dataset into a
+                balanced dataset.
+            imblearn_method: str or callable (default: None)
+                Imblearn method name or Imblearn method object.
+            imblearn_params: dict (default: None)
+                The parameters dict of imblearn method.
+            save_model: boolean (default: True)
+                Whether to save the model.
+            save_predict: boolean (default: True)
+                Whether to save the prediction from each cross validation model.
+            save_train_val_idx: boolean (default: True)
+                Whether to save the train validation indexes.
+            predict_types: str (default: dataframe)
+                It effect when save_predict is True.
+                The Optional parameters are: {"npy", "txt", "dataframe"}.
+            **fit_params:
+                Classifier fit parameters.
+
+        Returns:
+            self
+        """
+        self.scoring = scoring
+        self.imblearn = imblearn
         if imblearn:
             self._fit_imblearn(
-                X, y, random_state=random_state,
-                cv_num=cv_num, cv_params=cv_params, test_size=test_size,
+                X, y, random_state=random_state, scoring=scoring,
+                cv_num=cv_num, cv_params=cv_params, val_size=val_size,
                 imblearn_method=imblearn_method,
                 imblearn_params=imblearn_params, save_model=save_model,
                 save_predict=save_predict,
-                save_train_test_idx=save_train_test_idx,
-                predict_types=predict_types)
-
+                save_train_val_idx=save_train_val_idx,
+                predict_types=predict_types, **fit_params)
         else:
             self._fit_cv(
-                X, y, random_state=random_state,
-                cv_params=cv_params, cv_num=cv_num, test_size=test_size,
+                X, y, random_state=random_state, scoring=scoring,
+                cv_params=cv_params, cv_num=cv_num, val_size=val_size,
                 save_model=save_model, save_predict=save_predict,
                 predict_types=predict_types,
-                save_train_test_idx=save_train_test_idx)
+                save_train_val_idx=save_train_val_idx, **fit_params)
+        return self
 
-    def _fit(self, X, y, classifier, test_size=0.3,
-             random_state=None, scoring=None, return_train_score=False):
+    def _fit(self, X, y, classifier, val_size=0.3,
+             random_state=None, scoring=None, return_train_score=False,
+             **fit_params):
         ret = dict()
         indices = range(np.array(X).shape[1])
-        X_train, X_test, y_train, y_test, train_idx, test_idx = \
+        X_train, X_val, y_train, y_val, train_idx, val_idx = \
             train_test_split(X, y, indices,
-                             test_size=test_size, random_state=random_state)
+                             test_size=val_size, random_state=random_state)
 
         train_idx = list(map(int, train_idx))
-        test_idx = list(map(int, test_idx))
+        val_idx = list(map(int, val_idx))
 
-        classifier = classifier.fit(X_train, y_train)
+        classifier = classifier.fit(X_train, y_train, **fit_params)
         ret['models'] = classifier
-        ret['indexs'] = [train_idx, test_idx]
+        ret['indexs'] = [train_idx, val_idx]
 
-        test_scores, scorers = calc_scores(X=X_test, y=y_test,
-                                           estimator=classifier,
-                                           scoring=scoring)
+        val_scores, scorers = calc_scores(X=X_val, y=y_val,
+                                          estimator=classifier,
+                                          scoring=scoring)
 
         if return_train_score:
-            train_scores, _ = calc_scores(X=X_test, y=y_test,
+            train_scores, _ = calc_scores(X=X_train, y=y_train,
                                           estimator=classifier,
                                           scoring=scoring)
         for name in scorers:
-            ret['test_%s' % name] = np.array(test_scores[name])
+            ret['test_%s' % name] = np.array(val_scores[name])
             if return_train_score:
                 key = 'train_%s' % name
                 ret[key] = np.array(train_scores[name])
@@ -118,15 +196,19 @@ class AmClassifier(AmBaseLearn):
                         'please set return_train_score=True').format(key)
                     # warn on key access
                     ret.add_warning(key, message, FutureWarning)
-        return ret
+        return ret, scorers
 
-    def _fit_cv(self, X, y, random_state=None,
-                cv_num=1, cv_params=None, test_size=0.3,
+    def _fit_cv(self, X, y, random_state=None, scoring=None,
+                cv_num=1, cv_params=None, val_size=0.3,
                 save_model=True, save_predict=True, predict_types='dataframe',
-                save_train_test_idx=True):
+                save_train_val_idx=True, **fit_params):
 
         # If user's cv_params contains 'cv_num' parameter, use the max value
         # between function parameter 'cv_num' and cv_params's 'cv_num'.
+        if not self.imblearn:
+            self.backend.logger.info('Start Cross Validation.')
+            cv_start_time = time.time()
+
         if cv_params is None:
             cv_params = {}
 
@@ -134,22 +216,28 @@ class AmClassifier(AmBaseLearn):
             cv_num = max(cv_num, cv_params['cv_num'])
             cv_params.pop('cv_num')
 
+        if 'scoring' in cv_params.keys():
+            cv_params.pop('scoring')
+
         if cv_num > 1:
             np.random.seed(random_state)
-            scores = cross_validate(estimator=self.classifier,
-                                    X=X, y=y, cv=cv_num, **cv_params)
-
+            scores, scorers = cross_validate(estimator=self.classifier, scoring=scoring,
+                                    fit_params=fit_params, X=X, y=y, cv=cv_num,
+                                    **cv_params)
         else:
-            scores = self._fit(
+            scores, scorers = self._fit(
                 X, y, self.classifier,
-                test_size=test_size, random_state=random_state,
+                val_size=val_size, random_state=random_state,
                 return_train_score=cv_params.get('return_train_score', False),
-                scoring=cv_params.get('scoring', None))
+                scoring=scoring, **fit_params)
 
             cv_num = 1
 
+        # TODO: now if scoring is more than one, score_name only can be the first of them, and the default ordering is that the higher the score, the better the classification effect.
+        self.score_name = self.score_name if hasattr(self, 'score_name') \
+            else list(scorers.keys())[0]
         self.best_score_, (self.best_model_, self.best_model_tag_)= \
-            max(zip(scores['test_score'],
+            max(zip(scores['test_{}'.format(self.score_name)],
                     zip(scores['models'],
                         [''] if cv_num == 1 else
                         ["cv_{}".format(i) for i in range(cv_num)])),
@@ -160,24 +248,28 @@ class AmClassifier(AmBaseLearn):
         tmp_path = self._tmp_path \
             if hasattr(self, '_tmp_path') else self.backend.tmp_path
 
-        if save_model or save_train_test_idx or save_predict:
+        if not self.imblearn:
+            self.backend.logger.info(
+                "\tCV classification finish in {:.4f} seconds. "
+                "It's best {} score is {:.4f}".format(
+                    time.time() - cv_start_time,
+                    self.score_name, self.best_score_))
+
+        if save_model or save_train_val_idx or save_predict:
             for cv_idx in range(cv_num):
-                print(cv_idx)
-                print(tmp_path)
-                print("cv_{}".format(cv_idx))
                 tmp_path_cv = os.path.join(tmp_path, "cv_{}".format(cv_idx))
-                check_output_path(tmp_path_cv)
+                create_path(tmp_path_cv)
                 score_model = scores['models'][cv_idx]
                 if save_model:
                     self.backend.save_model(score_model, self.seed)
-                if save_train_test_idx:
+                if save_train_val_idx:
                     train_idx = scores['indexs'][cv_idx][0]
-                    test_idx = scores['indexs'][cv_idx][1]
+                    val_idx = scores['indexs'][cv_idx][1]
                     write_file( os.path.join(tmp_path_cv, 'train_idx.txt'),
                                 "\n".join(list(map(str, train_idx))))
 
-                    write_file( os.path.join(tmp_path_cv, 'test_idx.txt'),
-                                "\n".join(list(map(str, test_idx))))
+                    write_file( os.path.join(tmp_path_cv, 'val_idx.txt'),
+                                "\n".join(list(map(str, val_idx))))
 
                 if save_predict:
                     predictions = score_model.predict(X)
@@ -197,12 +289,14 @@ class AmClassifier(AmBaseLearn):
         self.backend.tmp_persistence(tmp_path)
         return self
 
-    def _fit_imblearn(self, X, y, random_state=None,
+    def _fit_imblearn(self, X, y, random_state=None, scoring=None,
                       imblearn_method=None, imblearn_params=None,
-                      cv_num=1, cv_params=None, test_size=0.3,
+                      cv_num=1, cv_params=None, val_size=0.3,
                       save_model=True, save_predict=True,
-                      save_train_test_idx=True,
-                      predict_types='dataframe', classifier_params=None):
+                      save_train_val_idx=True,
+                      predict_types='dataframe', **fit_params):
+        self.backend.logger.info('Start Imblearn.')
+        imblearn_start_time = time.time()
         imblearn = ImblearnPreprocess()
         if 'random_state' not in imblearn_params:
             imblearn_params['random_state'] = random_state
@@ -219,33 +313,57 @@ class AmClassifier(AmBaseLearn):
         else:
             raise ValueError("imblearn result error!")
 
+        self.backend.logger.info(
+            '\tData imblearn finished in {:.4f} seconds.'.format(
+                time.time() - imblearn_start_time))
+
         for imblearn_idx in range(n_subsets):
+            self.backend.logger.info('Start imblearn_{} classification.'.format(
+                imblearn_idx))
+            start_time = time.time()
             X_imb = np.array(copy(X))[imblearn_idx, :, :]
             y_imb = np.array(copy(y))[imblearn_idx, :]
             self._tmp_path = os.path.join(self.backend.tmp_path,
                                           'imblearn_{}'.format(imblearn_idx))
             self._fit_cv(
-                X=X_imb, y=y_imb, random_state=random_state,
-                cv_params=cv_params, cv_num=cv_num, test_size=test_size,
+                X=X_imb, y=y_imb, random_state=random_state, scoring=scoring,
+                cv_params=cv_params, cv_num=cv_num, val_size=val_size,
                 save_model=save_model, save_predict=save_predict,
                 predict_types=predict_types,
-                save_train_test_idx=save_train_test_idx)
+                save_train_val_idx=save_train_val_idx, **fit_params)
             score_model_list.append(
                 (self.best_score_,
                  (self.best_model_,
                   "imblearn_{}_{}".format(imblearn_idx, self.best_model_tag_))))
-        print(score_model_list)
+            self.backend.logger.info(
+                "\tImblearn_{} classification finish in {:.4f} seconds. "
+                "It's best {} score is {:.4f}".format(
+                    imblearn_idx, time.time() - start_time,
+                    self.score_name, self.best_score_))
+
+
         self.best_score_, (self.best_model_, self.best_model_tag_) = \
             max(score_model_list, key=lambda x: x[0])
+        self.backend.logger.info('Whole classification finish in {:.4f} '
+                                 'seconds. The best validation {} score '
+                                 'is {:.4f}'.format(
+            time.time() - imblearn_start_time,
+            self.score_name, self.best_score_))
+
         return self
 
     def predict(self, X):
         check_is_fitted(self, 'best_model_')
         return self.best_model_.predict(X)
 
-    def score(self, X):
+    def calc_score(self, X, y, scoring=None):
         check_is_fitted(self, 'best_model_')
-        pass
+        scores, _ = \
+            calc_scores(X=X, y=y, estimator=self.best_model_,
+                        scoring=scoring if scoring is not None
+                        else self.scoring)
+
+        return scores
 
     def predict_proba(self, X):
         check_is_fitted(self, 'best_model_')
@@ -274,14 +392,11 @@ class AmClassifier(AmBaseLearn):
 
     @property
     def default_classifier(self):
-        """Read the default environment file to find the default comprehensive
-           classifier at present.
-
+        """Find the default classifier by reading the default environment file.
 
         Returns:
-
-        _default_classifier: object
-            Returns default classifier
+            default_classifier: ClassifierMixin object
+                Default classifier.
 
         """
         self.default_classifier_ = self.backend.def_env["default_classifier"]
@@ -289,10 +404,11 @@ class AmClassifier(AmBaseLearn):
 
     @property
     def valid_components(self):
-        """
+        """Find all supported classifiers.
+
         Returns:
-        valid_components: numpy.array([[classifier name, object], ...])
-                          Returns valid classifiers
+            valid_components: numpy.array([[classifier name, object], ...])
+                Valid classifiers
         """
         if not hasattr(self, "valid_components_"):
             classifiers = np.array([est for est in all_estimators() if
