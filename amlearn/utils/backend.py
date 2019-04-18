@@ -10,17 +10,30 @@ from amlearn.utils.directory import auto_rename_file, create_path, write_file, \
 from amlearn.utils.logging import setup_logger, get_logger
 from sklearn.externals import joblib
 
+"""
+All Amlearn naming conventions:
+    If name start with "_", it's private function.
+    If name end with "_", it's private property.
+    
+"""
+
 
 class BackendContext(object):
     """Utility class to prepare amlearn needed paths.
 
     Args:
-        output_path:
-        tmp_path:
-        delete_tmp_folder:
-        auto_rename:
+        output_path: str (default: /tmp/amlearn/task_%pid/output_%timestamp)
+            amlearn beckend output path.
+        tmp_path: str (default: /tmp/amlearn/task_%pid/tmp_%timestamp)
+            Amlearn beckend temporary output path.
+        delete_tmp_folder: boolean (default: True)
+            Whether delete temporary output path after temporary persistence.
+        auto_rename: boolean (default: True)
+            Whether auto rename output path. (TODO: Now this features not done.)
         overwrite_path:
+            Whether overwrite when output file exists.
         merge_path:
+            Whether merge path when output file exists.
     """
 
     def __init__(self, output_path=None, tmp_path=None, delete_tmp_folder=True,
@@ -32,57 +45,61 @@ class BackendContext(object):
         self.auto_rename = auto_rename
         self.overwrite_path = overwrite_path
         self.merge_path = merge_path
-        self._prepare_paths(output_path, tmp_path)
         class_name = self.__class__.__name__
-        setup_logger(os.path.join(self._output_path,
+        self._prepare_paths(output_path, tmp_path)
+        setup_logger(os.path.join(self.output_path_,
                                   "amlearn_{}.log".format(class_name)))
-        self._logger = get_logger(class_name)
+        self.logger_ = get_logger(class_name)
+        self.logger_.info("!!! Amlearn temporary output path is : {},\n"
+                          "!!! Amlearn output path is : {}".format(
+            self.tmp_path, self.output_path))
 
     @property
     def output_path(self):
         # Return the absolute path with ~ and environment variables expanded.
-        if not hasattr(self, '_abs_output_path'):
-            self._abs_output_path = \
-                os.path.expanduser(os.path.expandvars(self._output_path))
-        return self._abs_output_path
+        if not hasattr(self, '_absoutput_path_'):
+            self._absoutput_path_ = \
+                os.path.expanduser(os.path.expandvars(self.output_path_))
+        return self._absoutput_path_
 
     @property
     def tmp_path(self):
         # Return the absolute path with ~ and environment variables expanded.
-        if not hasattr(self, '_abs_tmp_path'):
-            self._abs_tmp_path = \
-                os.path.expanduser(os.path.expandvars(self._tmp_path))
-            if self._abs_tmp_path.endswith('/'):
-                self._abs_tmp_path = self._abs_tmp_path[:-1]
-        return self._abs_tmp_path
+        if not hasattr(self, 'abs_tmp_path_'):
+            self.abs_tmp_path_ = \
+                os.path.expanduser(os.path.expandvars(self.tmp_path_))
+            if self.abs_tmp_path_.endswith('/'):
+                self.abs_tmp_path_ = self.abs_tmp_path_[:-1]
+        return self.abs_tmp_path_
 
-    def _prepare_paths(self, output_path, tmp_path=None,
-                       auto_rename=False, overwrite=False):
+    def _prepare_paths(self, output_path, tmp_path=None, auto_rename=False):
         timestamp = time.time()
         pid = os.getpid()
 
-        self._output_path = output_path if output_path \
+        self.output_path_ = output_path if output_path \
             else '/tmp/amlearn/task_%d/output_%d' % (pid, int(timestamp))
 
-        self._tmp_path = tmp_path if tmp_path \
+        self.tmp_path_ = tmp_path if tmp_path \
             else '/tmp/amlearn/task_%d/tmp_%d' % (pid, int(timestamp))
 
         if auto_rename:
-            if os.path.exists(self._output_path):
-                self._output_path = auto_rename_file(self._output_path)
-            if os.path.exists(self._tmp_path):
-                self._tmp_path = auto_rename_file(self._tmp_path)
+            if os.path.exists(self.output_path_):
+                self.output_path_ = auto_rename_file(self.output_path_)
+            if os.path.exists(self.tmp_path_):
+                self.tmp_path_ = auto_rename_file(self.tmp_path_)
 
-        create_path(self._output_path,
+        create_path(self.output_path_,
                     overwrite=self.overwrite_path, merge=self.merge_path)
-        self._output_path_created = True
-
-        create_path(self._tmp_path,
+        self.output_path_created_ = True
+        create_path(self.tmp_path_,
                     overwrite=self.overwrite_path, merge=self.merge_path)
-        self._tmp_path_created = True
+        self.tmp_path_created_ = True
 
 
 class Backend(object):
+    """Utility class to load default environment, persistent output path,
+       calculate running time, and so on.
+    """
     def __init__(self, context):
         self.context = context
         if not os.path.exists(self.output_path):
@@ -128,27 +145,27 @@ class Backend(object):
 
     @property
     def def_env(self):
-        if not hasattr(self, "_def_env"):
+        if not hasattr(self, "def_env_"):
             with open(os.path.join(os.path.dirname(__file__),
                                    'default_environment.yaml'), 'r') as lf:
-                self._def_env = yaml.load(lf)
-        return self._def_env
+                self.def_env_ = yaml.load(lf)
+        return self.def_env_
 
 
 class MLBackend(Backend):
+    """Utility class to load model, save model and save predictions."""
     def _get_prediction_output_dir(self, name='all'):
         return os.path.join(self.tmp_path,
                             'predictions_{}'.format(name))
 
     @property
     def valid_predictions_type(self):
-        if not hasattr(self, '_valid_predictions_type'):
+        if not hasattr(self, 'valid_predictions_type_'):
             functions = dir(self)
-            print(functions)
-            self._valid_predictions_type = \
+            self.valid_predictions_type_ = \
                 [func.split('_')[-1] for func in functions
                  if func.startswith('save_predictions_as_')]
-        return self._valid_predictions_type
+        return self.valid_predictions_type_
 
     def save_predictions_as_npy(self, predictions,
                                 seed, name='all'):
@@ -200,6 +217,7 @@ class MLBackend(Backend):
 
 
 class FeatureBackend(Backend):
+    """Utility class to save featurized features."""
     def _get_featurizer_output_dir(self):
         return os.path.join(self.tmp_path, 'featurizer')
 
