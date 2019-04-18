@@ -1,7 +1,6 @@
 import os
 import lockfile
 import shutil
-from amlearn.utils.check import check_output_path
 
 
 def copy_path(source_path, sink_path):
@@ -13,18 +12,21 @@ def delete_path(path):
         shutil.rmtree(path)
 
 
-def create_path(path, overwrite=False, merge=False):
+def create_path(path, overwrite=False, merge=False, verbosity=0):
     if os.path.exists(path):
         if overwrite:
             delete_path(path)
-            print("Delete previous path {}.".format(path))
+            if verbosity > 0:
+                print("Delete previous path {}.".format(path))
         elif merge:
-            print("Path {} exists, just write files here.".format(path))
+            if verbosity > 0:
+                print("Path {} exists, just write files here.".format(path))
         else:
             raise FileExistsError("path {} already exists.".format(path))
     else:
         os.makedirs(path)
-    print("Create path {} successful.".format(path))
+    if verbosity > 0:
+        print("Create path {} successful.".format(path))
 
 
 def auto_rename_file(file):
