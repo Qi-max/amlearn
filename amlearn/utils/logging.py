@@ -4,12 +4,14 @@ import logging
 import logging.config
 
 
-def setup_logger(output_file=None):
+def setup_logger(logger_path=None):
     with open(os.path.join(os.path.dirname(__file__),
                            'amlearn_logging.yaml'), 'r') as lf:
         config_dict = yaml.load(lf)
-    if output_file is not None:
-        config_dict['handlers']['info_file_handler']['filename'] = output_file
+    if logger_path is not None:
+        config_dict['handlers']['info_file_handler']['filename'] = logger_path
+    else:
+        del config_dict['handlers']['info_file_handler']
     logging.config.dictConfig(config_dict)
 
 

@@ -6,7 +6,7 @@ formatters:
 handlers:
     console:
         class: logging.StreamHandler
-        level: WARNING
+        level: INFO
         formatter: simple
         stream: ext://sys.stdout
 
@@ -22,20 +22,29 @@ handlers:
 loggers:
     BackendContext:
         level: DEBUG
-        handlers: [info_file_handler]
+        handlers: [console, info_file_handler]
         propagate: no
     MLBackend:
         level: DEBUG
-        handlers: [info_file_handler]
+        handlers: [console, info_file_handler]
         propagate: no
-    Amlearn_ML:
+    DataPreprocess:
         level: DEBUG
-        handlers: [info_file_handler]
+        handlers: [console, info_file_handler]
+        propagate: no
+    FeatureSelection:
+        level: DEBUG
+        handlers: [console, info_file_handler]
         propagate: no
     Amlearn_Featurizer:
         level: DEBUG
-        handlers: [info_file_handler]
+        handlers: [console, info_file_handler]
         propagate: no
+    Amlearn_ML:
+        level: DEBUG
+        handlers: [console, info_file_handler]
+        propagate: no
+
 roots:
     level: DEBUG
     handlers: [console]
