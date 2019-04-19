@@ -15,6 +15,7 @@ from amlearn.learn.sklearn_patch import cross_validate
 from amlearn.learn.sklearn_patch import calc_scores
 from amlearn.preprocess.preprocess import ImblearnPreprocess
 from amlearn.utils.backend import BackendContext, MLBackend
+from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import ClassifierMixin
@@ -38,15 +39,25 @@ class AmClassifier(AmBaseLearn):
             environment configuration.
         classifier_params: dict (default: None)
             The classifier parameters.
-        #TODO: Define decimals and seed later.
+        random_state: int, RandomState instance or None, optional (default=0)
+            If int, random_state is the seed used by the random number generator;
+            If RandomState instance, random_state is the random number generator;
+            If None, the random number generator is the RandomState instance used
+            by `np.random`.
+            #TODO: Support dict, define different random_state to different method.
         decimals: int (default: None)
             Output decimals.
+            #TODO: Define decimals and seed later.
         seed: int (default: 1)
             Random seed
 
     """
-    def __init__(self, backend=None, classifier=None,
-                 classifier_params=None, decimals=None, seed=1):
+    def __init__(self, backend=None, random_state=None,
+                 classifier=None, classifier_params=None,
+                 decimals=None, seed=1):
+
+        self.random_state = random_state
+
         # Get all supported classifiers
         classifiers_dict = dict(self.valid_components)
 
@@ -67,9 +78,15 @@ class AmClassifier(AmBaseLearn):
                              'are {}'.format(classifier,
                                              classifiers_dict.keys()))
         if classifier_params is None:
-            classifier_params = {}
-        self.classifier = classifier if isinstance(classifier, ClassifierMixin) \
-            else classifiers_dict[classifier_name](**classifier_params)
+            classifier_params = {'random_state': random_state}
+        if 'random_state' not in classifier_params:
+            classifier_params['random_state'] = random_state
+
+        classifier_class = classifier if isinstance(classifier, ClassifierMixin) \
+            else classifiers_dict[classifier_name]
+
+        classifier_params = appropriate_kwargs(classifier_params, classifier_class)
+        self.classifier = classifier_class(**classifier_params)
 
         # Set backend object
         if backend is None:
@@ -81,9 +98,9 @@ class AmClassifier(AmBaseLearn):
             'Initialize classification, classifier is : \n\t{}'.format(
                 self.classifier))
 
-    def fit(self, X, y, random_state=None, scoring=None,
-            cv_num=1, cv_params=None, val_size=0.3,
-            imblearn=False, imblearn_method=None, imblearn_params=None,
+    def fit(self, X, y, scoring=None,
+            cv=5, cv_params=None, val_size=0.3,
+            imblearn=True, imblearn_method=None, imblearn_params=None,
             save_model=True, save_prediction=True, save_train_val_idx=True,
             prediction_types='dataframe', **fit_params):
         """Fit the amlearn classifier model.
@@ -94,18 +111,13 @@ class AmClassifier(AmBaseLearn):
             y: array-like, optional, default: None
                 The target variable to try to predict in the case of
                 supervised learning.
-            random_state: int, RandomState instance or None, optional (default=0)
-                If int, random_state is the seed used by the random number generator;
-                If RandomState instance, random_state is the random number generator;
-                If None, the random number generator is the RandomState instance used
-                by `np.random`.
             scoring: string, callable or None, optional, default: None
                 A string (see model evaluation documentation) or
                 a scorer callable object / function with signature
                 ``scorer(estimator, X, y)``.
-            cv_num: int. (default: 1)
+            cv: int. (default: 1)
                 Determines the cross-validation splitting strategy.
-                If cv_num is 1, not use cross_validation, just fit the
+                If cv is 1, not use cross_validation, just fit the
                 model by train_test_split.
             cv_params: dict. (default: {})
                 Cross-validation parameters.
@@ -143,8 +155,8 @@ class AmClassifier(AmBaseLearn):
         self.imblearn = imblearn
         if imblearn:
             self._fit_imblearn(
-                X, y, random_state=random_state, scoring=scoring,
-                cv_num=cv_num, cv_params=cv_params, val_size=val_size,
+                X, y, random_state=self.random_state, scoring=scoring,
+                cv=cv, cv_params=cv_params, val_size=val_size,
                 imblearn_method=imblearn_method,
                 imblearn_params=imblearn_params, save_model=save_model,
                 save_prediction=save_prediction,
@@ -152,8 +164,8 @@ class AmClassifier(AmBaseLearn):
                 prediction_types=prediction_types, **fit_params)
         else:
             self._fit_cv(
-                X, y, random_state=random_state, scoring=scoring,
-                cv_params=cv_params, cv_num=cv_num, val_size=val_size,
+                X, y, random_state=self.random_state, scoring=scoring,
+                cv_params=cv_params, cv=cv, val_size=val_size,
                 save_model=save_model, save_prediction=save_prediction,
                 prediction_types=prediction_types,
                 save_train_val_idx=save_train_val_idx, **fit_params)
@@ -170,7 +182,6 @@ class AmClassifier(AmBaseLearn):
         train_idx = list(map(int, train_idx))
         val_idx = list(map(int, val_idx))
 
-        np.random.seed(random_state)
         classifier = classifier.fit(X_train, y_train, **fit_params)
         ret['models'] = [classifier]
         ret['indexs'] = [[train_idx, val_idx]]
@@ -199,12 +210,12 @@ class AmClassifier(AmBaseLearn):
         return ret, scorers
 
     def _fit_cv(self, X, y, random_state=None, scoring=None,
-                cv_num=1, cv_params=None, val_size=0.3,
+                cv=1, cv_params=None, val_size=0.3,
                 save_model=True, save_prediction=True, prediction_types='dataframe',
                 save_train_val_idx=True, **fit_params):
 
-        # If user's cv_params contains 'cv_num' parameter, use the max value
-        # between function parameter 'cv_num' and cv_params's 'cv_num'.
+        # If user's cv_params contains 'cv' parameter, use the max value
+        # between function parameter 'cv' and cv_params's 'cv'.
         if not self.imblearn:
             self.backend.logger.info('Start Cross Validation.')
             cv_start_time = time.time()
@@ -212,18 +223,18 @@ class AmClassifier(AmBaseLearn):
         if cv_params is None:
             cv_params = {}
 
-        if 'cv_num' in cv_params.keys():
-            cv_num = max(cv_num, cv_params['cv_num'])
-            cv_params.pop('cv_num')
+        if 'cv' in cv_params.keys():
+            cv = max(cv, cv_params['cv'])
+            cv_params.pop('cv')
 
         if 'scoring' in cv_params.keys():
             cv_params.pop('scoring')
 
-        if cv_num > 1:
+        if cv > 1:
             np.random.seed(random_state)
             results, scorers = \
                 cross_validate(estimator=self.classifier, scoring=scoring,
-                               fit_params=fit_params, X=X, y=y, cv=cv_num,
+                               fit_params=fit_params, X=X, y=y, cv=cv,
                                **cv_params)
         else:
             results, scorers = self._fit(
@@ -232,7 +243,7 @@ class AmClassifier(AmBaseLearn):
                 return_train_score=cv_params.get('return_train_score', False),
                 scoring=scoring, **fit_params)
 
-            cv_num = 1
+            cv = 1
 
         # TODO: now if scoring is more than one, score_name only can be the first of them.
         self.score_name = self.score_name if hasattr(self, 'score_name') \
@@ -240,8 +251,8 @@ class AmClassifier(AmBaseLearn):
         self.best_score_, (self.best_model_, self.best_model_tag_)= \
             max(zip(results['test_{}'.format(self.score_name)],
                     zip(results['models'],
-                        [''] if cv_num == 1 else
-                        ["cv_{}".format(i) for i in range(cv_num)])),
+                        [''] if cv == 1 else
+                        ["cv_{}".format(i) for i in range(cv)])),
                 key=lambda x: x[0])
 
         # get temporary path, if self._tmp_path exist get it (most create by
@@ -257,7 +268,7 @@ class AmClassifier(AmBaseLearn):
                     self.score_name, self.best_score_))
 
         if save_model or save_train_val_idx or save_prediction:
-            for cv_idx in range(cv_num):
+            for cv_idx in range(cv):
                 tmp_path_cv = os.path.join(tmp_path, "cv_{}".format(cv_idx))
                 create_path(tmp_path_cv)
                 score_model = results['models'][cv_idx]
@@ -292,13 +303,18 @@ class AmClassifier(AmBaseLearn):
 
     def _fit_imblearn(self, X, y, random_state=None, scoring=None,
                       imblearn_method=None, imblearn_params=None,
-                      cv_num=1, cv_params=None, val_size=0.3,
+                      cv=1, cv_params=None, val_size=0.3,
                       save_model=True, save_prediction=True,
                       save_train_val_idx=True,
                       prediction_types='dataframe', **fit_params):
         self.backend.logger.info('Start Imblearn.')
         imblearn_start_time = time.time()
         imblearn = ImblearnPreprocess()
+        if imblearn_method is None:
+            imblearn_method = 'EasyEnsemble'
+        if imblearn_params is None:
+            imblearn_method = {"random_state": self.random_state,
+                               "n_subsets": 3}
         if 'random_state' not in imblearn_params:
             imblearn_params['random_state'] = random_state
         X, y = imblearn.fit(X, y, imblearn_method, imblearn_params)
@@ -328,7 +344,7 @@ class AmClassifier(AmBaseLearn):
                                           'imblearn_{}'.format(imblearn_idx))
             self._fit_cv(
                 X=X_imb, y=y_imb, random_state=random_state, scoring=scoring,
-                cv_params=cv_params, cv_num=cv_num, val_size=val_size,
+                cv_params=cv_params, cv=cv, val_size=val_size,
                 save_model=save_model, save_prediction=save_prediction,
                 prediction_types=prediction_types,
                 save_train_val_idx=save_train_val_idx, **fit_params)
