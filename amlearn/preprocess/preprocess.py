@@ -12,11 +12,10 @@ from sklearn.preprocessing import StandardScaler
 class DataPreprocess(BasePreprocess):
 
     def __init__(self, scaler=None, preprocess_params=None, test_split=None,
-                 logger=None):
+                 logger_path=None):
         """
 
         Args:
-            feature_selection:
             scaler:
             preprocess_params:
             test_split: use train test split, test percent
@@ -27,8 +26,8 @@ class DataPreprocess(BasePreprocess):
         self.preprocess_params = preprocess_params \
             if preprocess_params is not None else {}
         self.test_split = test_split
-        setup_logger()
-        self.logger = get_logger(self.__class__.__name__) if logger is None else logger
+        setup_logger(logger_path=logger_path)
+        self.logger = get_logger(self.__class__.__name__)
         self.logger.info("Initialize preprocess.")
 
     def fit_transform(self, X, y=None):
@@ -43,17 +42,17 @@ class DataPreprocess(BasePreprocess):
             split_start = time.time()
             X_train_val, X_test, y_tarin_val, y_test = \
                 train_test_split(X, y, **self.test_split)
-            self.logger.info("Train_validation test split finish in {} seconds"
-                             "".format(time.time() - split_start))
+            self.logger.info("Train_validation test split finish in {:.4f} "
+                             "seconds".format(time.time() - split_start))
 
             X_train_val = scaler_pl.fit_transform(X_train_val)
             X_test = scaler_pl.transform(X_test)
-            self.logger.info("Preprocess finish in {} seconds.".format(
+            self.logger.info("Preprocess finish in {:.4f} seconds.".format(
                 time.time() - start_time))
             return X_train_val, y_tarin_val, X_test, y_test
         else:
             X = scaler_pl.fit_transform(X)
-            self.logger.info("Preprocess finish in {} seconds.".format(
+            self.logger.info("Preprocess finish in {:.4f} seconds.".format(
                 time.time() - start_time))
             return X, y, None, None
 
@@ -83,10 +82,16 @@ class ImblearnPreprocess(BasePreprocess):
                                  ' are {}'.format(imblearn_method,
                                                   imblearn_methods.keys()))
 
-        elif imblearn_method.__name__ not in imblearn_methods.keys():
+        elif callable(imblearn_method):
+            if imblearn_method.__name__ not in imblearn_methods.keys():
+                raise ValueError('imblearn_method {} is unknown,Possible values'
+                                 ' are {}'.format(imblearn_method,
+                                                  imblearn_methods.keys()))
+        else:
             raise ValueError('imblearn_method {} is unknown,Possible values'
                              ' are {}'.format(imblearn_method,
                                               imblearn_methods.keys()))
+
         imbalanced_sampling = imblearn_method
 
         if imblearn_kwargs:
