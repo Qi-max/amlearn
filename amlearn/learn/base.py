@@ -17,7 +17,7 @@ class AmBaseLearn(six.with_metaclass(ABCMeta, BaseEstimator)):
         pass
 
     @abstractmethod
-    def predict(self, X, y):
+    def predict(self, X):
         pass
 
     @abstractmethod

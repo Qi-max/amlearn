@@ -212,9 +212,6 @@ class AmRegressor(AmBaseLearn):
         # TODO: now if scoring is more than one, score_name only can be the first of them.
         self.score_name = self.score_name if hasattr(self, 'score_name') \
             else list(scorers.keys())[0]
-        print(results['models'],
-                        [''] if cv_num == 1 else
-                        ["cv_{}".format(i) for i in range(cv_num)])
         self.best_score_, (self.best_model_, self.best_model_tag_)= \
             max(zip(results['test_{}'.format(self.score_name)],
                     zip(results['models'],
