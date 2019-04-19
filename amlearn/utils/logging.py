@@ -10,8 +10,9 @@ def setup_logger(logger_path=None):
         config_dict = yaml.load(lf)
     if logger_path is not None:
         config_dict['handlers']['info_file_handler']['filename'] = logger_path
-    else:
-        del config_dict['handlers']['info_file_handler']
+        for log_dict in config_dict['loggers'].values():
+            log_dict['handlers'] += ['info_file_handler']
+
     logging.config.dictConfig(config_dict)
 
 

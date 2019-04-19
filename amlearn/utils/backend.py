@@ -50,8 +50,8 @@ class BackendContext(object):
         setup_logger(os.path.join(self.output_path_,
                                   "amlearn_{}.log".format(class_name)))
         self.logger_ = get_logger(class_name)
-        self.logger_.info("!!! Amlearn temporary output path is : {},\n"
-                          "!!! Amlearn output path is : {}".format(
+        self.logger_.info("\n\t!!! Amlearn temporary output path is : {}\n"
+                          "\t!!! Amlearn output path is : {}\n".format(
             self.tmp_path, self.output_path))
 
     @property

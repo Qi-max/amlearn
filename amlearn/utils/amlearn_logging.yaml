@@ -22,27 +22,27 @@ handlers:
 loggers:
     BackendContext:
         level: DEBUG
-        handlers: [console, info_file_handler]
+        handlers: [console]
         propagate: no
     MLBackend:
         level: DEBUG
-        handlers: [console, info_file_handler]
+        handlers: [console]
         propagate: no
     DataPreprocess:
         level: DEBUG
-        handlers: [console, info_file_handler]
+        handlers: [console]
         propagate: no
     FeatureSelection:
         level: DEBUG
-        handlers: [console, info_file_handler]
+        handlers: [console]
         propagate: no
     Amlearn_Featurizer:
         level: DEBUG
-        handlers: [console, info_file_handler]
+        handlers: [console]
         propagate: no
     Amlearn_ML:
         level: DEBUG
-        handlers: [console, info_file_handler]
+        handlers: [console]
         propagate: no
 
 roots:
