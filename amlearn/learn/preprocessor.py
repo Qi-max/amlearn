@@ -27,8 +27,7 @@ class Preprocessor(BasePreprocessor):
                 [('variance_check',
                   VarianceThreshold(threshold=(.8 * (1 - .8))))]
 
-        self.scaler = scaler if scaler is not None \
-            else [('standard_scaler', StandardScaler())]
+        self.scaler = scaler
 
         self.preprocessor_params = preprocessor_params \
             if preprocessor_params is not None else {}
@@ -46,7 +45,7 @@ class Preprocessor(BasePreprocessor):
             y: DataFrame
 
         Returns:
-            X_train_val, y_tarin_val, X_test, y_test
+            X_train_val, y_train_val, X_test, y_test
 
         """
         start_time = time.time()
@@ -71,40 +70,41 @@ class Preprocessor(BasePreprocessor):
         self.logger.info("Feature Selector pipeline finish in {:.4f} seconds.".format(
             time.time() - start_time))
 
-        scaler_pl = Pipeline(self.scaler).set_params(**self.preprocessor_params)
-        self.logger.info("Scaler pipeline is \n\t{}.".format(scaler_pl))
+        if self.scaler is not None:
+            scaler_pl = Pipeline(self.scaler).set_params(**self.preprocessor_params)
+            self.logger.info("Scaler pipeline is \n\t{}.".format(scaler_pl))
 
         if self.test_split is not None:
             self.logger.info("Start train_validation test split, "
                              "kwargs is {}".format(self.test_split))
             split_start = time.time()
-            X_train_val, X_test, y_tarin_val, y_test = \
+            X_train_val, X_test, y_train_val, y_test = \
                 train_test_split(X, y, **self.test_split)
             self.logger.info("Train_validation test split finish in {:.4f} "
                              "seconds".format(time.time() - split_start))
+            if self.scaler is not None:
+                scaler_start = time.time()
+                X_train_val = scaler_pl.fit_transform(X_train_val)
+                X_test = scaler_pl.transform(X_test)
+                self.logger.info("Scaler pipeline finish in {:.4f} seconds.".format(
+                    time.time() - scaler_start))
 
-            scaler_start = time.time()
-            X_train_val = scaler_pl.fit_transform(X_train_val)
-            X_test = scaler_pl.transform(X_test)
-            self.logger.info("Scaler pipeline finish in {:.4f} seconds.".format(
-                time.time() - scaler_start))
-
-            self.logger.info("Preprocessor finish in {:.4f} seconds.".format(
-                time.time() - start_time))
-            return \
-                pd.DataFrame(X_train_val, columns=feature_names), y_tarin_val, \
-                pd.DataFrame(X_test, columns=feature_names), y_test,
+                self.logger.info("Preprocessor finish in {:.4f} seconds.".format(
+                    time.time() - start_time))
+            X_train_val = pd.DataFrame(X_train_val, columns=feature_names)
+            X_test = pd.DataFrame(X_test, columns=feature_names)
+            return X_train_val, y_train_val, X_test, y_test
         else:
-            scaler_start = time.time()
-            X = scaler_pl.fit_transform(X)
-            self.logger.info("Scaler pipeline finish in {:.4f} seconds.".format(
-                time.time() - scaler_start))
+            if self.scaler is not None:
+                scaler_start = time.time()
+                X = scaler_pl.fit_transform(X)
+                self.logger.info("Scaler pipeline finish in {:.4f} seconds.".format(
+                    time.time() - scaler_start))
 
             self.logger.info("Preprocessor finish in {:.4f} seconds.".format(
                 time.time() - start_time))
-            return  \
-                pd.DataFrame(X, columns=feature_names, index=X_index), y, \
-                None, None
+            X = pd.DataFrame(X, columns=feature_names, index=X_index)
+            return X , y, None, None
 
     def get_feature_names(self):
         msg = ("This %(name)s instance is not fitted yet. Call 'fit_transform' "

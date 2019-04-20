@@ -6,6 +6,8 @@ to evaluate estimator's performance.
 
 """
 import os
+from collections import OrderedDict
+
 import numpy as np
 from copy import copy
 
@@ -414,7 +416,6 @@ class AmClassifier(AmBaseLearn):
         self.backend.logger.info(
             'Finish saving best model to is :{}'.format(model_file))
 
-
     @property
     def best_model(self):
         check_is_fitted(self, 'best_model_')
@@ -437,7 +438,7 @@ class AmClassifier(AmBaseLearn):
             sorted(zip(self.get_feature_names(),
                        self.best_model_.feature_importances_),
                    key=lambda x: x[1], reverse=True)
-        return dict(feature_importances_dict_)
+        return OrderedDict(feature_importances_dict_)
 
     def get_feature_names(self):
         msg = ("This %(name)s instance is not fitted yet. Call 'fit_transform' "
