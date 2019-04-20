@@ -28,7 +28,7 @@ loggers:
         level: DEBUG
         handlers: [console]
         propagate: no
-    DataPreprocess:
+    Preprocessor:
         level: DEBUG
         handlers: [console]
         propagate: no

@@ -1,11 +1,12 @@
 from __future__ import division
+
+import inspect
 import os
 import sys
 import six
 import operator
 import numpy as np
 import pandas as pd
-
 
 # featurizer check
 from amlearn.utils.data import list_like
@@ -32,6 +33,26 @@ def check_dependency(depend_cls, df_cols,
         return False
 
 
+def appropriate_kwargs(kwargs, func):
+    """
+    Auto get the appropriate kwargs according to those allowed by the func.
+    Args:
+        kwargs (dict): kwargs.
+        func (object): function object.
+
+    Returns:
+        filtered_dict (dict): filtered kwargs.
+
+    """
+    sig = inspect.signature(func)
+    filter_keys = [param.name for param in sig.parameters.values()
+                   if param.kind == param.POSITIONAL_OR_KEYWORD and
+                   param.name in kwargs.keys()]
+    appropriate_dict = {filter_key: kwargs[filter_key]
+                        for filter_key in filter_keys}
+    return appropriate_dict
+
+
 def check_neighbor_col(neighbor_col):
     valid_cols = ['n_neighbors_voro', 'n_neighbors_dist']
     if neighbor_col == "all":
@@ -55,6 +76,7 @@ def is_abstract(c):
     if not len(c.__abstractmethods__):
         return False
     return True
+
 
 def check_file_name(file_name):
     if isinstance(file_name, six.string_types):

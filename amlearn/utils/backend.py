@@ -38,7 +38,9 @@ class BackendContext(object):
 
     def __init__(self, output_path=None, tmp_path=None, delete_tmp_folder=True,
                  auto_rename=False, overwrite_path=False, merge_path=False):
-        if output_path == tmp_path and output_path is not None:
+        if output_path == tmp_path and (output_path is not None
+                                        and output_path != 'tmp'
+                                        and output_path != 'default'):
             raise ValueError('output_path should not be same with tmp_path.')
 
         self.delete_tmp_folder = delete_tmp_folder
@@ -47,18 +49,23 @@ class BackendContext(object):
         self.merge_path = merge_path
         class_name = self.__class__.__name__
         self._prepare_paths(output_path, tmp_path)
-        setup_logger(os.path.join(self.output_path_,
-                                  "amlearn_{}.log".format(class_name)))
+        logger_file = None if self.output_path_ is None else \
+            os.path.join(self.output_path_, "amlearn_{}.log".format(class_name))
+        setup_logger(logger_file=logger_file)
         self.logger_ = get_logger(class_name)
-        self.logger_.info("\n\t!!! Amlearn temporary output path is : {}\n"
-                          "\t!!! Amlearn output path is : {}\n".format(
-            self.tmp_path, self.output_path))
+        if self.tmp_path is not None and self.output_path is not None :
+            self.logger_.info("\n\t!!! Amlearn temporary output path is : {}\n"
+                              "\t!!! Amlearn output path is : {}\n".format(
+                                self.tmp_path, self.output_path))
+        else:
+            self.logger_.info("Haven't set beckend output path yet, the log will"
+                              " only print on terminal.")
 
     @property
     def output_path(self):
         # Return the absolute path with ~ and environment variables expanded.
         if not hasattr(self, '_absoutput_path_'):
-            self._absoutput_path_ = \
+            self._absoutput_path_ = None if self.output_path_ is None else \
                 os.path.expanduser(os.path.expandvars(self.output_path_))
         return self._absoutput_path_
 
@@ -66,34 +73,41 @@ class BackendContext(object):
     def tmp_path(self):
         # Return the absolute path with ~ and environment variables expanded.
         if not hasattr(self, 'abs_tmp_path_'):
-            self.abs_tmp_path_ = \
+            self.abs_tmp_path_ = None if self.tmp_path_ is None else \
                 os.path.expanduser(os.path.expandvars(self.tmp_path_))
-            if self.abs_tmp_path_.endswith('/'):
+            if self.abs_tmp_path_ and self.abs_tmp_path_.endswith('/'):
                 self.abs_tmp_path_ = self.abs_tmp_path_[:-1]
         return self.abs_tmp_path_
 
-    def _prepare_paths(self, output_path, tmp_path=None, auto_rename=False):
+    def _prepare_paths(self, output_path=None, tmp_path=None,
+                       auto_rename=False):
         timestamp = time.time()
         pid = os.getpid()
 
-        self.output_path_ = output_path if output_path \
-            else '/tmp/amlearn/task_%d/output_%d' % (pid, int(timestamp))
+        if output_path == 'tmp' or output_path == 'default':
+            output_path = \
+                '/tmp/amlearn/task_%d/output_%d' % (pid, int(timestamp))
+        self.output_path_ = output_path
 
-        self.tmp_path_ = tmp_path if tmp_path \
-            else '/tmp/amlearn/task_%d/tmp_%d' % (pid, int(timestamp))
+        if tmp_path == 'tmp' or tmp_path == 'default':
+            tmp_path = '/tmp/amlearn/task_%d/tmp_%d' % (pid, int(timestamp))
+        self.tmp_path_ = tmp_path
 
-        if auto_rename:
-            if os.path.exists(self.output_path_):
+        if output_path is not None:
+            if auto_rename and os.path.exists(self.output_path_):
                 self.output_path_ = auto_rename_file(self.output_path_)
-            if os.path.exists(self.tmp_path_):
+
+            create_path(self.output_path_,
+                        overwrite=self.overwrite_path, merge=self.merge_path)
+            self.output_path_created_ = True
+
+        if tmp_path is not None:
+            if auto_rename and os.path.exists(self.tmp_path_):
                 self.tmp_path_ = auto_rename_file(self.tmp_path_)
 
-        create_path(self.output_path_,
-                    overwrite=self.overwrite_path, merge=self.merge_path)
-        self.output_path_created_ = True
-        create_path(self.tmp_path_,
-                    overwrite=self.overwrite_path, merge=self.merge_path)
-        self.tmp_path_created_ = True
+            create_path(self.tmp_path_,
+                        overwrite=self.overwrite_path, merge=self.merge_path)
+            self.tmp_path_created_ = True
 
 
 class Backend(object):
@@ -102,12 +116,15 @@ class Backend(object):
     """
     def __init__(self, context):
         self.context = context
-        if not os.path.exists(self.output_path):
+        if self.output_path and not os.path.exists(self.output_path):
             raise ValueError(
                 "Output path {} does not exist.".format(self.output_path))
+
         self.logger = get_logger(self.__class__.__name__)
-        self.internals_path = os.path.join(self.tmp_path, ".amlearn")
-        create_path(self.internals_path, merge=True)
+
+        if self.tmp_path is not None:
+            self.internals_path = os.path.join(self.tmp_path, ".amlearn")
+            create_path(self.internals_path, merge=True)
 
     @property
     def output_path(self):
@@ -118,6 +135,7 @@ class Backend(object):
         return self.context.tmp_path
 
     def tmp_persistence(self, tmp_path):
+        check_path(self.tmp_path, 'tmp_path', 'BackendContext.tmp_path')
         if self.tmp_path != tmp_path:
             if tmp_path.startswith(self.tmp_path):
                 sub_path = tmp_path[len(self.tmp_path) + 1:]
@@ -126,10 +144,12 @@ class Backend(object):
                 if self.context.delete_tmp_folder:
                     delete_path(tmp_path)
             else:
-                raise ValueError("{} should be Subfolder of {}".format(
+                raise ValueError("{} should be Sub_folder of {}".format(
                     tmp_path, self.tmp_path))
 
     def _get_start_time_filename(self, seed):
+        check_path(self.internals_path, 'internals_path',
+                   'BackendContext.tmp_path')
         seed = int(seed)
         return os.path.join(self.internals_path, "start_time_%d" % seed)
 
@@ -155,6 +175,9 @@ class Backend(object):
 class MLBackend(Backend):
     """Utility class to load model, save model and save predictions."""
     def _get_prediction_output_dir(self, name='all'):
+        check_path(self.tmp_path, 'tmp_path',
+                   'BackendContext.tmp_path')
+
         return os.path.join(self.tmp_path,
                             'predictions_{}'.format(name))
 
@@ -196,6 +219,9 @@ class MLBackend(Backend):
         predict_df.to_csv(predict_file)
 
     def _get_model_dir(self):
+        check_path(self.tmp_path, 'tmp_path',
+                   'BackendContext.tmp_path')
+
         return os.path.join(self.tmp_path)
 
     def save_model(self, model, seed):
@@ -219,6 +245,9 @@ class MLBackend(Backend):
 class FeatureBackend(Backend):
     """Utility class to save featurized features."""
     def _get_featurizer_output_dir(self):
+        check_path(self.tmp_path, 'tmp_path',
+                   'BackendContext.tmp_path')
+
         return os.path.join(self.tmp_path, 'featurizer')
 
     def save_featurizer_as_dataframe(self, output_df, name='all'):
@@ -227,3 +256,20 @@ class FeatureBackend(Backend):
         featurizer_file = os.path.join(featurizer_dir,
                                        'featurizer_{}.csv'.format(name))
         output_df.to_csv(featurizer_file)
+
+
+def check_path(path, path_tag, setup_path_tag=None):
+    if path is None:
+        if setup_path_tag is None:
+            setup_path_tag = path_tag
+        raise EnvironmentError("{} is None, please set {} first!".format(
+            path_tag, setup_path_tag))
+
+
+def check_path_while_saving(path):
+    if path is None:
+        raise EnvironmentError(
+            "If you want to save files, please set BackendContext's tmp_path "
+            "and output_path, if you want to auto save files to "
+            "'/tmp/amlearn/task_%timestamp/output_%pid', "
+            "just set backend to 'tmp' or 'default', not None!")
