@@ -14,11 +14,13 @@ from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import cross_validate
 from amlearn.learn.sklearn_patch import calc_scores
 from amlearn.preprocess.preprocess import ImblearnPreprocess
-from amlearn.utils.backend import BackendContext, MLBackend
+from amlearn.utils.backend import BackendContext, MLBackend, \
+    check_path_while_saving
 from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import ClassifierMixin
+from sklearn.exceptions import NotFittedError
 from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.utils.testing import all_estimators
@@ -92,6 +94,10 @@ class AmClassifier(AmBaseLearn):
         if backend is None:
             backend_context = BackendContext(merge_path=True)
             backend = MLBackend(backend_context)
+        elif backend == 'tmp' or backend == 'default':
+            backend_context = BackendContext(output_path='tmp', tmp_path='tmp',
+                                             merge_path=True)
+            backend = MLBackend(backend_context)
 
         super().__init__(backend, decimals=decimals, seed=seed)
         self.backend.logger.info(
@@ -101,12 +107,12 @@ class AmClassifier(AmBaseLearn):
     def fit(self, X, y, scoring=None,
             cv=5, cv_params=None, val_size=0.3,
             imblearn=True, imblearn_method=None, imblearn_params=None,
-            save_model=True, save_prediction=True, save_train_val_idx=True,
+            save_model=False, save_prediction=False, save_train_val_idx=False,
             prediction_types='dataframe', **fit_params):
         """Fit the amlearn classifier model.
 
         Args:
-            X: array-like
+            X: DataFrame
                 The data to fit. Can be for example a list, or an array.
             y: array-like, optional, default: None
                 The target variable to try to predict in the case of
@@ -153,6 +159,7 @@ class AmClassifier(AmBaseLearn):
         """
         self.scoring = scoring
         self.imblearn = imblearn
+        self.feature_names_ = X.columns
         if imblearn:
             self._fit_imblearn(
                 X, y, random_state=self.random_state, scoring=scoring,
@@ -183,7 +190,7 @@ class AmClassifier(AmBaseLearn):
         val_idx = list(map(int, val_idx))
 
         classifier = classifier.fit(X_train, y_train, **fit_params)
-        ret['models'] = [classifier]
+        ret['estimator'] = [classifier]
         ret['indexs'] = [[train_idx, val_idx]]
 
         val_scores, scorers = calc_scores(X=X_val, y=y_val,
@@ -211,8 +218,9 @@ class AmClassifier(AmBaseLearn):
 
     def _fit_cv(self, X, y, random_state=None, scoring=None,
                 cv=1, cv_params=None, val_size=0.3,
-                save_model=True, save_prediction=True, prediction_types='dataframe',
-                save_train_val_idx=True, **fit_params):
+                save_model=False, save_prediction=False,
+                prediction_types='dataframe',
+                save_train_val_idx=False, **fit_params):
 
         # If user's cv_params contains 'cv' parameter, use the max value
         # between function parameter 'cv' and cv_params's 'cv'.
@@ -250,15 +258,15 @@ class AmClassifier(AmBaseLearn):
             else list(scorers.keys())[0]
         self.best_score_, (self.best_model_, self.best_model_tag_)= \
             max(zip(results['test_{}'.format(self.score_name)],
-                    zip(results['models'],
+                    zip(results['estimator'],
                         [''] if cv == 1 else
                         ["cv_{}".format(i) for i in range(cv)])),
                 key=lambda x: x[0])
 
-        # get temporary path, if self._tmp_path exist get it (most create by
+        # get temporary path, if self.tmp_path_ exist get it (most create by
         # imblearn), else get self.backend.tmp_path
-        tmp_path = self._tmp_path \
-            if hasattr(self, '_tmp_path') else self.backend.tmp_path
+        tmp_path = self.tmp_path_ \
+            if hasattr(self, 'tmp_path_') else self.backend.tmp_path
 
         if not self.imblearn:
             self.backend.logger.info(
@@ -268,10 +276,12 @@ class AmClassifier(AmBaseLearn):
                     self.score_name, self.best_score_))
 
         if save_model or save_train_val_idx or save_prediction:
+            check_path_while_saving(self.backend.tmp_path)
+            check_path_while_saving(self.backend.output_path)
             for cv_idx in range(cv):
                 tmp_path_cv = os.path.join(tmp_path, "cv_{}".format(cv_idx))
                 create_path(tmp_path_cv)
-                score_model = results['models'][cv_idx]
+                score_model = results['estimator'][cv_idx]
                 if save_model:
                     self.backend.save_model(score_model, self.seed)
                 if save_train_val_idx:
@@ -298,7 +308,7 @@ class AmClassifier(AmBaseLearn):
                                 'Possible values are {}'.format(
                                     predict_type,
                                     self.backend.valid_predictions_type))
-        self.backend.tmp_persistence(tmp_path)
+            self.backend.tmp_persistence(tmp_path)
         return self
 
     def _fit_imblearn(self, X, y, random_state=None, scoring=None,
@@ -313,7 +323,7 @@ class AmClassifier(AmBaseLearn):
         if imblearn_method is None:
             imblearn_method = 'EasyEnsemble'
         if imblearn_params is None:
-            imblearn_method = {"random_state": self.random_state,
+            imblearn_params = {"random_state": self.random_state,
                                "n_subsets": 3}
         if 'random_state' not in imblearn_params:
             imblearn_params['random_state'] = random_state
@@ -340,8 +350,12 @@ class AmClassifier(AmBaseLearn):
             start_time = time.time()
             X_imb = np.array(copy(X))[imblearn_idx, :, :]
             y_imb = np.array(copy(y))[imblearn_idx, :]
-            self._tmp_path = os.path.join(self.backend.tmp_path,
-                                          'imblearn_{}'.format(imblearn_idx))
+            if save_model or save_prediction or save_train_val_idx:
+                check_path_while_saving(self.backend.tmp_path)
+                check_path_while_saving(self.backend.output_path)
+                self.tmp_path_ = \
+                    os.path.join(self.backend.tmp_path,
+                                 'imblearn_{}'.format(imblearn_idx))
             self._fit_cv(
                 X=X_imb, y=y_imb, random_state=random_state, scoring=scoring,
                 cv_params=cv_params, cv=cv, val_size=val_size,
@@ -391,10 +405,15 @@ class AmClassifier(AmBaseLearn):
 
     def save_best_model(self):
         check_is_fitted(self, 'best_model_')
+        check_path_while_saving(self.backend.tmp_path)
+        check_path_while_saving(self.backend.output_path)
         model_file = \
             os.path.join(self.backend.output_path,
                          'best_model_{}.pkl'.format(self.best_model_tag_))
         joblib.dump(self.best_model_, model_file)
+        self.backend.logger.info(
+            'Finish saving best model to is :{}'.format(model_file))
+
 
     @property
     def best_model(self):
@@ -402,9 +421,31 @@ class AmClassifier(AmBaseLearn):
         return self.best_model_
 
     @property
+    def best_score(self):
+        check_is_fitted(self, 'best_model_')
+        return self.best_score_
+
+    @property
     def feature_importances_(self):
         check_is_fitted(self, 'best_model_')
         return self.best_model_.feature_importances_
+
+    @property
+    def feature_importances_dict(self):
+        check_is_fitted(self, 'best_model_')
+        feature_importances_dict_ = \
+            sorted(zip(self.get_feature_names(),
+                       self.best_model_.feature_importances_),
+                   key=lambda x: x[1], reverse=True)
+        return dict(feature_importances_dict_)
+
+    def get_feature_names(self):
+        msg = ("This %(name)s instance is not fitted yet. Call 'fit_transform' "
+               "with appropriate arguments before using this method.")
+
+        if not hasattr(self, 'feature_names_'):
+            raise NotFittedError(msg % {'name': type(self).__name__})
+        return self.feature_names_
 
     @property
     def default_classifier(self):

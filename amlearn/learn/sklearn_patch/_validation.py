@@ -217,7 +217,7 @@ def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
     ret['fit_time'] = np.array(fit_times)
     ret['score_time'] = np.array(score_times)
     ret['indexs'] = np.array(indexs)
-    ret['models'] = models
+    ret['estimator'] = models
 
     for name in scorers:
         ret['test_%s' % name] = np.array(test_scores[name])
@@ -233,7 +233,7 @@ def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
                 # warn on key access
                 ret.add_warning(key, message, FutureWarning)
 
-    return ret
+    return ret, scorers
 
 
 def calc_scores(X, y, estimator, scoring=None):
