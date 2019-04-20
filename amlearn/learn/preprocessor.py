@@ -1,7 +1,6 @@
-import os
 import numpy as np
 import time
-
+import pandas as pd
 from amlearn.learn.base import BasePreprocessor
 from amlearn.utils.logging import get_logger, setup_logger
 from imblearn.utils.testing import all_estimators
@@ -10,13 +9,12 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils.validation import check_is_fitted
 
 
 class Preprocessor(BasePreprocessor):
 
     def __init__(self, feature_selector=None, scaler=None,
-                 preprocessor_params=None, test_split=None, logger_path=None):
+                 preprocessor_params=None, test_split=None, logger_file=None):
         """
 
         Args:
@@ -36,7 +34,7 @@ class Preprocessor(BasePreprocessor):
             if preprocessor_params is not None else {}
 
         self.test_split = test_split
-        setup_logger(logger_path=logger_path)
+        setup_logger(logger_file=logger_file)
         self.logger = get_logger(self.__class__.__name__)
         self.logger.info("Initialize preprocessor.")
 
@@ -57,6 +55,8 @@ class Preprocessor(BasePreprocessor):
         self.logger.info("Feature Selector pipeline is \n\t{}.".format(fs_pl))
 
         feature_names = np.array(X.columns)
+        X_index = X.index
+
         X = fs_pl.fit_transform(X)
 
         for fs_name, fs_obj in fs_pl.named_steps.items():
@@ -91,7 +91,9 @@ class Preprocessor(BasePreprocessor):
 
             self.logger.info("Preprocessor finish in {:.4f} seconds.".format(
                 time.time() - start_time))
-            return X_train_val, y_tarin_val, X_test, y_test
+            return \
+                pd.DataFrame(X_train_val, columns=feature_names), y_tarin_val, \
+                pd.DataFrame(X_test, columns=feature_names), y_test,
         else:
             scaler_start = time.time()
             X = scaler_pl.fit_transform(X)
@@ -100,7 +102,9 @@ class Preprocessor(BasePreprocessor):
 
             self.logger.info("Preprocessor finish in {:.4f} seconds.".format(
                 time.time() - start_time))
-            return X, y, None, None
+            return  \
+                pd.DataFrame(X, columns=feature_names, index=X_index), y, \
+                None, None
 
     def get_feature_names(self):
         msg = ("This %(name)s instance is not fitted yet. Call 'fit_transform' "

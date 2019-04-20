@@ -1,6 +1,12 @@
 from abc import ABCMeta, abstractmethod
 from sklearn.externals import six
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
+
+
+class BasePreprocessor(BaseEstimator, TransformerMixin):
+    """Base class for all preprocess in amlearn."""
+
+    pass
 
 
 class AmBaseLearn(six.with_metaclass(ABCMeta, BaseEstimator)):
