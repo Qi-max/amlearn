@@ -1,73 +1,530 @@
+import json
 import os
-import numpy as np
-import pandas as pd
+import pickle
 import six
 from abc import ABCMeta
-from amlearn.featurize.featurizers.base import BaseFeaturize, remain_df_calc
-from amlearn.featurize.featurizers.voro_and_dist import VoroNN, DistanceNN
-from amlearn.utils.check import check_featurizer_X, check_dependency
-from amlearn.utils.data import read_imd
+from collections import OrderedDict
+from math import pi
+import numpy as np
+import pandas as pd
+
+from scipy.spatial.qhull import ConvexHull
+from amlearn.data.site import Site
+from amlearn.featurize.base import BaseFeaturize, remain_df_calc, BaseSRO
+from amlearn.utils.check import check_featurizer_X
+from amlearn.utils.data import read_imd, read_lammps_dump, solid_angle, \
+    triangular_angle, calc_stats, triangle_area, tetra_volume
+from amlearn.utils.verbose import VerboseReporter
 
 try:
-    from amlearn.featurize.featurizers.sro_mro import voronoi_stats, boop
+    from amlearn.featurize.featurizers.src import voronoi_stats, boop
 except Exception:
     print("import fortran file voronoi_stats error!\n")
 
+module_dir = os.path.dirname(os.path.abspath(__file__))
 
-class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
-    def __init__(self, atoms_df=None, tmp_save=True, context=None,
-                 dependency=None, remain_original_cols=False, **nn_kwargs):
+
+class PackingOfSite(object):
+    def __init__(self, site, calc_volume_area='all',
+                 calc_packing_efficiency=True,
+                 radii=None, radius_type="miracle_radius"):
+        """
+        Args:
+            site: object
+                Amlearn DataStructure Site.
+            calc_volume_area: str
+                'volume' or 'area' or 'all'.
+                if 'volume', only calculate volume;
+                if 'area', only calculate area;
+                if 'all', calculate both volume and area.
+            radii: dict
+            radius_type: str.
+                'miracle_radius' or 'atomic_radius',
+                if miracle_radius use radius measured by miracle methods.
+                if atomic_radius use radius measured by conventional methods.
+        """
+        self.site = site
+        self.calc_volume_area = calc_volume_area
+        self.calc_packing_efficiency = calc_packing_efficiency
+        self.radii = self._load_radii() if radii is None else radii
+        self.radius_type = radius_type
+
+    # def __getattr__(self, p):
+    #     return getattr(self.site, p)
+
+    def convex_hull(self):
+        if not hasattr(self, 'convex_hull_'):
+            self.convex_hull_ = ConvexHull(self.site.nn_coords())
+        return self.convex_hull_
+
+    def calc_angle_lists(self):
+        solid_angle_lists_ = list()
+        triangular_angle_lists_ = list()
+        # get convex surface indices
+        convex_surfaces_indices = self.convex_hull().simplices
+        # get nn_coords
+        nn_coords = self.site.nn_coords()
+        # set leaf node indices for find leaf site coords
+        leaf_indices_list = [(1, 2), (0, 2), (0, 1)]
+
+        for convex_surface_indices in convex_surfaces_indices:
+            solid_angle_list_ = list()
+            triangular_angle_list_ = list()
+            for idx, leaf_indices in zip(convex_surface_indices,
+                                         leaf_indices_list):
+
+                if self.calc_volume_area == 'area' or \
+                        self.calc_volume_area == 'all':
+                    triangular_angle_ = triangular_angle(nn_coords[idx],
+                        nn_coords[convex_surface_indices[leaf_indices[0]]],
+                        nn_coords[convex_surface_indices[leaf_indices[1]]])
+                    triangular_angle_list_.append(triangular_angle_)
+                    if self.calc_volume_area == 'area' and \
+                            not self.calc_packing_efficiency:
+                        solid_angle_list_.append(-1)
+
+                if self.calc_volume_area == 'volume' or \
+                        self.calc_volume_area == 'all' or \
+                        self.calc_packing_efficiency:
+                    solid_angle_ = solid_angle(
+                        nn_coords[idx], self.site.coords,
+                        nn_coords[convex_surface_indices[leaf_indices[0]]],
+                        nn_coords[convex_surface_indices[leaf_indices[1]]])
+                    solid_angle_list_.append(solid_angle_)
+                    if self.calc_volume_area == 'volume':
+                        triangular_angle_list_.append(-1)
+
+            solid_angle_lists_.append(solid_angle_list_)
+            triangular_angle_lists_.append(triangular_angle_list_)
+
+        self.solid_angle_lists_ = solid_angle_lists_
+        self.triangular_angle_lists_ = triangular_angle_lists_
+        return self.solid_angle_lists_, self.triangular_angle_lists_
+
+    @property
+    def solid_angle_lists(self):
+        if not hasattr(self, 'solid_angle_lists_'):
+            self.calc_angle_lists()
+        return self.solid_angle_lists_
+
+    @property
+    def triangular_angle_lists(self):
+        if not hasattr(self, 'triangular_angle_lists_'):
+            self.calc_angle_lists()
+        return self.triangular_angle_lists_
+
+    @property
+    def neighbors_solid_angle(self):
+        if not hasattr(self, 'neighbors_solid_angle_'):
+            # init neighbors_solid_angle list
+            neighbors_solid_angle = [0] * len(self.site.neighbors)
+
+            # iter convex surface (neighbor indices)
+            for convex_surface_indices, solid_angle_list in \
+                    zip(self.convex_hull().simplices, self.solid_angle_lists):
+                for idx, solid_angle in zip(convex_surface_indices, solid_angle_list):
+                    neighbors_solid_angle[idx] += solid_angle
+            self.neighbors_solid_angle_ = neighbors_solid_angle
+        return self.neighbors_solid_angle_
+
+    def _load_radii(self):
+        if not hasattr(self, 'PTE_dict_'):
+            with open(os.path.join(module_dir, '..', '..', 'data',
+                                   'PTE.json'), 'r') as rf:
+                self.PTE_dict_ = json.load(rf)
+        return self.PTE_dict_
+
+    def calc_area_volume_list(self):
+        # init area volume list
+        area_list = list()
+        area_interstice_list = list()
+        volume_list = list()
+        volume_interstice_list = list()
+        packing_surface_area_list = list()
+
+        # get nn_coords
+        nn_coords = np.array(self.site.nn_coords)
+
+        # iter convex surface (neighbor indices)
+        for convex_surface_indices, solid_angle_list, triangular_angle_list in \
+                zip(self.convex_hull().simplices, self.solid_angle_lists,
+                    self.triangular_angle_lists):
+            packing_volume = 0
+            packing_area = 0
+            # packing_surface_area = 0
+            surface_coords = nn_coords[convex_surface_indices]
+
+            # calculate neighbors' packing_volume and packing_area
+            for idx, sol_angle, tri_angle in zip(convex_surface_indices,
+                                                     solid_angle_list,
+                                                     triangular_angle_list):
+                if sol_angle == 0:
+                    continue
+
+                r = self.radii[str(self.site.neighbors[idx].type)][self.radius_type]
+                if self.calc_volume_area == 'volume' or \
+                        self.calc_volume_area == 'all':
+                    packing_volume += sol_angle / 3 * pow(r, 3)
+                    # packing_surface_area += solid_angle / 2 * pow(r, 2)
+
+                if self.calc_volume_area == 'area' or \
+                        self.calc_volume_area == 'all':
+                    packing_area += tri_angle / 2 * pow(r, 2)
+
+            # add self's packing_volume and packing_area
+            if self.calc_volume_area == 'volume' or \
+                    self.calc_volume_area == 'all':
+                center_solid_angle = solid_angle(self.site.coords, *surface_coords)
+                center_r = self.radii[str(self.site.type)][self.radius_type]
+                # packing_surface_area += center_solid_angle / 2 * pow(center_r, 2)
+                packing_volume += center_solid_angle / 3 * pow(center_r, 3)
+
+            if self.calc_volume_area == 'area' or \
+                    self.calc_volume_area == 'all':
+                # add result to list
+                area = triangle_area(*surface_coords)
+                area_list.append(area)
+                ################################################################
+                # Please note that this is percent, not interstice area!!!!!!
+                area_interstice_list.append(1 - packing_area/area)
+
+            if self.calc_volume_area == 'volume' or \
+                    self.calc_volume_area == 'all':
+                # packing_surface_area_list.append(packing_surface_area)
+
+                volume = tetra_volume(self.site.coords, *surface_coords)
+                volume_list.append(volume)
+                volume_interstice_list.append(1 - packing_volume/volume)
+
+        self.area_list = area_list
+        self.area_interstice_list = area_interstice_list
+        self.volume_list = volume_list
+        self.volume_interstice_list = volume_interstice_list
+        # self.packing_surface_area_list_ = packing_surface_area_list
+
+    def cluster_packed_volume(self):
+        """
+        Calculate the cluster volume that is packed with atoms, including the
+        volume of center atoms plus the volume cones (from solid angle) of
+        all the neighbors.
+        Args:
+            radii: list or dict, default: None.
+                If list, index is type, value is radial,
+                If dict, key is type, value is radial.
+                If None, read type radial from '../radii.json'
+        Returns:
+            packed_volume
+        """
+        packed_volume = 4/3 * pi * \
+                        pow(self.radii[str(self.site.type)][self.radius_type], 3)
+        for neighbor_site, solid_angle in zip(self.site.neighbors,
+                                              self.neighbors_solid_angle):
+            if solid_angle == 0:
+                continue
+            packed_volume += \
+                solid_angle * 1/3 * \
+                pow(self.radii[str(neighbor_site.type)][self.radius_type], 3)
+        return packed_volume
+
+    def atomic_packing_efficiency(self):
+        return self.cluster_packed_volume() / self.convex_hull().volume
+
+    def glass_packing_efficiency(self):
+        ideal_ratio_ = {3: 0.154701, 4: 0.224745, 5: 0.361654, 6: 0.414214,
+                        7: 0.518145, 8: 0.616517, 9: 0.709914, 10: 0.798907,
+                        11: 0.884003, 12: 0.902113, 13: 0.976006, 14: 1.04733,
+                        15: 1.11632, 16: 1.18318, 17: 1.2481, 18: 1.31123,
+                        19: 1.37271, 20: 1.43267, 21: 1.49119, 22: 1.5484,
+                        23: 1.60436, 24: 1.65915}
+
+        r = 0
+        for type, n in self.site.nn_type_dict().items():
+            r += self.radii[str(type)][self.radius_type] * n
+        r = r / self.site.cn
+        return self.radii[str(self.site.type)][self.radius_type] / r - \
+               ideal_ratio_[self.site.cn]
+
+    @property
+    def radii(self):
+        return self.radii_
+
+    @radii.setter
+    def radii(self, radii):
+        self.radii_ = radii
+
+    @property
+    def radius_type(self):
+        return self.radius_type_
+
+    @radius_type.setter
+    def radius_type(self, radius_type):
+        self.radius_type_ = radius_type
+
+
+# class DistanceInterstice(BaseSRO):
+
+class VolumeAreaInterstice(BaseSRO):
+    def __init__(self, pbc, context=None,
+                 coords_path=None, lmp_df=None, Bds=None,
+                 types_atomic_number_list=None, atoms_df=None,
+                 type_col='type', coords_cols=None,
+                 n_neighbor_limit=80, dependency="voro",
+                 tmp_save=True,  remain_stat=False, radii=None,
+                 radius_type="miracle_radius",
+                 calc_packing_efficiency=True,
+                 calc_volume_area='all',
+                 verbose=0, **nn_kwargs):
         """
 
         Args:
+            types_atomic_number_list: list of int
+                type id to real atomic number in periodic table of elements.
+
+                Examples
+                --------
+                >>> types_atomic_number_list = [29, 40] # Cu:29 Zr:40
+
+            coords_path:
+            atom_coords:
+            types: list of int
+                list of atomic number in periodic table of elements
+            id_list:
+            low_order:
+            higher_order:
+            coarse_lower_order:
+            coarse_higher_order:
+            n_neighbor_limit:
             atoms_df:
+            dependency:
             tmp_save:
             context:
-            dependency: only accept "voro"/"voronoi" or "dist"/"distance"
-            remain_original_cols: (boolean) default: False
-                whether remain the source dataframe cols to result dataframe.
+            remain_stat:
             **nn_kwargs:
         """
-        super(BaseSRO, self).__init__(tmp_save=tmp_save,
-                                      context=context,
-                                      atoms_df=atoms_df)
-        if dependency is None:
-            self._dependency = None
-            self.dependency_name = 'voro'
-        elif isinstance(dependency, type):
-            self.dependency_name = dependency.__class__.__name__.lower()[:-2]
-            self._dependency = dependency
-        elif isinstance(dependency, str):
-            self.dependency_name = dependency[:4]
-            if dependency == "voro" or dependency == "voronoi":
-                self._dependency = VoroNN(**nn_kwargs)
-            elif dependency == "dist" or dependency == "distance":
-                self._dependency = DistanceNN(**nn_kwargs)
-            else:
-                raise ValueError('dependency {} if unknown, Possible values '
-                                 'are {}'.format(dependency,
-                                                 '[voro, voronoi, '
-                                                 'dist, distance]'))
+        super(VolumeAreaInterstice, self).__init__(
+            tmp_save=tmp_save,
+            context=context,
+            dependency=dependency,
+            atoms_df=atoms_df,
+            remain_stat=remain_stat,
+            **nn_kwargs)
+        self.pbc = pbc
+        if coords_path is not None and os.path.exists(coords_path):
+            self.lmp_df, self.Bds = read_lammps_dump(coords_path)
         else:
-            raise ValueError('dependency {} if unknown, Possible values '
-                             'are {} or voro/dist object.'.format(
-                              dependency, '[voro, voronoi, dist, distance]'))
-        self.remain_original_cols = remain_original_cols
+            self.lmp_df = lmp_df
+            self.Bds = Bds
+        if types_atomic_number_list is not None:
+            self.lmp_df[type_col] = self.lmp_df[type_col].apply(
+                lambda x: types_atomic_number_list[x-1])
 
-    def fit(self, X=None):
-        self._dependency = self.check_dependency(X)
-        if self._dependency:
-            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
-        return self
+        self.type_col = type_col
+        self.coords_cols = coords_cols \
+            if coords_cols is not None else ['x', 'y', 'z']
+        self.n_neighbor_limit = n_neighbor_limit
+        self.voro_depend_cols = ['n_neighbors_voro'] + \
+                                ['neighbor_id_{}_voro'.format(idx)
+                                 for idx in range(n_neighbor_limit)]
+        self.dist_depend_cols = None
+        self.radii = radii
+        self.radius_type = radius_type
+        self.calc_packing_efficiency = calc_packing_efficiency
+        self.calc_volume_area = calc_volume_area
+        self.verbose = verbose
+        self.area_list = list()
+        self.area_interstice_list = list()
+        self.volume_list = list()
+        self.volume_interstice_list = list()
 
     @property
-    def category(self):
-        return 'sro'
+    def site_dict(self):
+        return self.site_dict_
+
+    def transform(self, X=None):
+        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+        neighbor_id_cols = \
+            ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+             for idx in range(self.n_neighbor_limit)]
+
+        site_dict = OrderedDict()
+        feature_lists = list()
+
+        if self.verbose > 0:
+            vr = VerboseReporter(self.context, total_stage=2,
+                                 verbose=1, max_verbose_mod=10000)
+            vr.init(total_epoch=len(self.lmp_df), start_epoch=0,
+                    init_msg='Start PackingVolumeArea featurizer.'
+                             'Stage 1: create Site.',
+                    epoch_name='Atoms', stage=1)
+        for idx, row in self.lmp_df.iterrows():
+            site_dict[idx] = Site(idx, row[self.coords_cols],
+                                  int(row[self.type_col]), self.Bds, self.pbc)
+            if self.verbose > 0:
+                vr.update(idx - 1)
+
+        if self.verbose > 0:
+            vr.init(total_epoch=len(self.lmp_df), start_epoch=0,
+                    init_msg='Start PackingVolumeArea featurizer.'
+                             'Stage 2: add Site neighbors and calc features.',
+                    epoch_name='Atoms', stage=2)
+
+        for idx, row in X.iterrows():
+            site = site_dict[idx]
+            site_neighbors = row[neighbor_id_cols]
+            site.neighbors = [site_dict[int(x)]
+                              for x in site_neighbors if x > 0]
+            pos_ = PackingOfSite(site, radii=self.radii,
+                                 radius_type=self.radius_type,
+                                 calc_volume_area=self.calc_volume_area,
+                                 calc_packing_efficiency=self.calc_packing_efficiency)
+            if len(site.neighbors) < 4:
+                feature_lists.append([0] * len(self.get_feature_names()))
+            else:
+                feature_list = list()
+                if self.calc_packing_efficiency:
+                    feature_list = \
+                        [pos_.atomic_packing_efficiency(),
+                         pos_.glass_packing_efficiency()]
+
+                if self.calc_volume_area == 'volume' or \
+                        self.calc_volume_area == 'all':
+                    pos_.calc_area_volume_list()
+                    volume_interstice_list = pos_.volume_interstice_list
+                    volume_list = pos_.volume_list
+                    volume_total = pos_.convex_hull().volume
+                    volume_interstice_original_array = np.array(volume_interstice_list)*np.array(volume_list)
+                    center_volume = 4/3 * pi * \
+                        pow(pos_.radii[str(pos_.site.type)][pos_.radius_type], 3)
+
+                    # fractional volume_interstices in relative to the tetrahedra volume
+                    feature_list.extend(calc_stats(volume_interstice_list))
+
+                    # surface area---deprecated in practical use
+                    # feature_list.extend(calc_stats(
+                    #     pos_.packing_surface_area_list))
+
+                    # original volume_interstices (in the units of volume)
+                    feature_list.extend(calc_stats(volume_interstice_original_array))
+
+                    # fractional volume_interstices in relative to the entire volume
+                    feature_list.extend(calc_stats(volume_interstice_original_array/volume_total*len(volume_list)))
+
+                    # fractional volume_interstices in relative to the center atom volume
+                    feature_list.extend(calc_stats(volume_interstice_original_array/center_volume))
+
+                    self.volume_interstice_list.append(
+                        pos_.volume_interstice_list)
+                    self.volume_list.append(pos_.volume_list)
+
+                if self.calc_volume_area == 'area' or \
+                        self.calc_volume_area == 'all':
+
+                    area_interstice_list = pos_.area_interstice_list
+                    area_list = pos_.area_list
+                    area_total = pos_.convex_hull().area
+                    area_interstice_original_array = np.array(area_interstice_list)*np.array(area_list)
+                    center_slice_area = pi * \
+                        pow(pos_.radii[str(pos_.site.type)][pos_.radius_type], 2)
+
+                    # fractional area_interstices in relative to the tetrahedra area
+                    feature_list.extend(calc_stats(area_interstice_list))
+
+                    # original area_interstices (in the units of area)
+                    feature_list.extend(calc_stats(area_interstice_original_array))
+
+                    # fractional area_interstices in relative to the entire area
+                    feature_list.extend(calc_stats(area_interstice_original_array/area_total*len(area_list)))
+
+                    # fractional area_interstices in relative to the center atom volume
+                    feature_list.extend(calc_stats(area_interstice_original_array/center_slice_area))
+
+                    self.area_interstice_list.append(
+                        pos_.area_interstice_list)
+                    self.area_list.append(pos_.area_list)
+                feature_lists.append(feature_list)
+
+            if self.verbose > 0:
+                vr.update(idx - 1)
+
+        self.site_dict_ = site_dict
+
+        packing_efficiency_df = pd.DataFrame(feature_lists,
+                                             index=X.index,
+                                             columns=self.get_feature_names())
+
+        packing_efficiency_df = \
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
+                           result_df=packing_efficiency_df,
+                           n_neighbor_col=
+                           'n_neighbors_{}'.format(self.dependency_name))
+        if self.tmp_save:
+            self.context.save_featurizer_as_dataframe(
+                output_df=packing_efficiency_df,
+                name='{}_{}_{}_packing_sro'.format(self.category,
+                                                   self.dependency_name,
+                                                   self.radius_type))
+            with open(os.path.join(self.context.output_path, 'featurizer', "volume_interstice_list.pkl"), "wb") as f:
+                pickle.dump(self.volume_interstice_list, f)
+            with open(os.path.join(self.context.output_path, 'featurizer', "volume_list.pkl"), "wb") as f:
+                pickle.dump(self.volume_list, f)
+            with open(os.path.join(self.context.output_path, 'featurizer', "area_interstice_list.pkl"), "wb") as f:
+                pickle.dump(self.area_interstice_list, f)
+            with open(os.path.join(self.context.output_path, 'featurizer', "area_list.pkl"), "wb") as f:
+                pickle.dump(self.area_list, f)
+
+        return packing_efficiency_df
+
+    def get_feature_names(self):
+        feature_names = list()
+        feature_prefixs = list()
+
+        if self.calc_packing_efficiency:
+            feature_names += \
+                ['{}_atomic_packing_efficiency {}'.format(
+                    self.radius_type.replace("_radius", ""),
+                    self.dependency_name)] + \
+                ['{}_glass_packing_efficiency {}'.format(
+                    self.radius_type.replace("_radius", ""),
+                    self.dependency_name)]
+
+        stats = ['sum', 'mean', 'std', 'min', 'max']
+
+        if self.calc_volume_area == 'volume' or self.calc_volume_area == 'all':
+            feature_prefixs += ['fractional_volume_interstice_tetrahedra',
+                                # 'packing_surface_area',
+                                "volume_interstice",
+                                "fractional_volume_interstice_tetrahedra_avg",
+                                "fractional_volume_interstice_center_v"]
+
+        if self.calc_volume_area == 'area' or self.calc_volume_area == 'all':
+            feature_prefixs += ['fractional_area_interstice_triangle',
+                                "area_interstice",
+                                "fractional_area_interstice_triangle_avg",
+                                "fractional_area_interstice_center_slice_a"]
+        feature_names += ['{} {} {}'.format(feature_prefix, stat,
+                                            self.dependency_name)
+                          for feature_prefix in feature_prefixs
+                          for stat in stats]
+        return feature_names
+
+    @property
+    def double_dependency(self):
+        return False
+
+
+class AtomicPackingEfficiency(BaseSRO):
+    """Give citation"""
+    pass
+
+
+class GlassPackingEfficiency(BaseSRO):
+    """Give citation"""
+    pass
 
 
 class CN(BaseSRO):
     def __init__(self, atoms_df=None, dependency="voro", tmp_save=True,
-                 context=None, remain_original_cols=False, **nn_kwargs):
+                 context=None, remain_stat=False, **nn_kwargs):
         """
 
         Args:
@@ -79,10 +536,10 @@ class CN(BaseSRO):
                                  context=context,
                                  dependency=dependency,
                                  atoms_df=atoms_df,
-                                 remain_original_cols=remain_original_cols,
+                                 remain_stat=remain_stat,
                                  **nn_kwargs)
         self.voro_depend_cols = ['n_neighbors_voro']
-        self.dist_denpend_cols = ['n_neighbors_dist']
+        self.dist_depend_cols = ['n_neighbors_dist']
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -92,15 +549,15 @@ class CN(BaseSRO):
             voronoi_stats.cn_voro(cn_list, X[neighbor_col].values,
                                   n_atoms=len(X))
         cn_list_df = pd.DataFrame(cn_list,
-                                  index=range(len(X)),
+                                  index=X.index,
                                   columns=self.get_feature_names())
 
         cn_list_df = \
-            remain_df_calc(remain_df=self.remain_df, result_df=cn_list_df,
+            remain_df_calc(remain_stat=self.remain_stat, result_df=cn_list_df,
                            source_df=X, n_neighbor_col=neighbor_col)
 
         if self.tmp_save:
-            name = '{}_cn'.format(self.dependency_name)
+            name = '{}_{}_cn'.format(self.category, self.dependency_name)
             self.context.save_featurizer_as_dataframe(output_df=cn_list_df,
                                                       name=name)
 
@@ -119,7 +576,7 @@ class VoroIndex(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False,
+                 tmp_save=True, context=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
         """
 
@@ -132,7 +589,7 @@ class VoroIndex(BaseSRO):
                                         context=context,
                                         dependency=dependency,
                                         atoms_df=atoms_df,
-                                        remain_df=remain_df,
+                                        remain_stat=remain_stat,
                                         **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -141,7 +598,7 @@ class VoroIndex(BaseSRO):
         self.voro_depend_cols = ['n_neighbors_voro'] + \
                                 ['neighbor_edge_{}_voro'.format(edge)
                                  for edge in range(edge_min, edge_max + 1)]
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -162,14 +619,14 @@ class VoroIndex(BaseSRO):
                                         n_neighbor_limit=self.n_neighbor_limit)
 
         voro_index_df = pd.DataFrame(voro_index_list,
-                                     index=range(n_atoms),
+                                     index=X.index,
                                      columns=self.get_feature_names())
         voro_index_df = \
-            remain_df_calc(remain_df=self.remain_df, result_df=voro_index_df,
+            remain_df_calc(remain_stat=self.remain_stat, result_df=voro_index_df,
                            source_df=X, n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=voro_index_df,
-                                                      name='voro_index')
+                                                      name='{}_voro_index'.format(self.category))
 
         return voro_index_df
 
@@ -199,7 +656,7 @@ class CharacterMotif(BaseSRO):
                                             dtype=np.float128)
         self.frank_kasper = frank_kasper
         self.voro_depend_cols = ['n_neighbors_voro', 'neighbor_edge_5_voro']
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
         self.edge_min = edge_min
 
     def fit(self, X=None):
@@ -242,21 +699,21 @@ class CharacterMotif(BaseSRO):
                                           self.frank_kasper, n_atoms=n_atoms)
         motif_one_hot_array = np.array(motif_one_hot)
         is_120_124 = motif_one_hot_array[:, 0] | motif_one_hot_array[:, 1]
-        print(motif_one_hot_array.shape)
-        print(is_120_124.shape)
+        # print(motif_one_hot_array.shape)
+        # print(is_120_124.shape)
         motif_one_hot_array = np.append(motif_one_hot_array,
                                         np.array([is_120_124]).T, axis=1)
         character_motif_df = pd.DataFrame(motif_one_hot_array,
-                                          index=range(n_atoms),
+                                          index=X.index,
                                           columns=self.get_feature_names())
         character_motif_df = \
-            remain_df_calc(remain_df=self.remain_df,
+            remain_df_calc(remain_stat=self.remain_stat,
                            result_df=character_motif_df,
                            source_df=X, n_neighbor_col='n_neighbors_voro')
 
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=character_motif_df, name='character_motif')
+                output_df=character_motif_df, name='{}_character_motif'.format(self.category))
 
         return character_motif_df
 
@@ -272,13 +729,13 @@ class IFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False,
+                 tmp_save=True, context=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
         super(IFoldSymmetry, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
                                             atoms_df=atoms_df,
-                                            remain_df=remain_df,
+                                            remain_stat=remain_stat,
                                             **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -287,7 +744,7 @@ class IFoldSymmetry(BaseSRO):
         self.voro_depend_cols = ['n_neighbors_voro'] + \
                                 ['neighbor_edge_{}_voro'.format(edge)
                                  for edge in range(edge_min, edge_max + 1)]
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -308,14 +765,14 @@ class IFoldSymmetry(BaseSRO):
                                           self.n_neighbor_limit)
 
         i_symm_df = pd.DataFrame(i_symm_list,
-                                 index=range(n_atoms),
+                                 index=X.index,
                                  columns=self.get_feature_names())
         i_symm_df = \
-            remain_df_calc(remain_df=self.remain_df, result_df=i_symm_df,
+            remain_df_calc(remain_stat=self.remain_stat, result_df=i_symm_df,
                            source_df=X, n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=i_symm_df,
-                                                      name='i_fold_symmetry')
+                                                      name='{}_i_fold_symmetry'.format(self.category))
 
         return i_symm_df
 
@@ -329,13 +786,13 @@ class AreaWtIFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False,
+                 tmp_save=True, context=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
         super(AreaWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
                                                   context=context,
                                                   dependency=dependency,
                                                   atoms_df=atoms_df,
-                                                  remain_df=remain_df,
+                                                  remain_stat=remain_stat,
                                                   **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -346,7 +803,7 @@ class AreaWtIFoldSymmetry(BaseSRO):
                                  for edge in range(edge_min, edge_max + 1)] + \
                                 ['neighbor_area_{}_voro'.format(edge)
                                  for edge in range(edge_min, edge_max + 1)]
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -373,15 +830,15 @@ class AreaWtIFoldSymmetry(BaseSRO):
                                                   self.n_neighbor_limit)
 
         area_wt_i_symm_df = pd.DataFrame(area_wt_i_symm_list,
-                                         index=range(n_atoms),
+                                         index=X.index,
                                          columns=self.get_feature_names())
         area_wt_i_symm_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=area_wt_i_symm_df,
                            n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=area_wt_i_symm_df, name='area_wt_i_fold_symmetry')
+                output_df=area_wt_i_symm_df, name='{}_area_wt_i_fold_symmetry'.format(self.category))
 
         return area_wt_i_symm_df
 
@@ -395,13 +852,13 @@ class VolWtIFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False,
+                 tmp_save=True, context=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
         super(VolWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
                                             atoms_df=atoms_df,
-                                            remain_df=remain_df,
+                                            remain_stat=remain_stat,
                                             **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -412,7 +869,7 @@ class VolWtIFoldSymmetry(BaseSRO):
                                  for edge in range(edge_min, edge_max + 1)] + \
                                 ['neighbor_vol_{}_voro'.format(edge)
                                  for edge in range(edge_min, edge_max + 1)]
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -438,15 +895,15 @@ class VolWtIFoldSymmetry(BaseSRO):
                                                  self.n_neighbor_limit)
 
         vol_wt_i_symm_df = pd.DataFrame(vol_wt_i_symm_list,
-                                         index=range(n_atoms),
+                                         index=X.index,
                                          columns=self.get_feature_names())
         vol_wt_i_symm_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=vol_wt_i_symm_df,
                            n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=vol_wt_i_symm_df, name='vol_wt_i_fold_symmetry')
+                output_df=vol_wt_i_symm_df, name='{}_vol_wt_i_fold_symmetry'.format(self.category))
 
         return vol_wt_i_symm_df
 
@@ -459,18 +916,18 @@ class VolWtIFoldSymmetry(BaseSRO):
 class VoroAreaStats(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False, **nn_kwargs):
+                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
         super(VoroAreaStats, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
                                             atoms_df=atoms_df,
-                                            remain_df=remain_df,
+                                            remain_stat=remain_stat,
                                             **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.voro_depend_cols = ['n_neighbors_voro'] + \
                                 ['neighbor_area_5_voro']
         self.stats = ['mean', 'std', 'min', 'max']
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -489,15 +946,15 @@ class VoroAreaStats(BaseSRO):
                                              n_neighbor_limit=
                                              self.n_neighbor_limit)
 
-        area_stats_df = pd.DataFrame(area_stats, index=range(n_atoms),
+        area_stats_df = pd.DataFrame(area_stats, index=X.index,
                                      columns=self.get_feature_names())
         area_stats_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=area_stats_df,
                            n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=area_stats_df, name='voronoi_area_stats')
+                output_df=area_stats_df, name='{}_voronoi_area_stats'.format(self.category))
 
         return area_stats_df
 
@@ -511,12 +968,12 @@ class VoroAreaStats(BaseSRO):
 class VoroAreaStatsSeparate(BaseSRO):
     def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro", edge_min=3, edge_max=7,
-                 tmp_save=True, context=None, remain_df=False, **nn_kwargs):
+                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
         super(VoroAreaStatsSeparate, self).__init__(tmp_save=tmp_save,
                                                     context=context,
                                                     dependency=dependency,
                                                     atoms_df=atoms_df,
-                                                    remain_df=remain_df,
+                                                    remain_stat=remain_stat,
                                                     **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.voro_depend_cols = ['n_neighbors_voro'] + \
@@ -530,7 +987,7 @@ class VoroAreaStatsSeparate(BaseSRO):
         self.edge_num = edge_max - edge_min + 1
         self.include_beyond_edge_max = include_beyond_edge_max
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -552,16 +1009,16 @@ class VoroAreaStatsSeparate(BaseSRO):
                 n_atoms=n_atoms,
                 n_neighbor_limit=self.n_neighbor_limit)
 
-        area_stats_separate_df = pd.DataFrame(area_stats_separate, index=range(n_atoms),
+        area_stats_separate_df = pd.DataFrame(area_stats_separate, index=X.index,
                                      columns=self.get_feature_names())
         area_stats_separate_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=area_stats_separate_df,
                            n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
                 output_df=area_stats_separate_df,
-                name='voro_area_stats_separate')
+                name='{}_voro_area_stats_separate'.format(self.category))
 
         return area_stats_separate_df
 
@@ -575,18 +1032,18 @@ class VoroAreaStatsSeparate(BaseSRO):
 class VoroVolStats(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False, **nn_kwargs):
+                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
         super(VoroVolStats, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
                                             atoms_df=atoms_df,
-                                            remain_df=remain_df,
+                                            remain_stat=remain_stat,
                                             **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.voro_depend_cols = ['n_neighbors_voro'] + \
                                 ['neighbor_vol_5_voro']
         self.stats = ['mean', 'std', 'min', 'max']
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -605,15 +1062,15 @@ class VoroVolStats(BaseSRO):
                                             n_neighbor_limit=
                                             self.n_neighbor_limit)
 
-        vol_stats_df = pd.DataFrame(vol_stats, index=range(n_atoms),
+        vol_stats_df = pd.DataFrame(vol_stats, index=X.index,
                                     columns=self.get_feature_names())
         vol_stats_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=vol_stats_df,
                            n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=vol_stats_df, name='voronoi_vol_stats')
+                output_df=vol_stats_df, name='{}_voronoi_vol_stats'.format(self.category))
 
         return vol_stats_df
 
@@ -627,12 +1084,12 @@ class VoroVolStats(BaseSRO):
 class VoroVolStatsSeparate(BaseSRO):
     def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=True,
                  atoms_df=None, dependency="voro", edge_min=3, edge_max=7,
-                 tmp_save=True, context=None, remain_df=False, **nn_kwargs):
+                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
         super(VoroVolStatsSeparate, self).__init__(tmp_save=tmp_save,
                                             context=context,
                                             dependency=dependency,
                                             atoms_df=atoms_df,
-                                            remain_df=remain_df,
+                                            remain_stat=remain_stat,
                                             **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.voro_depend_cols = ['n_neighbors_voro'] + \
@@ -646,7 +1103,7 @@ class VoroVolStatsSeparate(BaseSRO):
         self.edge_num = edge_max - edge_min + 1
         self.include_beyond_edge_max = include_beyond_edge_max
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
-        self.dist_denpend_cols = None
+        self.dist_depend_cols = None
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
@@ -667,15 +1124,15 @@ class VoroVolStatsSeparate(BaseSRO):
                 n_neighbor_limit=self.n_neighbor_limit)
 
         vol_stats_separate_df = pd.DataFrame(vol_stats_separate,
-                                             index=range(n_atoms),
+                                             index=X.index,
                                              columns=self.get_feature_names())
         vol_stats_separate_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=vol_stats_separate_df,
                            n_neighbor_col='n_neighbors_voro')
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=vol_stats_separate_df, name='voro_vol_stats_separate')
+                output_df=vol_stats_separate_df, name='{}_voro_vol_stats_separate'.format(self.category))
 
         return vol_stats_separate_df
 
@@ -687,55 +1144,56 @@ class VoroVolStatsSeparate(BaseSRO):
 
 
 class DistStats(BaseSRO):
-    def __init__(self, n_neighbor_limit=80,
+    def __init__(self, dist_type='distance', n_neighbor_limit=80,
                  atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_df=False, **nn_kwargs):
+                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
         super(DistStats, self).__init__(tmp_save=tmp_save,
                                         context=context,
                                         dependency=dependency,
                                         atoms_df=atoms_df,
-                                        remain_df=remain_df,
+                                        remain_stat=remain_stat,
                                         **nn_kwargs)
+        self.dist_type = dist_type
         self.n_neighbor_limit = n_neighbor_limit
         self.voro_depend_cols = ['n_neighbors_voro'] + \
-                                ['neighbor_distance_5_voro']
+                                ['neighbor_{}_5_voro'.format(dist_type)]
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
-        self.dist_denpend_cols = ['n_neighbors_dist'] + \
-                                 ['neighbor_distance_5_dist']
+        self.dist_depend_cols = ['n_neighbors_dist'] + \
+                                 ['neighbor_{}_5_dist'.format(dist_type)]
 
     def transform(self, X=None):
         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
         columns = X.columns
         dist_cols = [col for col in columns if
-                     col.startswith('neighbor_distance_')]
+                     col.startswith('neighbor_{}_'.format(self.dist_type))]
         dist_stats = np.zeros((n_atoms, len(self.stats)))
 
         dist_stats = \
-            voronoi_stats.voronoi_area_stats(dist_stats,
+            voronoi_stats.voronoi_distance_stats(dist_stats,
                                              X['n_neighbors_{}'.format(
                                                  self.dependency_name)].values,
                                              X[dist_cols].values,
                                              n_atoms=n_atoms,
                                              n_neighbor_limit=
                                              self.n_neighbor_limit)
-
-        dist_stats_df = pd.DataFrame(dist_stats, index=range(n_atoms),
-                                    columns=self.get_feature_names())
+        dist_stats_df = pd.DataFrame(dist_stats, index=X.index,
+                                     columns=self.get_feature_names())
         dist_stats_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=dist_stats_df,
                            n_neighbor_col='n_neighbors_{}'.format(
                                self.dependency_name))
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
                 output_df=dist_stats_df,
-                name='{}_distance_stats'.format(self.dependency_name))
+                name='{}_{}_{}_stats'.format(self.category, self.dependency_name, self.dist_type))
 
         return dist_stats_df
 
     def get_feature_names(self):
-        feature_names = ['Distance {} {}'.format(stat, self.dependency_name)
+        feature_names = ['{} {} {}'.format(self.dist_type, stat,
+                                           self.dependency_name)
                          for stat in self.stats]
         return feature_names
 
@@ -749,12 +1207,12 @@ class BOOP(BaseSRO):
                  low_order=1, higher_order=1, coarse_lower_order=1,
                  coarse_higher_order=1, n_neighbor_limit=80, atoms_df=None,
                  dependency="voro", tmp_save=True, context=None,
-                 remain_df=False, **nn_kwargs):
+                 remain_stat=False, **nn_kwargs):
         super(BOOP, self).__init__(tmp_save=tmp_save,
                                    context=context,
                                    dependency=dependency,
                                    atoms_df=atoms_df,
-                                   remain_df=remain_df,
+                                   remain_stat=remain_stat,
                                    **nn_kwargs)
         self.low_order = low_order
         self.higher_order = higher_order
@@ -773,7 +1231,7 @@ class BOOP(BaseSRO):
         self.voro_depend_cols = ['n_neighbors_voro'] + \
                                 ['neighbor_id_{}_voro'.format(idx)
                                  for idx in range(n_neighbor_limit)]
-        self.dist_denpend_cols = ['n_neighbors_dist'] + \
+        self.dist_depend_cols = ['n_neighbors_dist'] + \
                                  ['neighbor_id_{}_dist'.format(idx)
                                   for idx in range(n_neighbor_limit)]
         self.bq_tags = ['4', '6', '8', '10']
@@ -801,16 +1259,16 @@ class BOOP(BaseSRO):
         concat_array = np.append(concat_array, coarse_Ql, axis=1)
         concat_array = np.append(concat_array, coarse_Wlbar, axis=1)
 
-        boop_df = pd.DataFrame(concat_array, index=range(n_atoms),
+        boop_df = pd.DataFrame(concat_array, index=X.index,
                                columns=self.get_feature_names())
         boop_df = \
-            remain_df_calc(remain_df=self.remain_df, source_df=X,
+            remain_df_calc(remain_stat=self.remain_stat, source_df=X,
                            result_df=boop_df,
                            n_neighbor_col=
                            'n_neighbors_{}'.format(self.dependency_name))
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(
-                output_df=boop_df, name='boop_{}'.format(self.dependency_name))
+                output_df=boop_df, name='{}_boop_{}'.format(self.category, self.dependency_name))
 
         return boop_df
 
@@ -830,3 +1288,148 @@ class BOOP(BaseSRO):
     @property
     def double_dependency(self):
         return False
+
+#
+# # TODO: 计算所有原子的所有neighbor，但只计算有效原子的features
+# class PackingEfficiency(BaseSRO):
+#     def __init__(self, pbc, context=None,
+#                  coords_path=None, lmp_df=None, Bds=None,
+#                  types_atomic_number_list=None, atoms_df=None,
+#                  type_col='type', coords_cols=None,
+#                  n_neighbor_limit=80, dependency="voro",
+#                  tmp_save=True,  remain_stat=False, radii=None,
+#                  radius_type="miracle_radius",
+#                  **nn_kwargs):
+#         """
+#
+#         Args:
+#             types_atomic_number_list: list of int
+#                 type id to real atomic number in periodic table of elements.
+#
+#                 Examples
+#                 --------
+#                 >>> types_atomic_number_list = [29, 40] # Cu:29 Zr:40
+#
+#             coords_path:
+#             atom_coords:
+#             types: list of int
+#                 list of atomic number in periodic table of elements
+#             id_list:
+#             low_order:
+#             higher_order:
+#             coarse_lower_order:
+#             coarse_higher_order:
+#             n_neighbor_limit:
+#             atoms_df:
+#             dependency:
+#             tmp_save:
+#             context:
+#             remain_stat:
+#             **nn_kwargs:
+#         """
+#         super(PackingEfficiency, self).__init__(
+#             tmp_save=tmp_save,
+#             context=context,
+#             dependency=dependency,
+#             atoms_df=atoms_df,
+#             remain_stat=remain_stat,
+#             **nn_kwargs)
+#         self.pbc = pbc
+#         if coords_path is not None and os.path.exists(coords_path):
+#             self.lmp_df, self.Bds = read_lammps_dump(coords_path)
+#         else:
+#             self.lmp_df = lmp_df
+#             self.Bds = Bds
+#         if types_atomic_number_list is not None:
+#             self.lmp_df[type_col] = self.lmp_df[type_col].apply(
+#                 lambda x: types_atomic_number_list[x-1])
+#
+#         self.type_col = type_col
+#         self.coords_cols = coords_cols \
+#             if coords_cols is not None else ['x', 'y', 'z']
+#         self.n_neighbor_limit = n_neighbor_limit
+#         self.voro_depend_cols = ['n_neighbors_voro'] + \
+#                                 ['neighbor_id_{}_voro'.format(idx)
+#                                  for idx in range(n_neighbor_limit)]
+#         self.dist_depend_cols = None
+#         self.radii = radii
+#         self.radius_type = radius_type
+#
+#     @property
+#     def site_dict(self):
+#         return self.site_dict_
+#
+#     def transform(self, X=None):
+#         X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+#         neighbor_id_cols = \
+#             ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+#              for idx in range(self.n_neighbor_limit)]
+#
+#         site_dict = OrderedDict()
+#         packing_efficiency_lists = list()
+#
+#         for idx, row in self.lmp_df.iterrows():
+#             print(idx)
+#             site_dict[idx] = Site(idx, row[self.coords_cols],
+#                                   int(row[self.type_col]), self.Bds, self.pbc,
+#                                   radii=self.radii, radius_type=self.radius_type)
+#
+#         # id_list = id_list if id_list is not None else self.id_list
+#         for idx, row in X.iterrows():
+#             print(idx)
+#             site = site_dict[idx]
+#             site_neighbors = row[neighbor_id_cols]
+#             site.neighbors = [site_dict[int(x)]
+#                               for x in site_neighbors if x > 0]
+#
+#             if len(site.neighbors) < 4:
+#                 packing_efficiency_lists.append([0] *
+#                                                 len(self.get_feature_names()))
+#             else:
+#                 packing_efficiency_list = [site.atomic_packing_efficiency(),
+#                                            site.glass_packing_efficiency()]
+#                 packing_efficiency_list.extend(site.volume_stats)
+#                 packing_efficiency_list.extend(site.packing_efficiency_volume_stats)
+#                 packing_efficiency_list.extend(site.area_stats)
+#                 packing_efficiency_list.extend(site.packing_efficiency_area_stats)
+#                 packing_efficiency_lists.append(packing_efficiency_list)
+#
+#         self.site_dict_ = site_dict
+#
+#         packing_efficiency_df = pd.DataFrame(packing_efficiency_lists,
+#                                              index=X.index,
+#                                              columns=self.get_feature_names())
+#
+#         packing_efficiency_df = \
+#             remain_df_calc(remain_stat=self.remain_stat, source_df=X,
+#                            result_df=packing_efficiency_df,
+#                            n_neighbor_col=
+#                            'n_neighbors_{}'.format(self.dependency_name))
+#         if self.tmp_save:
+#             self.context.save_featurizer_as_dataframe(
+#                 output_df=packing_efficiency_df,
+#                 name='{}_{}_{}_packing_efficiency'.format(self.category,
+#                                                           self.dependency_name,
+#                                                           self.radius_type))
+#
+#         return packing_efficiency_df
+#
+#     def get_feature_names(self):
+#         feature_names = \
+#             ['{}_atomic_packing_efficiency {}'.format(
+#                 self.radius_type.replace("_radius", ""), self.dependency_name)]\
+#             + ['{}_glass_packing_efficiency {}'.format(
+#                 self.radius_type.replace("_radius", ""), self.dependency_name)]
+#
+#         stats = ['sum', 'mean', 'std', 'min', 'max']
+#         feature_prefixs = ['full_volume', 'packing_efficiency_volume',
+#                            'full_area', 'packing_efficiency_area']
+#         feature_names += ['{} {} {}'.format(feature_prefix, stat,
+#                                             self.dependency_name)
+#                           for feature_prefix in feature_prefixs
+#                           for stat in stats]
+#         return feature_names
+#
+#     @property
+#     def double_dependency(self):
+#         return False
