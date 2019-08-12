@@ -1,14 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
-from amlearn.featurize.featurizers.base import BaseFeaturize, line_percent
+from amlearn.featurize.base import BaseFeaturize, line_percent
 from amlearn.utils.check import check_featurizer_X, check_neighbor_col
-from amlearn.utils.directory import create_path
 
 try:
-    from amlearn.featurize.featurizers.sro_mro import mro_stats, voronoi_stats
+    from amlearn.featurize.featurizers.src import mro_stats, voronoi_stats
 except Exception:
-    print("import fortran file voronoi_stats error!")
+    print("import fortran file voronoi_stats error!\n")
 
 
 class MRO(BaseFeaturize):
@@ -16,7 +15,8 @@ class MRO(BaseFeaturize):
                  stats_types="all", stats_names=None,
                  calc_features="all", neighbor_cols="all",
                  calc_neighbor_cols=False,
-                 atoms_df=None, tmp_save=True, context=None):
+                 atoms_df=None, tmp_save=True, context=None,
+                 output_file_name='mro'):
         """
 
         Args:
@@ -48,10 +48,11 @@ class MRO(BaseFeaturize):
         self.calc_features = calc_features
         self.calc_neighbor_cols = calc_neighbor_cols
         self.stats_names = ['sum_NN', 'mean_NN', 'std_NN',
-                            'min_NN', 'max_NN', 'diff_NN']
+                            'min_NN', 'max_NN', 'diff_NN'] if stats_names is None else stats_names
         self.write_path = self.context.output_path if write_path == "default" \
             else write_path
         self.calced_sysmm = False
+        self.output_file_name = output_file_name
 
     def fit_transform(self, X, y=None, **fit_params):
         return self.transform(X)
@@ -85,15 +86,17 @@ class MRO(BaseFeaturize):
             self.calced_neighbor_cols.append(neighbor_col)
 
             n_neighbor_list = np.array(X[neighbor_col].values,
-                                                  dtype=int)
+                                       dtype=int)
             neighbor_tag = neighbor_col.split('_')[-1]
             neighbor_lists = \
                 np.array(X[['neighbor_id_{}_{}'.format(num, neighbor_tag)
-                   for num in range(self.n_neighbor_limit)]].values,
-                                                  dtype=int)
+                            for num in range(self.n_neighbor_limit)]].values,
+                         dtype=int)
 
             for feature in self.calc_features:
-                if neighbor_tag not in feature:
+                # if neighbor_tag not in feature:
+                #     continue
+                if not feature.endswith(neighbor_tag):
                     continue
                 mro_feature = np.zeros((n_atoms, sum(self.stats_types)),
                                        dtype=np.float128)
@@ -107,7 +110,7 @@ class MRO(BaseFeaturize):
                 concat_features = mro_feature if concat_features is None \
                     else np.append(concat_features, mro_feature, axis=1)
 
-        result_df = pd.DataFrame(concat_features, index=range(n_atoms),
+        result_df = pd.DataFrame(concat_features, index=X.index,
                                  columns=self.get_common_features())
 
         voro_mean_cols = [col for col in result_df.columns
@@ -120,18 +123,13 @@ class MRO(BaseFeaturize):
                              for col in voro_mean_cols]
             percent_list = \
                 line_percent(value_list=result_df[voro_mean_cols].values)
-            percent_df = pd.DataFrame(percent_list, index=range(n_atoms),
+            percent_df = pd.DataFrame(percent_list, index=X.index,
                                       columns=self.get_symm_percent_features())
             result_df = result_df.join(percent_df)
 
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=result_df,
-                                                      name='mro')
-        if self.write_path:
-            create_path(self.write_path, merge=True)
-            featurizer_file = os.path.join(self.write_path,
-                                           'featurizer_mro.csv')
-            result_df.to_csv(featurizer_file)
+                                                      name=self.output_file_name)
 
         return result_df
 
@@ -141,14 +139,14 @@ class MRO(BaseFeaturize):
             neighbor_tag = neighbor_col.split('_')[-1]
             feature_names += \
                 ["{} {}".format(feature, stats_name)
-                 for feature in self.calc_features if neighbor_tag in feature
+                 for feature in self.calc_features if feature.endswith(neighbor_tag)
                  for stats_name, stats_type in zip(self.stats_names,
                                                    self.stats_types)
                  if stats_type == 1]
         return feature_names
 
     def get_symm_percent_features(self):
-        feature_names = ['Avg {}-fold symm idx'.format(edge)
+        feature_names = ['Av g {}-fold symm idx'.format(edge)
                          for edge in self.idx_list]
         return feature_names
 
@@ -161,3 +159,11 @@ class MRO(BaseFeaturize):
     @property
     def category(self):
         return 'mro'
+
+
+def line_percent(value_list):
+    percent_list = np.zeros(value_list.shape)
+
+    percent_list = \
+        voronoi_stats.line_percent(percent_list, value_list)
+    return percent_list

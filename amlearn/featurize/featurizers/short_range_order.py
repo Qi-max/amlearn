@@ -16,7 +16,7 @@ except Exception:
 
 class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
     def __init__(self, atoms_df=None, tmp_save=True, context=None,
-                 dependency=None, remain_df=False, **nn_kwargs):
+                 dependency=None, remain_original_cols=False, **nn_kwargs):
         """
 
         Args:
@@ -24,7 +24,7 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
             tmp_save:
             context:
             dependency: only accept "voro"/"voronoi" or "dist"/"distance"
-            remain_df: (boolean) default: False
+            remain_original_cols: (boolean) default: False
                 whether remain the source dataframe cols to result dataframe.
             **nn_kwargs:
         """
@@ -52,7 +52,7 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
             raise ValueError('dependency {} if unknown, Possible values '
                              'are {} or voro/dist object.'.format(
                               dependency, '[voro, voronoi, dist, distance]'))
-        self.remain_df = remain_df
+        self.remain_original_cols = remain_original_cols
 
     def fit(self, X=None):
         self._dependency = self.check_dependency(X)
@@ -67,7 +67,7 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
 
 class CN(BaseSRO):
     def __init__(self, atoms_df=None, dependency="voro", tmp_save=True,
-                 context=None, remain_df=False, **nn_kwargs):
+                 context=None, remain_original_cols=False, **nn_kwargs):
         """
 
         Args:
@@ -79,7 +79,7 @@ class CN(BaseSRO):
                                  context=context,
                                  dependency=dependency,
                                  atoms_df=atoms_df,
-                                 remain_df=remain_df,
+                                 remain_original_cols=remain_original_cols,
                                  **nn_kwargs)
         self.voro_depend_cols = ['n_neighbors_voro']
         self.dist_denpend_cols = ['n_neighbors_dist']

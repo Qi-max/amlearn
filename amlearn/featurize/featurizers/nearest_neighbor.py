@@ -90,22 +90,21 @@ class VoroNN(BaseNN):
                                neighbor_edge_lists, n_neighbor_max, n_edge_max,
                                n_atoms=n_atoms,
                                n_neighbor_limit=self.n_neighbor_limit)
-
-        voro_nn = np.append(np.array([n_neighbor_list]).T,
-                            neighbor_lists, axis=1)
-        voro_nn = np.append(voro_nn, neighbor_area_lists, axis=1)
-        voro_nn = np.append(voro_nn, neighbor_vol_lists, axis=1)
-        voro_nn = np.append(voro_nn, neighbor_distance_lists, axis=1)
-        voro_nn = np.append(voro_nn, neighbor_edge_lists, axis=1)
-        result_df = pd.DataFrame(voro_nn, index=range(n_atoms),
-                                 columns=self.get_feature_names())
+        n_neighbor_list = np.array([n_neighbor_list]).T
+        neighbor_lists = list(map(lambda x: x[x != 0], neighbor_lists))
+        neighbor_area_lists = list(map(lambda x: x[x != 0], neighbor_area_lists))
+        neighbor_vol_lists = list(map(lambda x: x[x != 0], neighbor_vol_lists))
+        neighbor_distance_lists = list(map(lambda x: x[x != 0], neighbor_distance_lists))
+        neighbor_edge_lists = list(map(lambda x: x[x != 0], neighbor_edge_lists))
+        result_df = pd.DataFrame(index=range(n_atoms),
+                                 columns=self.nn_cols())
 
         if self.tmp_save:
             self.context.save_featurizer_as_dataframe(output_df=result_df,
                                                       name='voro_nn')
         return result_df
 
-    def get_feature_names(self):
+    def get_nn_cols(self):
         columns = ['n_neighbors_voro'] + \
                   ['neighbor_id_{}_voro'.format(i)
                    for i in range(self.n_neighbor_limit)] +\
