@@ -35,7 +35,7 @@ class MRO(BaseFeaturize):
                 default: False and it changes in transform method
                 if calculated the Voronoi stats, then set the flag to True, and
                 then calculate the Avg i-fold symm idx, this flag tells
-                get_feature_names() function that Avg i-fold symm idx
+                get_feature_cols() function that Avg i-fold symm idx
                 was calculated.
         """
         super(MRO, self).__init__(tmp_save=tmp_save,
@@ -150,7 +150,7 @@ class MRO(BaseFeaturize):
                          for edge in self.idx_list]
         return feature_names
 
-    def get_feature_names(self):
+    def get_feature_cols(self):
         feature_names = self.get_common_features()
         if self.calced_sysmm:
             feature_names += self.get_symm_percent_features()
