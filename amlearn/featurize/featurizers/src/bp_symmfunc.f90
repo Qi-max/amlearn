@@ -51,25 +51,19 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
 
     radial_funcs = 0
 
-!    distance_cutoff = radial_distances(-1)
-!    write(*, *) "Calculated distance cutoff", distance_cutoff
-
     do atom = 1, n_center_atoms
         write(*, *) atom, center_atom_ids(atom)
         do i = 1, n_atoms
             if (atom_ids(i) /= center_atom_ids(atom)) then
                 call distance_info(center_atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, rij)
                 if(rij <= cutoff_s) then
-!                    write(*, *) "neighbor", i, rij
                     do type = 1, n_atom_types
                         if (atom_types(i) == atom_type_symbols(type)) then
                             do j = 1, n_r
                                 r_ref = (j - 1) * delta_r
-!                                write(*, *) "atom type", atom_types(i), j + (type-1) * n_r
                                 radial_funcs(atom, j + (type-1) * n_r) = &
                                     radial_funcs(atom, j + (type-1) * n_r) + &
                                     exp(-1 / (2* delta_r ** 2) * (rij - r_ref) ** 2)
-!                                write(*, *) "center", atom, "neighbor", i, j, radial_funcs(atom, j + (type-1) * n_r)
                             end do
                         end if
                     end do
@@ -126,9 +120,6 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
 
     angular_funcs = 0
 
-!    distance_cutoff = radial_distances(-1)
-!    write(*, *) "Calculated distance cutoff", distance_cutoff
-
     do i = 1, n_center_atoms
         write(*, *) i, center_atom_ids(i)
         neigh_nums = 0
@@ -138,7 +129,6 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
             if (atom_ids(atom) /= center_atom_ids(i)) then
                 call distance_info(center_atom_coords(i, :), atom_coords(atom, :), Bds, pbc, r, rij)
                 if(rij <= cutoff_s) then
-!                    write(*, *) "neighbor", atom, rij
                     do type = 1, n_atom_types
                         if (atom_types(atom) == atom_type_symbols(type)) then
                             neigh_nums(type) = neigh_nums(type) + 1
@@ -169,7 +159,6 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
                                 func = exp(-(rij**2 + rik**2 + rjk**2)/(ksaais(p)**2)) * (1 + lambdas(p)*cosijk)**zetas(p)
                                 angular_funcs(i, p + (range-1)*n_params) = &
                                   angular_funcs(i, p + (range-1)*n_params) + func
-!                                write(*, *) p, type1, type2, neigh_ids(type1, j), neigh_ids(type1, k), rij, rik, rjk, cosijk, func
                             end do
                         end do
                     else
@@ -187,7 +176,6 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
                                 func = exp(-(rij**2 + rik**2 + rjk**2)/(ksaais(p)**2)) * (1 + lambdas(p)*cosijk)**zetas(p)
                                 angular_funcs(i, p + (range-1)*n_params) = &
                                   angular_funcs(i, p + (range-1)*n_params) + func
-!                                write(*, *) p, type1, type2, neigh_ids(type1, j), neigh_ids(type1, k), rij, rik, rjk, cosijk, func
                             end do
                         end do
                     end if
@@ -197,78 +185,6 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     end do
 
 end subroutine bp_angular
-
-
-subroutine bp_radial_qw(n_center_atoms, center_atom_ids, center_atom_coords, &
-    n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, &
-    pbc, Bds, &
-    cutoff_r, delta_r, n_r, radial_funcs)
-
-    implicit none
-    interface
-     function average(list, len)
-        integer, intent(in) :: len
-        REAL(8), dimension(len), intent(in) :: list
-        REAL(8) :: average
-     end function
-  	end interface
-
-    integer :: n_center_atoms
-    integer, dimension(n_center_atoms):: center_atom_ids
-    REAL(8), dimension(n_center_atoms, 3):: center_atom_coords
-
-    integer :: n_atoms, n_atom_types
-    integer, dimension(n_atoms):: atom_ids, atom_types
-    integer, dimension(n_atom_types):: atom_type_symbols
-    REAL(8), dimension(n_atoms, 3):: atom_coords
-    integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
-    REAL(8) :: cutoff_r, delta_r
-    integer :: n_r
-    REAL(8), dimension(n_center_atoms, n_r*n_atom_types):: radial_funcs
-    ! dimension: bin_num, types of atom center
-
-!f2py   intent(in) n_center_atoms, center_atom_ids, center_atom_coords
-!f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, Bds
-!f2py   intent(in) cutoff_r, delta_r, n_r
-!f2py   intent(in, out) radial_funcs
-
-    integer :: atom, i, j, range, type
-    REAL(8) :: rij, r_ref
-    REAL(8), dimension(3) :: r
-
-    radial_funcs = 0
-
-!    distance_cutoff = radial_distances(-1)
-!    write(*, *) "Calculated distance cutoff", distance_cutoff
-
-    do atom = 1, n_center_atoms
-        write(*, *) atom, center_atom_ids(atom)
-        do i = 1, n_atoms
-            if (atom_ids(i) /= center_atom_ids(atom)) then
-                call distance_info(center_atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, rij)
-!                if(rij <= cutoff_s) then
-!                    write(*, *) "neighbor", i, rij
-                if(rij <= cutoff_r) then
-                    range = ceiling(rij / delta_r)
-                    r_ref = (range - 1) * delta_r ! get the lower r of the shell
-!                    write(*, *) "neighbor", i, atom_types(i), rij, range, r_ref
-                    do type = 1, n_atom_types
-                        if (atom_types(i) == atom_type_symbols(type)) then
-!                            write(*, *) "atom type", atom_types(i), range + (type-1) * n_r
-                            radial_funcs(atom, range + (type-1) * n_r) = &
-                                radial_funcs(atom, range + (type-1) * n_r) + &
-                                    exp(-1 / (2* delta_r ** 2) * (rij - r_ref) ** 2)
-!                                write(*, *) "center", atom, "neighbor", i, j, radial_funcs(atom, j + (type-1) * n_r)
-!                            end do
-                        end if
-                    end do
-                end if
-            end if
-        end do
-    end do
-
-end subroutine bp_radial_qw
 
 
 subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
@@ -286,14 +202,13 @@ subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
 
 	do m = 1, 3
 	r(m) = atom_coords_i(m) - atom_coords_j(m)
-	!            write(*, *) r(m), atom_coords_i(m), atom_coords_j(m)
 	if (pbc(m) == 1) then
 	  if (r(m) > Lens(m)*0.5) then
 	    r(m) = (r(m) - Lens(m))
 	  else if (r(m) < Lens(m)*(-0.5)) then
 	    r(m) = (r(m) + Lens(m))
 	  else
-	    r(m) = r(m)  ! why divided by 2?
+	    r(m) = r(m)
 	  end if
 	end if
 	end do
@@ -303,13 +218,12 @@ subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
 end subroutine distance_info
 
 
-
 function average(list, len) result(mean)
     REAL(8), dimension(len) :: list
     integer :: len, atom
     REAL(8) :: mean
     mean = 0
-    if (len.eq.0) then
+    if (len == 0) then
         len = 1
     end if
 
