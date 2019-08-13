@@ -12,7 +12,8 @@ from scipy.spatial.qhull import ConvexHull
 from amlearn.data.site import Site
 from amlearn.featurize.base import BaseFeaturize, remain_df_calc, BaseSRO
 from amlearn.utils.check import check_featurizer_X
-from amlearn.utils.data import read_imd, read_lammps_dump, solid_angle, \
+from amlearn.utils.data import read_imd, read_lammps_dump
+from amlearn.utils.packing import solid_angle, \
     triangular_angle, calc_stats, triangle_area, tetra_volume
 from amlearn.utils.verbose import VerboseReporter
 
@@ -25,8 +26,7 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class PackingOfSite(object):
-    def __init__(self, site, calc_volume_area='all',
-                 calc_packing_efficiency=True,
+    def __init__(self, site,
                  radii=None, radius_type="miracle_radius"):
         """
         Args:
@@ -44,8 +44,6 @@ class PackingOfSite(object):
                 if atomic_radius use radius measured by conventional methods.
         """
         self.site = site
-        self.calc_volume_area = calc_volume_area
-        self.calc_packing_efficiency = calc_packing_efficiency
         self.radii = self._load_radii() if radii is None else radii
         self.radius_type = radius_type
 
@@ -57,8 +55,14 @@ class PackingOfSite(object):
             self.convex_hull_ = ConvexHull(self.site.nn_coords())
         return self.convex_hull_
 
-    def calc_angle_lists(self):
-        solid_angle_lists_ = list()
+    def _load_radii(self):
+        if not hasattr(self, 'PTE_dict_'):
+            with open(os.path.join(module_dir, '..', '..', 'data',
+                                   'PTE.json'), 'r') as rf:
+                self.PTE_dict_ = json.load(rf)
+        return self.PTE_dict_
+
+    def calculate_hull_facet_angles(self):
         triangular_angle_lists_ = list()
         # get convex surface indices
         convex_surfaces_indices = self.convex_hull().simplices
@@ -68,139 +72,114 @@ class PackingOfSite(object):
         leaf_indices_list = [(1, 2), (0, 2), (0, 1)]
 
         for convex_surface_indices in convex_surfaces_indices:
-            solid_angle_list_ = list()
             triangular_angle_list_ = list()
             for idx, leaf_indices in zip(convex_surface_indices,
                                          leaf_indices_list):
-
-                if self.calc_volume_area == 'area' or \
-                        self.calc_volume_area == 'all':
-                    triangular_angle_ = triangular_angle(nn_coords[idx],
-                        nn_coords[convex_surface_indices[leaf_indices[0]]],
-                        nn_coords[convex_surface_indices[leaf_indices[1]]])
-                    triangular_angle_list_.append(triangular_angle_)
-                    if self.calc_volume_area == 'area' and \
-                            not self.calc_packing_efficiency:
-                        solid_angle_list_.append(-1)
-
-                if self.calc_volume_area == 'volume' or \
-                        self.calc_volume_area == 'all' or \
-                        self.calc_packing_efficiency:
-                    solid_angle_ = solid_angle(
-                        nn_coords[idx], self.site.coords,
-                        nn_coords[convex_surface_indices[leaf_indices[0]]],
-                        nn_coords[convex_surface_indices[leaf_indices[1]]])
-                    solid_angle_list_.append(solid_angle_)
-                    if self.calc_volume_area == 'volume':
-                        triangular_angle_list_.append(-1)
-
-            solid_angle_lists_.append(solid_angle_list_)
+                triangular_angle_ = triangular_angle(nn_coords[idx],
+                    nn_coords[convex_surface_indices[leaf_indices[0]]],
+                    nn_coords[convex_surface_indices[leaf_indices[1]]])
+                triangular_angle_list_.append(triangular_angle_)
             triangular_angle_lists_.append(triangular_angle_list_)
 
-        self.solid_angle_lists_ = solid_angle_lists_
         self.triangular_angle_lists_ = triangular_angle_lists_
-        return self.solid_angle_lists_, self.triangular_angle_lists_
-
-    @property
-    def solid_angle_lists(self):
-        if not hasattr(self, 'solid_angle_lists_'):
-            self.calc_angle_lists()
-        return self.solid_angle_lists_
-
-    @property
-    def triangular_angle_lists(self):
-        if not hasattr(self, 'triangular_angle_lists_'):
-            self.calc_angle_lists()
         return self.triangular_angle_lists_
 
-    @property
-    def neighbors_solid_angle(self):
+    def calculate_hull_tetra_angles(self):
+        solid_angle_lists_ = list()
+        # get convex surface indices
+        convex_surfaces_indices = self.convex_hull().simplices
+        # get nn_coords
+        nn_coords = self.site.nn_coords()
+        # set leaf node indices for find leaf site coords
+        leaf_indices_list = [(1, 2), (0, 2), (0, 1)]
+
+        for convex_surface_indices in convex_surfaces_indices:
+            solid_angle_list_ = list()
+            for idx, leaf_indices in zip(convex_surface_indices,
+                                         leaf_indices_list):
+                solid_angle_ = solid_angle(
+                    nn_coords[idx], self.site.coords,
+                    nn_coords[convex_surface_indices[leaf_indices[0]]],
+                    nn_coords[convex_surface_indices[leaf_indices[1]]])
+                solid_angle_list_.append(solid_angle_)
+            solid_angle_lists_.append(solid_angle_list_)
+
+        self.solid_angle_lists_ = solid_angle_lists_
+        return self.solid_angle_lists_
+
+    def analyze_hull_facet_interstice(self):
+        area_list = list()
+        area_interstice_list = list()
+
+        # get nn_coords
+        nn_coords = np.array(self.site.nn_coords)
+
+        # iter convex surface (neighbor indices)
+        for convex_surface_indices, triangular_angle_list in \
+                zip(self.convex_hull().simplices, self.triangular_angle_lists_):
+            packed_area = 0
+            surface_coords = nn_coords[convex_surface_indices]
+
+            # calculate neighbors' packed_area
+            for idx, tri_angle in zip(convex_surface_indices,
+                                      triangular_angle_list):
+                r = self.radii[str(self.site.neighbors[idx].type)][self.radius_type]
+                packed_area += tri_angle / 2 * pow(r, 2)
+
+            area = triangle_area(*surface_coords)
+            area_list.append(area)
+            ################################################################
+            # Please note that this is percent, not interstice area!!!!!!
+            area_interstice_list.append(1 - packed_area/area)
+
+        self.area_list_ = area_list
+        self.area_interstice_list_ = area_interstice_list
+
+    def analyze_hull_tetra_interstice(self):
+        volume_list = list()
+        volume_interstice_list = list()
+
+        # get nn_coords
+        nn_coords = np.array(self.site.nn_coords)
+
+        # iter convex surface (neighbor indices)
+        for convex_surface_indices, solid_angle_list in \
+                zip(self.convex_hull().simplices, self.solid_angle_lists_):
+            packed_volume = 0
+            surface_coords = nn_coords[convex_surface_indices]
+
+            # calculate neighbors' packed_volume
+            for idx, sol_angle in zip(convex_surface_indices,
+                                      solid_angle_list):
+                if sol_angle == 0:
+                    continue
+                r = self.radii[str(self.site.neighbors[idx].type)][self.radius_type]
+                packed_volume += sol_angle / 3 * pow(r, 3)
+
+            # add center's packed_volume
+            center_solid_angle = solid_angle(self.site.coords, *surface_coords)
+            center_r = self.radii[str(self.site.type)][self.radius_type]
+            packed_volume += center_solid_angle / 3 * pow(center_r, 3)
+
+            volume = tetra_volume(self.site.coords, *surface_coords)
+            volume_list.append(volume)
+            volume_interstice_list.append(1 - packed_volume/volume)
+
+        self.volume_list_ = volume_list
+        self.volume_interstice_list_ = volume_interstice_list
+
+    def combine_neighbor_solid_angles(self):
         if not hasattr(self, 'neighbors_solid_angle_'):
             # init neighbors_solid_angle list
             neighbors_solid_angle = [0] * len(self.site.neighbors)
 
             # iter convex surface (neighbor indices)
             for convex_surface_indices, solid_angle_list in \
-                    zip(self.convex_hull().simplices, self.solid_angle_lists):
+                    zip(self.convex_hull().simplices, self.solid_angle_lists_):
                 for idx, solid_angle in zip(convex_surface_indices, solid_angle_list):
                     neighbors_solid_angle[idx] += solid_angle
             self.neighbors_solid_angle_ = neighbors_solid_angle
         return self.neighbors_solid_angle_
-
-    def _load_radii(self):
-        if not hasattr(self, 'PTE_dict_'):
-            with open(os.path.join(module_dir, '..', '..', 'data',
-                                   'PTE.json'), 'r') as rf:
-                self.PTE_dict_ = json.load(rf)
-        return self.PTE_dict_
-
-    def calc_area_volume_list(self):
-        # init area volume list
-        area_list = list()
-        area_interstice_list = list()
-        volume_list = list()
-        volume_interstice_list = list()
-        packing_surface_area_list = list()
-
-        # get nn_coords
-        nn_coords = np.array(self.site.nn_coords)
-
-        # iter convex surface (neighbor indices)
-        for convex_surface_indices, solid_angle_list, triangular_angle_list in \
-                zip(self.convex_hull().simplices, self.solid_angle_lists,
-                    self.triangular_angle_lists):
-            packing_volume = 0
-            packing_area = 0
-            # packing_surface_area = 0
-            surface_coords = nn_coords[convex_surface_indices]
-
-            # calculate neighbors' packing_volume and packing_area
-            for idx, sol_angle, tri_angle in zip(convex_surface_indices,
-                                                     solid_angle_list,
-                                                     triangular_angle_list):
-                if sol_angle == 0:
-                    continue
-
-                r = self.radii[str(self.site.neighbors[idx].type)][self.radius_type]
-                if self.calc_volume_area == 'volume' or \
-                        self.calc_volume_area == 'all':
-                    packing_volume += sol_angle / 3 * pow(r, 3)
-                    # packing_surface_area += solid_angle / 2 * pow(r, 2)
-
-                if self.calc_volume_area == 'area' or \
-                        self.calc_volume_area == 'all':
-                    packing_area += tri_angle / 2 * pow(r, 2)
-
-            # add self's packing_volume and packing_area
-            if self.calc_volume_area == 'volume' or \
-                    self.calc_volume_area == 'all':
-                center_solid_angle = solid_angle(self.site.coords, *surface_coords)
-                center_r = self.radii[str(self.site.type)][self.radius_type]
-                # packing_surface_area += center_solid_angle / 2 * pow(center_r, 2)
-                packing_volume += center_solid_angle / 3 * pow(center_r, 3)
-
-            if self.calc_volume_area == 'area' or \
-                    self.calc_volume_area == 'all':
-                # add result to list
-                area = triangle_area(*surface_coords)
-                area_list.append(area)
-                ################################################################
-                # Please note that this is percent, not interstice area!!!!!!
-                area_interstice_list.append(1 - packing_area/area)
-
-            if self.calc_volume_area == 'volume' or \
-                    self.calc_volume_area == 'all':
-                # packing_surface_area_list.append(packing_surface_area)
-
-                volume = tetra_volume(self.site.coords, *surface_coords)
-                volume_list.append(volume)
-                volume_interstice_list.append(1 - packing_volume/volume)
-
-        self.area_list = area_list
-        self.area_interstice_list = area_interstice_list
-        self.volume_list = volume_list
-        self.volume_interstice_list = volume_interstice_list
-        # self.packing_surface_area_list_ = packing_surface_area_list
 
     def cluster_packed_volume(self):
         """
@@ -218,7 +197,7 @@ class PackingOfSite(object):
         packed_volume = 4/3 * pi * \
                         pow(self.radii[str(self.site.type)][self.radius_type], 3)
         for neighbor_site, solid_angle in zip(self.site.neighbors,
-                                              self.neighbors_solid_angle):
+                                              self.neighbors_solid_angle_):
             if solid_angle == 0:
                 continue
             packed_volume += \
@@ -238,27 +217,11 @@ class PackingOfSite(object):
                         23: 1.60436, 24: 1.65915}
 
         r = 0
-        for type, n in self.site.nn_type_dict().items():
-            r += self.radii[str(type)][self.radius_type] * n
+        for t, n in self.site.nn_type_dict().items():
+            r += self.radii[str(t)][self.radius_type] * n
         r = r / self.site.cn
         return self.radii[str(self.site.type)][self.radius_type] / r - \
                ideal_ratio_[self.site.cn]
-
-    @property
-    def radii(self):
-        return self.radii_
-
-    @radii.setter
-    def radii(self, radii):
-        self.radii_ = radii
-
-    @property
-    def radius_type(self):
-        return self.radius_type_
-
-    @radius_type.setter
-    def radius_type(self, radius_type):
-        self.radius_type_ = radius_type
 
 
 # class DistanceInterstice(BaseSRO):
