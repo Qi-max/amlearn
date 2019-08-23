@@ -34,32 +34,6 @@ def create_featurizer_backend():
     return featurizer_backend
 
 
-def remain_df_calc(result_df, source_df=None, remain_stat="none",
-                   n_neighbor_col='n_neighbors_voro'):
-    """
-
-    Args:
-        remain_stat: str
-            3 option: none, all, neighbor
-            if none, don't remain sro cols;
-            if all, remain all sro cols;
-            if neighbor, remain all sro neighbor cols(n_neighbors_voro/n_neighbors_dist, and neighbor_id_*)
-        result_df:
-        source_df:
-        n_neighbor_col:
-
-    Returns:
-
-    """
-    if remain_stat == "all":
-        result_df = source_df.join(result_df)
-    elif remain_stat == "neighbor":
-        remain_cols = [n_neighbor_col] + [col for col in source_df.columns
-                                          if col.startswith('neighbor_id_')]
-        result_df = source_df[remain_cols].join(result_df)
-    return result_df
-
-
 def line_percent(value_list):
     percent_list = np.zeros(value_list.shape)
 
@@ -70,30 +44,13 @@ def line_percent(value_list):
 
 class BaseFeaturize(six.with_metaclass(ABCMeta,
                                        BaseEstimator, TransformerMixin)):
-    def __init__(self, atoms_df=None, tmp_save=True, context=None):
-        self.atoms_df = atoms_df
+    def __init__(self, tmp_save=True, context=None):
         self.tmp_save = tmp_save
         self.context = context if context is not None \
             else create_featurizer_backend()
         self._dependency = None
         self.voro_depend_cols = None
         self.dist_denpend_cols = None
-
-    @classmethod
-    def from_file(cls, data_path_file, cutoff, allow_neighbor_limit,
-                  n_neighbor_limit, pbc, **kwargs):
-        if os.path.exists(data_path_file):
-            _, atom_type, atom_coords, Bds = read_imd(data_path_file)
-        else:
-            raise FileNotFoundError("File {} not found".format(data_path_file))
-
-        atoms_df = pd.DataFrame(atom_coords, columns=['x', 'y', 'z'],
-                                index=range(len(atom_coords)))
-        atoms_df['type'] = pd.Series(atom_type, index=atoms_df.index)
-        return cls(cutoff=cutoff, atoms_df=atoms_df,
-                   allow_neighbor_limit=allow_neighbor_limit,
-                   n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds,
-                   **kwargs)
 
     def transform(self, X):
         pass
@@ -107,18 +64,14 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
         return self._dependency
 
     @property
-    def double_dependency(self):
-        return False
-
-    @property
     def category(self):
-        return 'voro_and_dist'
+        return 'sro'
 
     def check_dependency(self, X):
         if self._dependency is None:
             depend = None
         elif check_dependency(depend_cls=self._dependency,
-                              df_cols=self.atoms_df.columns,
+                              df_cols=X.columns,
                               voro_depend_cols=self.voro_depend_cols,
                               dist_denpend_cols=self.dist_denpend_cols):
             depend = None
@@ -128,12 +81,11 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
 
 
 class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
-    def __init__(self, atoms_df=None, tmp_save=True, context=None,
+    def __init__(self, tmp_save=True, context=None,
                  dependency=None, remain_stat="none", **nn_kwargs):
         """
 
         Args:
-            atoms_df:
             tmp_save:
             context:
             dependency: only accept "voro"/"voronoi" or "dist"/"distance"
@@ -142,8 +94,7 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
             **nn_kwargs:
         """
         super(BaseSRO, self).__init__(tmp_save=tmp_save,
-                                      context=context,
-                                      atoms_df=atoms_df)
+                                      context=context)
         if dependency is None:
             self._dependency = None
             self.dependency_name = 'voro'
@@ -167,10 +118,11 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
                               dependency, '[voro, voronoi, dist, distance]'))
         self.remain_stat = remain_stat
 
-    def fit(self, X=None):
-        self._dependency = self.check_dependency(X)
+    def fit(self, X=None, dependence_df=None):
+        dependence_df = dependence_df if dependence_df is not None else X
+        self._dependency = self.check_dependency(dependence_df)
         if self._dependency:
-            self.atoms_df = self._dependency.fit_transform(self.atoms_df)
+            self.dependence_df = self._dependency.fit_transform(dependence_df)
         return self
 
     @property
