@@ -33,14 +33,14 @@ def column_hist(data, bins=None, density=True, fraction=True,
 
 if __name__ == "__main__":
     system = ["Cu65Zr35", "qr_5plus10^10"]
-    predict_file = "xx"
+    prediction_file = "xx"
     output_path = "xxx"
     output_file_header = r'{}_{}_QS'.format(*system)
 
     qs_col = "QS_predict"
     bin = 0.02
 
-    df = pd.read_csv(predict_file, index_col=0)
+    df = pd.read_csv(prediction_file, index_col=0)
 
     column_hist(df[qs_col], bins=np.arange(0, 1.0, bin), density=True,
                 save_figure_to_dir=os.path.join(output_path, "{}_density_bin_{}.png".format(output_file_header, bin)),

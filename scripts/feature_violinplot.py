@@ -19,6 +19,7 @@ def violin_features_pairs(prepared_df, class_col, save_to_dir=None,
                           major_length=6, violinwidth=0.8):
     # start draw heatmap
     print("start draw violin figures")
+    palette = "Set2" if palette is None else palette
     plt.rcParams.update({'font.family': "arial"})
     plt.figure(figsize=figsize if figsize else (10, 10))
     ax = plt.axes()
@@ -178,9 +179,9 @@ def set_plot_args(ax, **plot_args):
 
 
 if __name__ == "__main__":
-    feature_file = "xx"
+    feature_and_prediction_file = "xx"
     output_path = "xxx"
-    df = pd.read_csv(feature_file, index_col="number")
+    df = pd.read_csv(feature_and_prediction_file, index_col="number")
 
     selected_features = \
         ['MRO_mean area_interstice std voro',
@@ -241,15 +242,11 @@ if __name__ == "__main__":
         save_to_dir=os.path.join(
             output_path,
             "{}_{}_features_font_{}_bw_{}_linewidth_{}_xrotation_{}_yrotation_{}_orient_{}_aspect_{}_figsize_{}_{}_violinwidth_{}_xlim_{}_scale_{}_margin_{}_lower{}_higher_{}_{}.png"
-                .format(palette, len(selected_features),
-                        fontsize, bw, linewidth,
-                        xrotation, yrotation, orient,
-                        aspect, figsize[0], figsize[1],
-                        violinwidth, dist_lim[1],
-                        scale, margin,
-                        qs_lower_threshold,
-                        qs_higher_threshold,
-                        datetime.datetime.now().strftime(
+                .format(palette, len(selected_features), fontsize, bw,
+                        linewidth, xrotation, yrotation, orient,
+                        aspect, figsize[0], figsize[1], violinwidth,
+                        dist_lim[1], scale, margin, qs_lower_threshold,
+                        qs_higher_threshold, datetime.datetime.now().strftime(
                              '%Y-%m-%d_%H-%M-%S'))),
         hue_order=["hard", "soft"], order=None,
         dpi=300, bw=bw, xrotation=xrotation, yrotation=yrotation,
