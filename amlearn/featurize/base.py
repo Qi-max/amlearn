@@ -17,7 +17,7 @@ try:
 except Exception:
     print("import fortran file voronoi_stats error!\n")
 
-module_dir = os.path.dirname(os.path.abspath(__file__))
+module_dir = os.path.dirname(os.path.abspath( __file__))
 
 
 def load_radii():
