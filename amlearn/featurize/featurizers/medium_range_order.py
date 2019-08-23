@@ -1,8 +1,7 @@
-import os
 import numpy as np
 import pandas as pd
-from amlearn.featurize.base import BaseFeaturize, line_percent
-from amlearn.utils.check import check_featurizer_X, check_neighbor_col
+from amlearn.featurize.base import BaseFeaturize
+from amlearn.utils.check import check_neighbor_col
 
 try:
     from amlearn.featurize.featurizers.src import mro_stats, voronoi_stats
@@ -14,8 +13,7 @@ class MRO(BaseFeaturize):
     def __init__(self, n_neighbor_limit=80, write_path="default",
                  stats_types="all", stats_names=None,
                  calc_features="all", neighbor_cols="all",
-                 calc_neighbor_cols=False,
-                 atoms_df=None, tmp_save=True, context=None,
+                 calc_neighbor_cols=False, tmp_save=True, context=None,
                  output_file_name='mro'):
         """
 
@@ -39,8 +37,7 @@ class MRO(BaseFeaturize):
                 was calculated.
         """
         super(MRO, self).__init__(tmp_save=tmp_save,
-                                  context=context,
-                                  atoms_df=atoms_df)
+                                  context=context)
         self.stats_types = stats_types if stats_types != "all" \
             else [1, 1, 1, 1, 1, 1]
         self.n_neighbor_limit = n_neighbor_limit
@@ -58,25 +55,25 @@ class MRO(BaseFeaturize):
         return self.transform(X)
 
     def transform(self, X=None):
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
+        integrated_df = X.join(self.dependence_df)
 
-        self.calc_features = list(X.columns) if self.calc_features == "all" \
+        self.calc_features = list(integrated_df.columns) if self.calc_features == "all" \
             else self.calc_features
         if not self.calc_neighbor_cols:
             self.calc_features = [col for col in self.calc_features
                                   if not col.startswith('n_neighbors_')
                                   and not col.startswith('neighbor_id_')]
-        if not set(self.calc_features).issubset(set(list(X.columns))):
+        if not set(self.calc_features).issubset(set(list(integrated_df.columns))):
             raise ValueError("calc_features {} is unkown. "
                              "Possible values are: {}".format(self.calc_features,
-                                                              list(X.columns)))
+                                                              list(integrated_df.columns)))
 
         self.calced_neighbor_cols = list()
         concat_features = None
-        n_atoms = len(X)
+        n_atoms = len(integrated_df)
 
         for neighbor_col in self.neighbor_cols:
-            if neighbor_col not in list(X.columns):
+            if neighbor_col not in list(integrated_df.columns):
                 self.context.logger.warning(
                     "neighbor_col {} is not in atoms_df. So ignore this "
                     "neighbor_col and continue to next neighbor_col "
@@ -85,11 +82,11 @@ class MRO(BaseFeaturize):
             # TODO: distance_nn just calculate same special features, not all
             self.calced_neighbor_cols.append(neighbor_col)
 
-            n_neighbor_list = np.array(X[neighbor_col].values,
+            n_neighbor_list = np.array(integrated_df[neighbor_col].values,
                                        dtype=int)
             neighbor_tag = neighbor_col.split('_')[-1]
             neighbor_lists = \
-                np.array(X[['neighbor_id_{}_{}'.format(num, neighbor_tag)
+                np.array(integrated_df[['neighbor_id_{}_{}'.format(num, neighbor_tag)
                             for num in range(self.n_neighbor_limit)]].values,
                          dtype=int)
 
@@ -101,7 +98,7 @@ class MRO(BaseFeaturize):
                 mro_feature = np.zeros((n_atoms, sum(self.stats_types)),
                                        dtype=np.float128)
                 mro_feature = \
-                    mro_stats.sro_to_mro(np.array(X[feature].values,
+                    mro_stats.sro_to_mro(np.array(integrated_df[feature].values,
                                                   dtype=np.float128),
                                          n_neighbor_list, neighbor_lists,
                                          self.stats_types, mro_feature,
@@ -110,7 +107,7 @@ class MRO(BaseFeaturize):
                 concat_features = mro_feature if concat_features is None \
                     else np.append(concat_features, mro_feature, axis=1)
 
-        result_df = pd.DataFrame(concat_features, index=X.index,
+        result_df = pd.DataFrame(concat_features, index=integrated_df.index,
                                  columns=self.get_common_features())
 
         voro_mean_cols = [col for col in result_df.columns
@@ -123,7 +120,7 @@ class MRO(BaseFeaturize):
                              for col in voro_mean_cols]
             percent_list = \
                 line_percent(value_list=result_df[voro_mean_cols].values)
-            percent_df = pd.DataFrame(percent_list, index=X.index,
+            percent_df = pd.DataFrame(percent_list, index=integrated_df.index,
                                       columns=self.get_symm_percent_features())
             result_df = result_df.join(percent_df)
 
