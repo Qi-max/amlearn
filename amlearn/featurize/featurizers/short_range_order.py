@@ -25,22 +25,6 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 class PackingOfSite(object):
     def __init__(self, pbc, Bds, atom_type, coords, neighbors_type,
                  neighbors_coords, radii=None, radius_type="miracle_radius"):
-        """
-
-        Args:
-            pbc:
-            Bds:
-            atom_type:
-            coords:
-            neighbors_type:
-            neighbors_coords:
-            radii: dict
-            radius_type: str.
-                'miracle_radius' or 'atomic_radius',
-                if miracle_radius use radius measured by miracle methods.
-                if atomic_radius use radius measured by conventional methods.
-
-        """
         self.pbc = pbc
         self.Bds = Bds
         self.atom_type = atom_type
@@ -203,7 +187,7 @@ class PackingOfSite(object):
                                                       [self.radius_type], 3)
         return packed_volume
 
-    def atomic_packing_efficiency(self):
+    def cluster_packing_efficiency(self):
         return self.cluster_packed_volume() / self.convex_hull().volume
 
     def nn_type_dict(self):
@@ -212,7 +196,7 @@ class PackingOfSite(object):
             nn_type_dict_[neighbor_type] += 1
         return nn_type_dict_
 
-    def glass_packing_efficiency(self):
+    def atomic_packing_efficiency(self):
         ideal_ratio_ = {3: 0.154701, 4: 0.224745, 5: 0.361654, 6: 0.414214,
                         7: 0.518145, 8: 0.616517, 9: 0.709914, 10: 0.798907,
                         11: 0.884003, 12: 0.902113, 13: 0.976006, 14: 1.04733,
@@ -322,29 +306,6 @@ class VolumeAreaInterstice(BaseSRO):
                  n_neighbor_limit=80, dependency="voro", tmp_save=True,
                  radii=None, radius_type="miracle_radius",
                  calc_volume_area='all', verbose=0, **nn_kwargs):
-        """
-
-        Args:
-            pbc:
-            context:
-            coords_cols:
-            type_col:
-            types_atomic_number_list: list of int
-                type id to real atomic number in periodic table of elements.
-
-                Examples
-                --------
-                >>> types_atomic_number_list = [29, 40] # Cu:29 Zr:40
-            n_neighbor_limit:
-            dependency:
-            tmp_save:
-            radii:
-            radius_type:
-            calc_packing_efficiency:
-            calc_volume_area:
-            verbose:
-            **nn_kwargs:
-        """
         super(VolumeAreaInterstice, self).__init__(
             tmp_save=tmp_save, context=context,
             dependency=dependency, **nn_kwargs)
@@ -498,15 +459,18 @@ class VolumeAreaInterstice(BaseSRO):
         return feature_names
 
 
-class AtomicPackingEfficiency(BaseSRO):
-    """Give citation"""
+class ClusterPackingEfficiency(BaseSRO):
+    """
+    Yang, L. et al. Atomic-Scale Mechanisms of the Glass-Forming Ability
+    in Metallic Glasses. Phys. Rev. Lett. 109, 105502 (2012)
+    """
     def __init__(self, pbc, context=None,
                  coords_cols=None, type_col='type',
                  types_atomic_number_list=None,
                  n_neighbor_limit=80, dependency="voro", tmp_save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
-        super(AtomicPackingEfficiency, self).__init__(
+        super(ClusterPackingEfficiency, self).__init__(
             tmp_save=tmp_save, context=context,
             dependency=dependency, **nn_kwargs)
         self.pbc = pbc
@@ -583,15 +547,18 @@ class AtomicPackingEfficiency(BaseSRO):
         return feature_names
 
 
-class GlassPackingEfficiency(BaseSRO):
-    """Give citation"""
+class AtomicPackingEfficiency(BaseSRO):
+    """
+    Laws, K. J., Miracle, D. B. & Ferry, M. A predictive structural model for
+    bulk metallic glasses. Nat. Commun. 6, 8123 (2015).
+    """
     def __init__(self, pbc, context=None,
                  coords_cols=None, type_col='type',
                  types_atomic_number_list=None,
                  n_neighbor_limit=80, dependency="voro", tmp_save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
-        super(GlassPackingEfficiency, self).__init__(
+        super(AtomicPackingEfficiency, self).__init__(
             tmp_save=tmp_save, context=context,
             dependency=dependency, **nn_kwargs)
         self.pbc = pbc
