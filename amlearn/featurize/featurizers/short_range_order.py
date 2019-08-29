@@ -462,7 +462,11 @@ class VolumeAreaInterstice(BaseSRO):
 class ClusterPackingEfficiency(BaseSRO):
     """
     Yang, L. et al. Atomic-Scale Mechanisms of the Glass-Forming Ability
-    in Metallic Glasses. Phys. Rev. Lett. 109, 105502 (2012)
+    in Metallic Glasses. Phys. Rev. Lett. 109, 105502 (2012).
+    The authors also term this metric as "Atomic Packing Efficiency" in the
+    original paper. Here we name it as "Cluster Packing Efficiency" to
+    distinguish this with that proposed in Laws, K. J. et al. Nat. Commun.
+    6, 8123 (2015).
     """
     def __init__(self, pbc, context=None,
                  coords_cols=None, type_col='type',
