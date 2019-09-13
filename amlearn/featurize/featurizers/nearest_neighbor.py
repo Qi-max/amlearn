@@ -13,14 +13,13 @@ except ImportError:
 
 
 class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
-
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
-                 pbc=None, Bds=None, context=None, tmp_save=True):
+                 pbc=None, Bds=None, backend=None, tmp_save=True):
         self.tmp_save = tmp_save
         self.cutoff = cutoff
         self.allow_neighbor_limit = allow_neighbor_limit
         self.n_neighbor_limit = n_neighbor_limit
-        self.context = context if context is not None \
+        self.backend = backend if backend is not None \
             else create_featurizer_backend()
         self.pbc = pbc if pbc else [1, 1, 1]
         self.Bds = Bds if Bds else [[-35.5040474, 35.5040474],
@@ -35,12 +34,11 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
 
 
 class VoroNN(BaseNN):
-
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
                  pbc=None, Bds=None, small_face_thres=0.05,
-                 context=None, tmp_save=True):
+                 backend=None, tmp_save=True):
         super(VoroNN, self).__init__(tmp_save=tmp_save,
-                                     context=context,
+                                     backend=backend,
                                      cutoff=cutoff,
                                      allow_neighbor_limit=allow_neighbor_limit,
                                      n_neighbor_limit=n_neighbor_limit,
@@ -51,7 +49,7 @@ class VoroNN(BaseNN):
         """
 
         Args:
-            X: dataframe(should contains ['type', 'x', 'y', 'z'...] columns)
+            X (DataFrame): Should contains ['type', 'x', 'y', 'z'...] columns
 
         Returns:
 
@@ -98,9 +96,9 @@ class VoroNN(BaseNN):
                                columns=prop_columns)
 
         if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(output_df=nn_df,
+            self.backend.save_featurizer_as_dataframe(output_df=nn_df,
                                                       name='voro_nn')
-            self.context.save_featurizer_as_dataframe(output_df=prop_df,
+            self.backend.save_featurizer_as_dataframe(output_df=prop_df,
                                                       name='voro_prop')
         return nn_df, prop_df
 
@@ -122,9 +120,9 @@ class VoroNN(BaseNN):
 class DistanceNN(BaseNN):
     def __init__(self, cutoff=4, allow_neighbor_limit=300,
                  n_neighbor_limit=80, pbc=None, Bds=None,
-                 context=None, tmp_save=True):
+                 backend=None, tmp_save=True):
         super(DistanceNN, self).__init__(
-            tmp_save=tmp_save, context=context,
+            tmp_save=tmp_save, backend=backend,
             cutoff=cutoff, allow_neighbor_limit=allow_neighbor_limit,
             n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds)
 
@@ -157,9 +155,9 @@ class DistanceNN(BaseNN):
                                columns=prop_cols)
 
         if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(output_df=nn_df,
+            self.backend.save_featurizer_as_dataframe(output_df=nn_df,
                                                       name='dist_nn')
-            self.context.save_featurizer_as_dataframe(output_df=prop_df,
+            self.backend.save_featurizer_as_dataframe(output_df=prop_df,
                                                       name='dist_prop')
 
         return nn_df, prop_df

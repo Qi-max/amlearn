@@ -1,18 +1,21 @@
 import os
-import pickle
+from abc import ABCMeta
 from collections import defaultdict
+from functools import lru_cache
 from math import pi
 import numpy as np
 import pandas as pd
+import six
+from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN
 
 from scipy.spatial.qhull import ConvexHull
-from amlearn.featurize.base import BaseSRO, load_radii
+from amlearn.featurize.base import load_radii, BaseFeaturize
 from amlearn.utils.data import read_imd, read_lammps_dump
 from amlearn.utils.packing import solid_angle, \
     triangular_angle, calc_stats, triangle_area, tetra_volume
 from amlearn.utils.verbose import VerboseReporter
 
-from amlearn.amlearn.utils.data import calc_neighbor_coords
+from amlearn.utils.data import calc_neighbor_coords
 
 try:
     from amlearn.featurize.featurizers.src import voronoi_stats, boop
@@ -211,16 +214,93 @@ class PackingOfSite(object):
         return self.radii[str(self.atom_type)][self.radius_type] / r - \
                ideal_ratio_[len(self.neighbors_type)]
 
+@lru_cache(maxsize=5)
+def get_nn_instance(dependent_name, backend, **nn_kwargs):
+    """
+    Get Nearest Neighbor instance, for most SRO depends on the same Nearest
+    Neighbor instance, we cache the most recently used Nearest Neighbor
+    instance by lru_cache.
+
+    Args:
+        dependent_name (str): "voro"/"voronoi" or "dist"/"distance".
+        backend (object): Amlearn Backend object, to prepare amlearn needed
+            paths and define the common amlearn's load/save method.
+        nn_kwargs: Nearest Neighbor class's keyword arguments.
+
+    Returns:
+        dependent_class (object): Nearest Neighbor instance.
+
+    """
+    if dependent_name == "voro":
+        dependent_class = VoroNN(backend=backend, **nn_kwargs)
+    elif dependent_name == "dist":
+        dependent_class = DistanceNN(backend=backend, **nn_kwargs)
+    else:
+        raise ValueError('dependent name {} is unknown, Possible values '
+                         'are {}'.format(dependent_name,
+                                         '[voro, voronoi, '
+                                         'dist, distance]'))
+    return dependent_class
+
+
+class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
+    """
+    Base class of Short Range Order(SRO) Featurizer, most SRO Featurizer
+    depends on the output of the Nearest Neighbor class, so this base class
+    implements dependency checking. For most SRO depends on the same Nearest
+    Neighbor instance, we cache the most recently used Nearest Neighbor
+    instance by lru_cache.
+
+    Args:
+        save (Boolean): save file or not.
+        backend (object): Amlearn Backend object, to prepare amlearn needed
+            paths and define the common amlearn's load/save method.
+        dependent_class (object or str):
+            if object, it can be "VoroNN()" or "DistanceNN()";
+            if str, it can be "voro"/"voronoi" or "dist"/"distance"
+        nn_kwargs: Nearest Neighbor class's keyword arguments.
+    """
+
+    def __init__(self, save=True, backend=None,
+                 dependent_class=None, **nn_kwargs):
+        super(BaseSRO, self).__init__(save=save,
+                                      backend=backend)
+        if dependent_class is None:
+            self.dependent_class_ = None
+            self.dependent_name_ = 'voro'
+        elif isinstance(dependent_class, type):
+            self.dependent_class_ = dependent_class
+            self.dependent_name_ = dependent_class.__class__.__name__.lower()[:4]
+        elif isinstance(dependent_class, str):
+            self.dependent_name_ = dependent_class[:4]
+            self.dependent_class_ = get_nn_instance(self.dependent_name_,
+                                                    backend, **nn_kwargs)
+        else:
+            raise ValueError('dependent name {} is unknown, Possible values '
+                             'are {} or voro/dist object.'.format(
+                              dependent_class, '[voro, voronoi, dist, distance]'))
+
+    def fit(self, X=None, adj_matrix=None):
+        dependence_df = adj_matrix if adj_matrix is not None else X
+        self.dependent_class_ = self.check_dependency(dependence_df)
+        if self.dependent_class_:
+            self.dependence_df = self.dependent_class_.fit_transform(dependence_df)
+        return self
+
+    @property
+    def category(self):
+        return 'sro'
+
 
 class DistanceInterstice(BaseSRO):
-    def __init__(self, context=None, type_col='type',
+    def __init__(self, backend=None, type_col='type',
                  types_atomic_number_list=None,
-                 n_neighbor_limit=80, dependency="voro", tmp_save=True,
+                 n_neighbor_limit=80, dependent_class="voro", save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
         super(DistanceInterstice, self).__init__(
-            tmp_save=tmp_save, context=context,
-            dependency=dependency, **nn_kwargs)
+            save=save, backend=backend,
+            dependent_class=dependent_class, **nn_kwargs)
         self.types_atomic_number_list = types_atomic_number_list
         self.n_neighbor_limit = n_neighbor_limit
         self.voro_depend_cols = ['n_neighbors_voro'] + \
@@ -238,32 +318,33 @@ class DistanceInterstice(BaseSRO):
         self.volume_list = list()
         self.volume_interstice_list = list()
 
-    def transform(self, X, lammp_df=None, Bds=None,
-                  lammp_path=None):
+    def transform(self, X, lammp_df=None, lammp_path=None):
 
         neighbor_id_cols = \
-            ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+            ['neighbor_id_{}_{}'.format(idx, self.dependent_name_)
              for idx in range(self.n_neighbor_limit)]
 
         neighbor_dist_cols = \
-            ['neighbor_dist_{}_{}'.format(idx, self.dependency_name)
+            ['neighbor_dist_{}_{}'.format(idx, self.dependent_name_)
              for idx in range(self.n_neighbor_limit)]
 
-        if lammp_path is not None and os.path.exists(lammp_path):
-            lammp_df, Bds = read_lammps_dump(lammp_path)
+        if lammp_df is None and \
+                lammp_path is not None and os.path.exists(lammp_path):
+            lammp_df, _ = read_lammps_dump(lammp_path)
         if self.types_atomic_number_list is not None:
             lammp_df[self.type_col] = lammp_df[self.type_col].apply(
                 lambda x: self.types_atomic_number_list[x-1])
 
         # define print verbose
         if self.verbose > 0:
-            vr = VerboseReporter(self.context, total_stage=1,
+            vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=1, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
                     init_msg='Calculating DistanceInterstice features.',
                     epoch_name='Atoms', stage=1)
 
         feature_lists = list()
+        X = X.join(lammp_df)
         integrated_df = X.join(self.dependence_df)
         for idx, row in integrated_df.iterrows():
             neighbors_distance_interstice_list = list()
@@ -279,18 +360,18 @@ class DistanceInterstice(BaseSRO):
         distance_interstice_df = pd.DataFrame(feature_lists,
                                               index=X.index,
                                               columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=distance_interstice_df,
                 name='{}_{}_{}_distance_interstice'.format(self.category,
-                                                   self.dependency_name,
+                                                   self.dependent_name_,
                                                    self.radius_type))
 
         return distance_interstice_df
 
     def get_feature_names(self):
         feature_names = \
-            ['neighbor_distance_interstice_{}_{}'.format(idx, self.dependency_name)
+            ['neighbor_distance_interstice_{}_{}'.format(idx, self.dependent_name_)
              for idx in range(self.n_neighbor_limit)]
         return feature_names
 
@@ -300,15 +381,15 @@ class DistanceInterstice(BaseSRO):
 
 
 class VolumeAreaInterstice(BaseSRO):
-    def __init__(self, pbc, context=None,
+    def __init__(self, pbc, backend=None,
                  coords_cols=None, type_col='type',
                  types_atomic_number_list=None,
-                 n_neighbor_limit=80, dependency="voro", tmp_save=True,
+                 n_neighbor_limit=80, dependent_class="voro", save=True,
                  radii=None, radius_type="miracle_radius",
                  calc_volume_area='all', verbose=0, **nn_kwargs):
         super(VolumeAreaInterstice, self).__init__(
-            tmp_save=tmp_save, context=context,
-            dependency=dependency, **nn_kwargs)
+            save=save, backend=backend,
+            dependent_class=dependent_class, **nn_kwargs)
         self.pbc = pbc
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
@@ -328,25 +409,27 @@ class VolumeAreaInterstice(BaseSRO):
         self.volume_list = list()
         self.volume_interstice_list = list()
 
-    def transform(self, X, Bds=None, lammp_path=None):
+    def transform(self, X, lammp_df=None, Bds=None, lammp_path=None):
         neighbor_id_cols = \
-            ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+            ['neighbor_id_{}_{}'.format(idx, self.dependent_name_)
              for idx in range(self.n_neighbor_limit)]
 
-        if lammp_path is not None and os.path.exists(lammp_path):
-            X, Bds = read_lammps_dump(lammp_path)
+        if lammp_df is None and \
+                lammp_path is not None and os.path.exists(lammp_path):
+            lammp_df, Bds = read_lammps_dump(lammp_path)
         if self.types_atomic_number_list is not None:
-            X[self.type_col] = X[self.type_col].apply(
+            lammp_df[self.type_col] = lammp_df[self.type_col].apply(
                 lambda x: self.types_atomic_number_list[x-1])
 
         # define print verbose
         if self.verbose > 0:
-            vr = VerboseReporter(self.context, total_stage=1,
+            vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=1, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
                     init_msg='Calculating VolumeAreaInterstice features.',
                     epoch_name='Atoms', stage=1)
 
+        X = X.join(lammp_df)
         integrated_df = X.join(self.dependence_df)
         feature_lists = list()
         for idx, row in integrated_df.iterrows():
@@ -365,11 +448,7 @@ class VolumeAreaInterstice(BaseSRO):
             if len(neighbors_type) < 4:
                 feature_lists.append([0] * len(self.get_feature_names()))
             else:
-                if self.calc_packing_efficiency:
-                    feature_list = \
-                        [pos_.atomic_packing_efficiency(),
-                         pos_.glass_packing_efficiency()]
-
+                feature_list = list()
                 if self.calc_volume_area == 'volume' or \
                         self.calc_volume_area == 'all':
                     pos_.analyze_hull_tetra_interstice()
@@ -428,11 +507,11 @@ class VolumeAreaInterstice(BaseSRO):
         volume_area_interstice_df = pd.DataFrame(
             feature_lists, index=X.index, columns=self.get_feature_names())
 
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=volume_area_interstice_df,
                 name='{}_{}_{}_volume_area_interstice'.format(
-                    self.category, self.dependency_name, self.radius_type))
+                    self.category, self.dependent_name_, self.radius_type))
 
         return volume_area_interstice_df
 
@@ -453,7 +532,7 @@ class VolumeAreaInterstice(BaseSRO):
                                 "fractional_area_interstice_triangle_avg",
                                 "fractional_area_interstice_center_slice_a"]
         feature_names += ['{} {} {}'.format(feature_prefix, stat,
-                                            self.dependency_name)
+                                            self.dependent_name_)
                           for feature_prefix in feature_prefixs
                           for stat in stats]
         return feature_names
@@ -468,15 +547,15 @@ class ClusterPackingEfficiency(BaseSRO):
     distinguish this with that proposed in Laws, K. J. et al. Nat. Commun.
     6, 8123 (2015).
     """
-    def __init__(self, pbc, context=None,
+    def __init__(self, pbc, backend=None,
                  coords_cols=None, type_col='type',
                  types_atomic_number_list=None,
-                 n_neighbor_limit=80, dependency="voro", tmp_save=True,
+                 n_neighbor_limit=80, dependent_class="voro", save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
         super(ClusterPackingEfficiency, self).__init__(
-            tmp_save=tmp_save, context=context,
-            dependency=dependency, **nn_kwargs)
+            save=save, backend=backend,
+            dependent_class=dependent_class, **nn_kwargs)
         self.pbc = pbc
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
@@ -495,25 +574,26 @@ class ClusterPackingEfficiency(BaseSRO):
         self.volume_list = list()
         self.volume_interstice_list = list()
 
-    def transform(self, X, Bds=None, lammp_path=None):
+    def transform(self, X, lammp_df=None, Bds=None, lammp_path=None):
         neighbor_id_cols = \
-            ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+            ['neighbor_id_{}_{}'.format(idx, self.dependent_name_)
              for idx in range(self.n_neighbor_limit)]
 
-        if lammp_path is not None and os.path.exists(lammp_path):
-            X, Bds = read_lammps_dump(lammp_path)
+        if lammp_df is None and lammp_path is not None and os.path.exists(lammp_path):
+            lammp_df, Bds = read_lammps_dump(lammp_path)
         if self.types_atomic_number_list is not None:
-            X[self.type_col] = X[self.type_col].apply(
+            lammp_df[self.type_col] = lammp_df[self.type_col].apply(
                 lambda x: self.types_atomic_number_list[x-1])
 
         # define print verbose
         if self.verbose > 0:
-            vr = VerboseReporter(self.context, total_stage=1,
+            vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=1, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
                     init_msg='Calculating VolumeAreaInterstice features.',
                     epoch_name='Atoms', stage=1)
 
+        X = X.join(lammp_df)
         integrated_df = X.join(self.dependence_df)
         feature_lists = list()
         for idx, row in integrated_df.iterrows():
@@ -537,17 +617,17 @@ class ClusterPackingEfficiency(BaseSRO):
         atomic_packing_efficiency_df = pd.DataFrame(
             feature_lists, index=X.index, columns=self.get_feature_names())
 
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=atomic_packing_efficiency_df,
                 name='{}_{}_{}_atomic_packing_efficiency'.format(
-                    self.category, self.dependency_name, self.radius_type))
+                    self.category, self.dependent_name_, self.radius_type))
 
         return atomic_packing_efficiency_df
 
     def get_feature_names(self):
         feature_names = ['{}_atomic_packing_efficiency {}'.format(
-            self.radius_type.replace("_radius", ""), self.dependency_name)]
+            self.radius_type.replace("_radius", ""), self.dependent_name_)]
         return feature_names
 
 
@@ -556,15 +636,15 @@ class AtomicPackingEfficiency(BaseSRO):
     Laws, K. J., Miracle, D. B. & Ferry, M. A predictive structural model for
     bulk metallic glasses. Nat. Commun. 6, 8123 (2015).
     """
-    def __init__(self, pbc, context=None,
+    def __init__(self, pbc, backend=None,
                  coords_cols=None, type_col='type',
                  types_atomic_number_list=None,
-                 n_neighbor_limit=80, dependency="voro", tmp_save=True,
+                 n_neighbor_limit=80, dependent_class="voro", save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
         super(AtomicPackingEfficiency, self).__init__(
-            tmp_save=tmp_save, context=context,
-            dependency=dependency, **nn_kwargs)
+            save=save, backend=backend,
+            dependent_class=dependent_class, **nn_kwargs)
         self.pbc = pbc
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
@@ -583,25 +663,27 @@ class AtomicPackingEfficiency(BaseSRO):
         self.volume_list = list()
         self.volume_interstice_list = list()
 
-    def transform(self, X, Bds=None, lammp_path=None):
+    def transform(self, X, lammp_df=None, Bds=None, lammp_path=None):
         neighbor_id_cols = \
-            ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+            ['neighbor_id_{}_{}'.format(idx, self.dependent_name_)
              for idx in range(self.n_neighbor_limit)]
 
-        if lammp_path is not None and os.path.exists(lammp_path):
-            X, Bds = read_lammps_dump(lammp_path)
+        if lammp_df is None and \
+                lammp_path is not None and os.path.exists(lammp_path):
+            lammp_df, Bds = read_lammps_dump(lammp_path)
         if self.types_atomic_number_list is not None:
-            X[self.type_col] = X[self.type_col].apply(
+            lammp_df[self.type_col] = lammp_df[self.type_col].apply(
                 lambda x: self.types_atomic_number_list[x-1])
 
         # define print verbose
         if self.verbose > 0:
-            vr = VerboseReporter(self.context, total_stage=1,
+            vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=1, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
                     init_msg='Calculating VolumeAreaInterstice features.',
                     epoch_name='Atoms', stage=1)
 
+        X = X.join(lammp_df)
         integrated_df = X.join(self.dependence_df)
         feature_lists = list()
         for idx, row in integrated_df.iterrows():
@@ -625,33 +707,33 @@ class AtomicPackingEfficiency(BaseSRO):
         glass_packing_efficiency_df = pd.DataFrame(
             feature_lists, index=X.index, columns=self.get_feature_names())
 
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=glass_packing_efficiency_df,
                 name='{}_{}_{}_glass_packing_efficiency'.format(
-                    self.category, self.dependency_name, self.radius_type))
+                    self.category, self.dependent_name_, self.radius_type))
 
         return glass_packing_efficiency_df
 
     def get_feature_names(self):
         feature_names = ['{}_glass_packing_efficiency {}'.format(
-            self.radius_type.replace("_radius", ""), self.dependency_name)]
+            self.radius_type.replace("_radius", ""), self.dependent_name_)]
         return feature_names
 
 
 class CN(BaseSRO):
-    def __init__(self, dependency="voro", tmp_save=True,
-                 context=None, remain_stat=False, **nn_kwargs):
+    def __init__(self, dependent_class="voro", save=True,
+                 backend=None, remain_stat=False, **nn_kwargs):
         """
 
         Args:
-            dependency: (object or string) default: "voro"
+            dependent_class: (object or string) default: "voro"
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
         """
-        super(CN, self).__init__(tmp_save=tmp_save,
-                                 context=context,
-                                 dependency=dependency,
+        super(CN, self).__init__(save=save,
+                                 backend=backend,
+                                 dependent_class=dependent_class,
                                  remain_stat=remain_stat,
                                  **nn_kwargs)
         self.voro_depend_cols = ['n_neighbors_voro']
@@ -661,7 +743,7 @@ class CN(BaseSRO):
         integrated_df = X.join(self.dependence_df)
         cn_list = np.zeros(len(integrated_df))
 
-        neighbor_col = 'n_neighbors_{}'.format(self.dependency_name)
+        neighbor_col = 'n_neighbors_{}'.format(self.dependent_name_)
         cn_list = \
             voronoi_stats.cn_voro(cn_list, integrated_df[neighbor_col].values,
                                   n_atoms=len(integrated_df))
@@ -669,33 +751,33 @@ class CN(BaseSRO):
                                   index=integrated_df.index,
                                   columns=self.get_feature_names())
 
-        if self.tmp_save:
-            name = '{}_{}_cn'.format(self.category, self.dependency_name)
-            self.context.save_featurizer_as_dataframe(output_df=cn_list_df,
+        if self.save:
+            name = '{}_{}_cn'.format(self.category, self.dependent_name_)
+            self.backend.save_featurizer_as_dataframe(output_df=cn_list_df,
                                                       name=name)
 
         return cn_list_df
 
     def get_feature_names(self):
-        feature_names = ['CN {}'.format(self.dependency_name)]
+        feature_names = ['CN {}'.format(self.dependent_name_)]
         return feature_names
 
 
 class VoroIndex(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=True, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False,
+                 include_beyond_edge_max=True, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
         """
 
         Args:
-            dependency: (object or string) default: "voro"
+            dependent_class: (object or string) default: "voro"
                 if object, it can be "VoroNN()" or "DistanceNN()",
                 if string, it can be "voro" or "distance"
         """
-        super(VoroIndex, self).__init__(tmp_save=tmp_save,
-                                        context=context,
-                                        dependency=dependency,
+        super(VoroIndex, self).__init__(save=save,
+                                        backend=backend,
+                                        dependent_class=dependent_class,
                                         remain_stat=remain_stat,
                                         **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
@@ -728,8 +810,8 @@ class VoroIndex(BaseSRO):
         voro_index_df = pd.DataFrame(voro_index_list,
                                      index=integrated_df.index,
                                      columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(output_df=voro_index_df,
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(output_df=voro_index_df,
                                                       name='{}_voro_index'.format(self.category))
 
         return voro_index_df
@@ -743,12 +825,12 @@ class VoroIndex(BaseSRO):
 
 class CharacterMotif(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 include_beyond_edge_max=True, dependency="voro",
+                 include_beyond_edge_max=True, dependent_class="voro",
                  edge_min=3, target_voro_idx=None, frank_kasper=1,
-                 tmp_save=True, context=None, **nn_kwargs):
-        super(CharacterMotif, self).__init__(tmp_save=tmp_save,
-                                             context=context,
-                                             dependency=dependency,
+                 save=True, backend=None, **nn_kwargs):
+        super(CharacterMotif, self).__init__(save=save,
+                                             backend=backend,
+                                             dependent_class=dependent_class,
                                              **nn_kwargs)
         self.n_neighbor_limit = n_neighbor_limit
         self.include_beyond_edge_max = include_beyond_edge_max
@@ -761,19 +843,18 @@ class CharacterMotif(BaseSRO):
         self.dist_depend_cols = None
         self.edge_min = edge_min
 
-    def fit(self, X=None, dependence_df=None):
-        dependence_df = dependence_df if dependence_df is not None else X
-        self._dependency = self.check_dependency(dependence_df)
+    def fit(self, X=None):
+        self.dependent_class_ = self.check_dependency(X)
 
         # This class is only dependent on 'Voronoi idx*' col, so if dataframe
         # has this col, this class don't need calculate it again.
-        if self._dependency is None:
+        if self.dependent_class_ is None:
             voro_index = \
                 VoroIndex(n_neighbor_limit=self.n_neighbor_limit,
                           include_beyond_edge_max=self.include_beyond_edge_max,
-                          dependency=self.dependency, tmp_save=False,
-                          context=self.context)
-            self.dependence_df = voro_index.fit_transform(dependence_df)
+                          dependent_class=self.dependent_class, save=False,
+                          backend=self.backend)
+            self.dependence_df = voro_index.fit_transform(X)
         return self
 
     def transform(self, X=None):
@@ -801,8 +882,8 @@ class CharacterMotif(BaseSRO):
                                           index=integrated_df.index,
                                           columns=self.get_feature_names())
 
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=character_motif_df, name='{}_character_motif'.format(self.category))
 
         return character_motif_df
@@ -818,12 +899,12 @@ class CharacterMotif(BaseSRO):
 class IFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
-                 atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False,
+                 atoms_df=None, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
-        super(IFoldSymmetry, self).__init__(tmp_save=tmp_save,
-                                            context=context,
-                                            dependency=dependency,
+        super(IFoldSymmetry, self).__init__(save=save,
+                                            backend=backend,
+                                            dependent_class=dependent_class,
                                             atoms_df=atoms_df,
                                             remain_stat=remain_stat,
                                             **nn_kwargs)
@@ -857,8 +938,8 @@ class IFoldSymmetry(BaseSRO):
         i_symm_df = pd.DataFrame(i_symm_list,
                                  index=integrated_df.index,
                                  columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(output_df=i_symm_df,
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(output_df=i_symm_df,
                                                       name='{}_i_fold_symmetry'.format(self.category))
 
         return i_symm_df
@@ -872,12 +953,12 @@ class IFoldSymmetry(BaseSRO):
 class AreaWtIFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
-                 atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False,
+                 atoms_df=None, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
-        super(AreaWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
-                                                  context=context,
-                                                  dependency=dependency,
+        super(AreaWtIFoldSymmetry, self).__init__(save=save,
+                                                  backend=backend,
+                                                  dependent_class=dependent_class,
                                                   atoms_df=atoms_df,
                                                   remain_stat=remain_stat,
                                                   **nn_kwargs)
@@ -919,8 +1000,8 @@ class AreaWtIFoldSymmetry(BaseSRO):
         area_wt_i_symm_df = pd.DataFrame(area_wt_i_symm_list,
                                          index=integrated_df.index,
                                          columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=area_wt_i_symm_df, name='{}_area_wt_i_fold_symmetry'.format(self.category))
 
         return area_wt_i_symm_df
@@ -934,12 +1015,12 @@ class AreaWtIFoldSymmetry(BaseSRO):
 class VolWtIFoldSymmetry(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
                  include_beyond_edge_max=True,
-                 atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False,
+                 atoms_df=None, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False,
                  edge_min=3, edge_max=7, **nn_kwargs):
-        super(VolWtIFoldSymmetry, self).__init__(tmp_save=tmp_save,
-                                            context=context,
-                                            dependency=dependency,
+        super(VolWtIFoldSymmetry, self).__init__(save=save,
+                                            backend=backend,
+                                            dependent_class=dependent_class,
                                             atoms_df=atoms_df,
                                             remain_stat=remain_stat,
                                             **nn_kwargs)
@@ -980,8 +1061,8 @@ class VolWtIFoldSymmetry(BaseSRO):
         vol_wt_i_symm_df = pd.DataFrame(vol_wt_i_symm_list,
                                          index=integrated_df.index,
                                          columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=vol_wt_i_symm_df, name='{}_vol_wt_i_fold_symmetry'.format(self.category))
 
         return vol_wt_i_symm_df
@@ -994,11 +1075,11 @@ class VolWtIFoldSymmetry(BaseSRO):
 
 class VoroAreaStats(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
-        super(VoroAreaStats, self).__init__(tmp_save=tmp_save,
-                                            context=context,
-                                            dependency=dependency,
+                 atoms_df=None, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+        super(VoroAreaStats, self).__init__(save=save,
+                                            backend=backend,
+                                            dependent_class=dependent_class,
                                             atoms_df=atoms_df,
                                             remain_stat=remain_stat,
                                             **nn_kwargs)
@@ -1027,8 +1108,8 @@ class VoroAreaStats(BaseSRO):
 
         area_stats_df = pd.DataFrame(area_stats, index=integrated_df.index,
                                      columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=area_stats_df, name='{}_voronoi_area_stats'.format(self.category))
 
         return area_stats_df
@@ -1042,11 +1123,11 @@ class VoroAreaStats(BaseSRO):
 
 class VoroAreaStatsSeparate(BaseSRO):
     def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=True,
-                 atoms_df=None, dependency="voro", edge_min=3, edge_max=7,
-                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
-        super(VoroAreaStatsSeparate, self).__init__(tmp_save=tmp_save,
-                                                    context=context,
-                                                    dependency=dependency,
+                 atoms_df=None, dependent_class="voro", edge_min=3, edge_max=7,
+                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+        super(VoroAreaStatsSeparate, self).__init__(save=save,
+                                                    backend=backend,
+                                                    dependent_class=dependent_class,
                                                     atoms_df=atoms_df,
                                                     remain_stat=remain_stat,
                                                     **nn_kwargs)
@@ -1087,8 +1168,8 @@ class VoroAreaStatsSeparate(BaseSRO):
 
         area_stats_separate_df = pd.DataFrame(area_stats_separate, index=integrated_df.index,
                                      columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=area_stats_separate_df,
                 name='{}_voro_area_stats_separate'.format(self.category))
 
@@ -1103,11 +1184,11 @@ class VoroAreaStatsSeparate(BaseSRO):
 
 class VoroVolStats(BaseSRO):
     def __init__(self, n_neighbor_limit=80,
-                 atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
-        super(VoroVolStats, self).__init__(tmp_save=tmp_save,
-                                            context=context,
-                                            dependency=dependency,
+                 atoms_df=None, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+        super(VoroVolStats, self).__init__(save=save,
+                                            backend=backend,
+                                            dependent_class=dependent_class,
                                             atoms_df=atoms_df,
                                             remain_stat=remain_stat,
                                             **nn_kwargs)
@@ -1136,8 +1217,8 @@ class VoroVolStats(BaseSRO):
 
         vol_stats_df = pd.DataFrame(vol_stats, index=integrated_df.index,
                                     columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=vol_stats_df, name='{}_voronoi_vol_stats'.format(self.category))
 
         return vol_stats_df
@@ -1151,11 +1232,11 @@ class VoroVolStats(BaseSRO):
 
 class VoroVolStatsSeparate(BaseSRO):
     def __init__(self, n_neighbor_limit=80, include_beyond_edge_max=True,
-                 atoms_df=None, dependency="voro", edge_min=3, edge_max=7,
-                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
-        super(VoroVolStatsSeparate, self).__init__(tmp_save=tmp_save,
-                                            context=context,
-                                            dependency=dependency,
+                 atoms_df=None, dependent_class="voro", edge_min=3, edge_max=7,
+                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+        super(VoroVolStatsSeparate, self).__init__(save=save,
+                                            backend=backend,
+                                            dependent_class=dependent_class,
                                             atoms_df=atoms_df,
                                             remain_stat=remain_stat,
                                             **nn_kwargs)
@@ -1195,8 +1276,8 @@ class VoroVolStatsSeparate(BaseSRO):
         vol_stats_separate_df = pd.DataFrame(vol_stats_separate,
                                              index=integrated_df.index,
                                              columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=vol_stats_separate_df, name='{}_voro_vol_stats_separate'.format(self.category))
 
         return vol_stats_separate_df
@@ -1210,11 +1291,11 @@ class VoroVolStatsSeparate(BaseSRO):
 
 class DistStats(BaseSRO):
     def __init__(self, dist_type='distance', n_neighbor_limit=80,
-                 atoms_df=None, dependency="voro",
-                 tmp_save=True, context=None, remain_stat=False, **nn_kwargs):
-        super(DistStats, self).__init__(tmp_save=tmp_save,
-                                        context=context,
-                                        dependency=dependency,
+                 atoms_df=None, dependent_class="voro",
+                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+        super(DistStats, self).__init__(save=save,
+                                        backend=backend,
+                                        dependent_class=dependent_class,
                                         atoms_df=atoms_df,
                                         remain_stat=remain_stat,
                                         **nn_kwargs)
@@ -1237,23 +1318,23 @@ class DistStats(BaseSRO):
         dist_stats = \
             voronoi_stats.voronoi_distance_stats(dist_stats,
                                              integrated_df['n_neighbors_{}'.format(
-                                                 self.dependency_name)].values,
+                                                 self.dependent_name_)].values,
                                              integrated_df[dist_cols].values,
                                              n_atoms=n_atoms,
                                              n_neighbor_limit=
                                              self.n_neighbor_limit)
         dist_stats_df = pd.DataFrame(dist_stats, index=integrated_df.index,
                                      columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
                 output_df=dist_stats_df,
-                name='{}_{}_{}_stats'.format(self.category, self.dependency_name, self.dist_type))
+                name='{}_{}_{}_stats'.format(self.category, self.dependent_name_, self.dist_type))
 
         return dist_stats_df
 
     def get_feature_names(self):
         feature_names = ['{} {} {}'.format(self.dist_type, stat,
-                                           self.dependency_name)
+                                           self.dependent_name_)
                          for stat in self.stats]
         return feature_names
 
@@ -1266,11 +1347,11 @@ class BOOP(BaseSRO):
     def __init__(self, coords_path=None, atom_coords=None, Bds=None, pbc=None,
                  low_order=1, higher_order=1, coarse_lower_order=1,
                  coarse_higher_order=1, n_neighbor_limit=80, atoms_df=None,
-                 dependency="voro", tmp_save=True, context=None,
+                 dependent_class="voro", save=True, backend=None,
                  remain_stat=False, **nn_kwargs):
-        super(BOOP, self).__init__(tmp_save=tmp_save,
-                                   context=context,
-                                   dependency=dependency,
+        super(BOOP, self).__init__(save=save,
+                                   backend=backend,
+                                   dependent_class=dependent_class,
                                    atoms_df=atoms_df,
                                    remain_stat=remain_stat,
                                    **nn_kwargs)
@@ -1299,8 +1380,8 @@ class BOOP(BaseSRO):
     def transform(self, X=None):
         integrated_df = X.join(self.dependence_df)
         n_atoms = len(integrated_df)
-        neighbor_col = ['n_neighbors_{}'.format(self.dependency_name)]
-        id_cols = ['neighbor_id_{}_{}'.format(idx, self.dependency_name)
+        neighbor_col = ['n_neighbors_{}'.format(self.dependent_name_)]
+        id_cols = ['neighbor_id_{}_{}'.format(idx, self.dependent_name_)
                    for idx in range(self.n_neighbor_limit)]
 
         Ql = np.zeros((n_atoms, 4), dtype=np.float128)
@@ -1322,25 +1403,26 @@ class BOOP(BaseSRO):
 
         boop_df = pd.DataFrame(concat_array, index=integrated_df.index,
                                columns=self.get_feature_names())
-        if self.tmp_save:
-            self.context.save_featurizer_as_dataframe(
-                output_df=boop_df, name='{}_boop_{}'.format(self.category, self.dependency_name))
+        if self.save:
+            self.backend.save_featurizer_as_dataframe(
+                output_df=boop_df, name='{}_boop_{}'.format(self.category, self.dependent_name_))
 
         return boop_df
 
     def get_feature_names(self):
-        feature_names = ['q_{} {}'.format(num, self.dependency_name)
+        feature_names = ['q_{} {}'.format(num, self.dependent_name_)
                          for num in self.bq_tags] + \
-                        ['w_{} {}'.format(num, self.dependency_name)
+                        ['w_{} {}'.format(num, self.dependent_name_)
                          for num in self.bq_tags] + \
                         ['Coarse-grained q_{} {}'.format(num,
-                                                         self.dependency_name)
+                                                         self.dependent_name_)
                          for num in self.bq_tags] + \
                         ['Coarse-grained w_{} {}'.format(num,
-                                                         self.dependency_name)
+                                                         self.dependent_name_)
                          for num in self.bq_tags]
         return feature_names
 
     @property
     def double_dependency(self):
         return False
+
