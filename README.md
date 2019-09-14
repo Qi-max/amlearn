@@ -5,13 +5,11 @@ To featurize the heterogeneous atom site environments in amorphous materials, we
 flexibility and fast-computation (>10x times faster than pure Python) of features. Please see examples
 in the SRO and MRO representations in the `amlearn.featurize`. 
 
-Please see more details in a recent paper from us: [Qi Wang and Anubhav Jain. Linking plastic heterogeneity of bulk metallic glasses to quench-in structural defects with machine learning](https://arxiv.org/abs/1904.03780). [arXiv:1904.03780](https://arxiv.org/abs/1904.03780)
-
 
 <div align='center'><img alt="amlearn" src="docs_rst/_static/schematic_ML_of_deformation.png" width="800"></div>   
 &nbsp;
 
-In addition, wrapper classes and utility functions for featurizers powered by matminer/amp and machine
+In addition, wrapper classes and utility functions for machine
 learning algorithms supported by scikit-learn are also included.         
 
 
