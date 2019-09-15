@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from abc import ABCMeta
 from amlearn.featurize.base import create_featurizer_backend
-from amlearn.utils.check import check_featurizer_X
+from amlearn.utils.data import get_valid_lists
 from sklearn.base import BaseEstimator, TransformerMixin
 
 try:
@@ -13,18 +13,33 @@ except ImportError:
 
 
 class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
+    """Base Nearest Neighbor class.
+
+    Args:
+        cutoff (float): Cut off radius.
+        allow_neighbor_limit (int): If after cut off atom's neighbor number
+            still more than allow_neighbor_limit, then just choose
+            allow_neighbor_limit neighbors to calculate voronoi.
+        n_neighbor_limit (int):
+        pbc (list like): Periodic bond chains.
+        Bds (list like): X, y, z boundaries.
+        save (Boolean): Save file or not.
+        backend (Backend): Amlearn Backend object, to prepare amlearn needed
+            paths and define the common amlearn's load/save method.
+    """
+
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
-                 pbc=None, Bds=None, backend=None, tmp_save=True):
-        self.tmp_save = tmp_save
+                 pbc=None, Bds=None, save=True, backend=None):
         self.cutoff = cutoff
         self.allow_neighbor_limit = allow_neighbor_limit
         self.n_neighbor_limit = n_neighbor_limit
-        self.backend = backend if backend is not None \
-            else create_featurizer_backend()
         self.pbc = pbc if pbc else [1, 1, 1]
         self.Bds = Bds if Bds else [[-35.5040474, 35.5040474],
                                     [-35.5040474, 35.5040474],
                                     [-35.5040474, 35.5040474]]
+        self.save = save
+        self.backend = backend if backend is not None \
+            else create_featurizer_backend()
 
     def fit_transform(self, X=None, y=None, **fit_params):
         return self.transform(X)
@@ -36,10 +51,8 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
 class VoroNN(BaseNN):
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
                  pbc=None, Bds=None, small_face_thres=0.05,
-                 backend=None, tmp_save=True):
-        super(VoroNN, self).__init__(tmp_save=tmp_save,
-                                     backend=backend,
-                                     cutoff=cutoff,
+                 save=True, backend=None):
+        super(VoroNN, self).__init__(save=save, backend=backend, cutoff=cutoff,
                                      allow_neighbor_limit=allow_neighbor_limit,
                                      n_neighbor_limit=n_neighbor_limit,
                                      pbc=pbc, Bds=Bds)
@@ -47,17 +60,17 @@ class VoroNN(BaseNN):
 
     def transform(self, X=None):
         """
-
         Args:
             X (DataFrame): Should contains ['type', 'x', 'y', 'z'...] columns
 
         Returns:
-
+            prop_df (DataFrame): Every atom's neighbor number, neighbor id list,
+                neighbor distance list, neighbor area list, neighbor volume
+                list and neighbor edge list, which calculated based Voronoi.
         """
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
         n_atoms = len(X)
-        n_neighbor_list = np.zeros(n_atoms, dtype=np.float128)
-        neighbor_lists = np.zeros((n_atoms, self.n_neighbor_limit),
+        neighbor_num_list = np.zeros(n_atoms, dtype=np.float128)
+        neighbor_id_lists = np.zeros((n_atoms, self.n_neighbor_limit),
                                   dtype=np.float128)
         neighbor_edge_lists = np.zeros((n_atoms, self.n_neighbor_limit),
                                        dtype=np.float128)
@@ -65,108 +78,107 @@ class VoroNN(BaseNN):
                                        dtype=np.float128)
         neighbor_vol_lists = np.zeros((n_atoms, self.n_neighbor_limit),
                                       dtype=np.float128)
-        neighbor_distance_lists = np.zeros(
+        neighbor_dist_lists = np.zeros(
             (n_atoms, self.n_neighbor_limit), dtype=np.float128)
 
         n_neighbor_max = 0
         n_edge_max = 0
 
-        n_neighbor_list, neighbor_lists, \
-        neighbor_area_lists, neighbor_vol_lists, neighbor_distance_lists, \
-        neighbor_edge_lists, n_neighbor_max, n_edge_max = \
+        neighbor_num_list, neighbor_id_lists,  neighbor_area_lists, \
+        neighbor_vol_lists, neighbor_dist_lists, neighbor_edge_lists, \
+        n_neighbor_max, n_edge_max = \
             voronoi_nn.voronoi(X['type'].values, X[['x', 'y', 'z']].values,
                                self.cutoff, self.allow_neighbor_limit,
-                               self.small_face_thres,
-                               self.pbc, self.Bds, n_neighbor_list,
-                               neighbor_lists, neighbor_area_lists,
-                               neighbor_vol_lists, neighbor_distance_lists,
-                               neighbor_edge_lists, n_neighbor_max, n_edge_max,
-                               n_atoms=n_atoms,
+                               self.small_face_thres, self.pbc, self.Bds,
+                               neighbor_num_list, neighbor_id_lists,
+                               neighbor_area_lists, neighbor_vol_lists,
+                               neighbor_dist_lists, neighbor_edge_lists,
+                               n_neighbor_max, n_edge_max, n_atoms=n_atoms,
                                n_neighbor_limit=self.n_neighbor_limit)
 
-        nn_cols, prop_columns = self.get_nn_cols()
-        voro_nn = np.append(np.array([n_neighbor_list]).T,
-                            neighbor_lists, axis=1)
-        voro_prop = np.append(neighbor_area_lists, neighbor_vol_lists, axis=1)
-        voro_prop = np.append(voro_prop, neighbor_distance_lists, axis=1)
-        voro_prop = np.append(voro_prop, neighbor_edge_lists, axis=1)
-        nn_df = pd.DataFrame(voro_nn, index=range(n_atoms),
-                             columns=nn_cols)
-        prop_df = pd.DataFrame(voro_prop, index=range(n_atoms),
-                               columns=prop_columns)
+        voro_props = list()
+        for neighbor_num, neighbor_id_list, \
+            neighbor_dist_list, neighbor_area_list, \
+            neighbor_vol_list, neighbor_edge_list in \
+                zip(neighbor_num_list, neighbor_id_lists,
+                    neighbor_dist_lists, neighbor_area_lists,
+                    neighbor_vol_lists, neighbor_edge_lists):
+            voro_props.append(
+                get_valid_lists([neighbor_id_list, neighbor_dist_list,
+                                 neighbor_area_list, neighbor_vol_list,
+                                 neighbor_edge_list], valid_num=neighbor_num))
 
-        if self.tmp_save:
-            self.backend.save_featurizer_as_dataframe(output_df=nn_df,
-                                                      name='voro_nn')
+        prop_cols = self.get_nn_cols()
+        prop_df = pd.DataFrame(voro_props,
+                               index=range(n_atoms), columns=prop_cols)
+
+        if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,
                                                       name='voro_prop')
-        return nn_df, prop_df
+        return prop_df
 
     def get_nn_cols(self):
-        nn_cols = ['neighbor_id_{}_voro'.format(i)
-                   for i in range(self.n_neighbor_limit)]
-        prop_columns = ['n_neighbors_voro'] + \
-                       ['neighbor_area_{}_voro'.format(i)
-                        for i in range(self.n_neighbor_limit)] + \
-                       ['neighbor_vol_{}_voro'.format(i)
-                        for i in range(self.n_neighbor_limit)] + \
-                       ['neighbor_distance_{}_voro'.format(i)
-                        for i in range(self.n_neighbor_limit)] + \
-                       ['neighbor_edge_{}_voro'.format(i)
-                        for i in range(self.n_neighbor_limit)]
-        return nn_cols, prop_columns
+        prop_columns = ['neighbor_num_voro', 'neighbor_ids_voro',
+                        'neighbor_dists_voro', 'neighbor_areas_voro',
+                        'neighbor_vols_voro', 'neighbor_edges_voro']
+        return prop_columns
 
 
 class DistanceNN(BaseNN):
     def __init__(self, cutoff=4, allow_neighbor_limit=300,
                  n_neighbor_limit=80, pbc=None, Bds=None,
-                 backend=None, tmp_save=True):
+                 backend=None, save=True):
         super(DistanceNN, self).__init__(
-            tmp_save=tmp_save, backend=backend,
-            cutoff=cutoff, allow_neighbor_limit=allow_neighbor_limit,
+            save=save, backend=backend, cutoff=cutoff,
+            allow_neighbor_limit=allow_neighbor_limit,
             n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds)
 
     def transform(self, X=None):
+        """
+        Args:
+            X (DataFrame): Should contains ['type', 'x', 'y', 'z'...] columns
+
+        Returns:
+            prop_df (DataFrame): Every atom's neighbor number, neighbor id list,
+                neighbor distance list, which calculated based Distance.
+        """
+
         n_atoms = len(X)
-        n_neighbor_list = np.zeros(n_atoms, dtype=np.float128)
-        neighbor_lists = np.zeros((n_atoms, self.n_neighbor_limit),
+        neighbor_num_list = np.zeros(n_atoms, dtype=np.float128)
+        neighbor_id_lists = np.zeros((n_atoms, self.n_neighbor_limit),
                                   dtype=np.float128)
-        neighbor_distance_lists = np.zeros(
+        neighbor_dist_lists = np.zeros(
             (n_atoms, self.n_neighbor_limit), dtype=np.float128)
 
         n_neighbor_max = 0
 
         print(distance_nn.distance_nn.distance_neighbor.__doc__)
-        (n_neighbor_max, n_neighbor_list, neighbor_lists,
-         neighbor_distance_lists) = \
+        (n_neighbor_max, neighbor_num_list, neighbor_id_lists,
+         neighbor_dist_lists) = \
             distance_nn.distance_nn.distance_neighbor(
                 X['type'].values, X[['x', 'y', 'z']].values,
                 self.cutoff, self.allow_neighbor_limit, self.pbc,
-                self.Bds, n_neighbor_max, n_neighbor_list,
-                neighbor_lists, neighbor_distance_lists,
+                self.Bds, n_neighbor_max, neighbor_num_list,
+                neighbor_id_lists, neighbor_dist_lists,
                 n_atoms=n_atoms, n_neighbor_limit=self.n_neighbor_limit)
 
-        nn_cols, prop_cols = self.get_nn_cols()
-        dist_nn = np.append(np.array([n_neighbor_list]).T,
-                            neighbor_lists, axis=1)
-        nn_df = pd.DataFrame(dist_nn, index=range(n_atoms),
-                             columns=nn_cols)
-        prop_df = pd.DataFrame(neighbor_distance_lists, index=range(n_atoms),
-                               columns=prop_cols)
+        dist_props = list()
+        for neighbor_num, neighbor_id_list, neighbor_dist_list in \
+                zip(neighbor_num_list, neighbor_id_lists, neighbor_dist_lists):
+            dist_props.append(get_valid_lists(
+                [neighbor_id_list, neighbor_dist_list], valid_num=neighbor_num))
 
-        if self.tmp_save:
-            self.backend.save_featurizer_as_dataframe(output_df=nn_df,
-                                                      name='dist_nn')
+        prop_df = pd.DataFrame(dist_props,
+                               index=range(n_atoms), columns=self.get_nn_cols())
+
+        if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,
                                                       name='dist_prop')
 
-        return nn_df, prop_df
+        return prop_df
 
     def get_nn_cols(self):
-        nn_cols = ['n_neighbors_dist'] + \
-                  ['neighbor_id_{}_dist'.format(i) for i in
-                   range(self.n_neighbor_limit)]
-        prop_cols = ['neighbor_distance_{}_dist'.format(i) for i in
-                     range(self.n_neighbor_limit)]
-        return nn_cols, prop_cols
+        prop_cols = ['neighbor_num_dist', 'neighbor_ids_dist',
+                     'neighbor_dists_dist']
+        return prop_cols
 
