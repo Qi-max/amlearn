@@ -57,7 +57,7 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
 
     Args:
         save (Boolean): save file or not.
-        backend (object): Amlearn Backend object, to prepare amlearn needed
+        backend (Backend): Amlearn Backend object, to prepare amlearn needed
             paths and define the common amlearn's load/save method.
     """
 
@@ -65,8 +65,8 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
         self.save = save
         self.backend = backend if backend is not None \
             else create_featurizer_backend()
-        self.dependency_class_ = None
-        self.dependency_cols_ = None
+        self.dependent_class_ = None
+        self.dependent_cols_ = None
 
     def transform(self, X):
         pass
@@ -76,19 +76,19 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
         pass
 
     @property
-    def dependency_class(self):
-        return self.dependency_class_
+    def dependent_class(self):
+        return self.dependent_class_
 
     @property
     def category(self):
         return 'sro'
 
     def check_dependency(self, X):
-        if self.dependency_class_ is None:
-            dependency_class = None
-        elif set(self.dependency_cols_).issubset(set(X.columns)):
-            dependency_class = None
+        if self.dependent_class_ is None:
+            dependent_class = None
+        elif set(self.dependent_cols_).issubset(set(X.columns)):
+            dependent_class = None
         else:
-            dependency_class = self.dependency_class_
-        return dependency_class
+            dependent_class = self.dependent_class_
+        return dependent_class
 

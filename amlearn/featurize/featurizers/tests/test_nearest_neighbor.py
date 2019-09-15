@@ -1,13 +1,12 @@
 import os
-import numpy as np
 import pandas as pd
+from amlearn.featurize.featurizers.nearest_neighbor import DistanceNN, VoroNN
 from amlearn.utils.basetest import AmLearnTest
-from amlearn.featurize.featurizers.voro_and_dist import VoroNN, DistanceNN
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-class TestVoro(AmLearnTest):
+class TestNearestNeighbor(AmLearnTest):
     @classmethod
     def setUpClass(cls):
         cls.sc = pd.DataFrame([[2, -0.0804011, -0.701738, -0.183609],
@@ -29,11 +28,9 @@ class TestVoro(AmLearnTest):
                       [cls.sc['z'].min(), cls.sc['z'].max()]]
 
     def test_voro(self):
-        nn = VoroNN(
-            atoms_df=self.sc, Bds=self.sc_Bds,
-            cutoff=5, allow_neighbor_limit=300,
-            n_neighbor_limit=80, pbc=[1, 1, 1], tmp_save=True)
-        result_df = nn.fit_transform()
+        nn = VoroNN(Bds=self.sc_Bds, cutoff=5, allow_neighbor_limit=300,
+                    n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
+        result_df = nn.fit_transform(self.sc)
         self.assertEqual(len(result_df.columns), 401)
         self.assertEqual(len(result_df), 13)
         self.assertEqual(result_df['n_neighbors_voro'].iloc[0], 10.0)
@@ -41,11 +38,9 @@ class TestVoro(AmLearnTest):
         self.assertEqual(result_df['neighbor_id_0_voro'].iloc[1], 1.0)
 
     def test_dist(self):
-        nn = DistanceNN(
-            atoms_df=self.sc, Bds=self.sc_Bds,
-            cutoff=4, allow_neighbor_limit=300,
-            n_neighbor_limit=80, pbc=[1, 1, 1], tmp_save=True)
-        result_df = nn.fit_transform()
+        nn = DistanceNN(Bds=self.sc_Bds, cutoff=4, allow_neighbor_limit=300,
+                        n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
+        result_df = nn.fit_transform(self.sc)
         self.assertEqual(len(result_df.columns), 161)
         self.assertEqual(len(result_df), 13)
         self.assertEqual(result_df['n_neighbors_dist'].iloc[0], 12.0)
