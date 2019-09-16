@@ -4,7 +4,7 @@ from amlearn.utils.basetest import AmLearnTest
 
 class TestBackend(AmLearnTest):
     def setUp(self):
-        output_path = r"/Users/Qi/Documents/amlearn_test/test_backend"
+        output_path = r"./amlearn_test/test_backend"
         self.backend_context = BackendContext(output_path=output_path,
                                               merge_path=True)
         self.mlbackend = MLBackend(self.backend_context)

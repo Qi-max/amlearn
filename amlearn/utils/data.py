@@ -76,6 +76,32 @@ def read_imd(dirs, bds=None, atom_names=None):
         return cell_coords, types, coords, Bds, id_list
 
 
+def get_valid_lists(raw_lists, valid_num=None, invalid_value=0):
+    valid_lists = list() if valid_num is None else [valid_num]
+    for raw_list in raw_lists:
+        if valid_num is not None:
+            valid_lists.append(raw_list[:valid_num])
+        else:
+            valid_lists.append([x for x in raw_list if x != invalid_value])
+    return valid_lists
+
+
+def get_isometric_lists(raw_lists, limit_width=80, fill_value=0):
+    if not isinstance(raw_lists, list_like()):
+        raise TypeError('raw_lists should be list like, as list, '
+                        'np.ndarray, tuple...')
+
+    isometric_lists = list()
+    for raw_list in raw_lists:
+        if len(raw_list) >= limit_width:
+            raw_list = raw_list[:limit_width]
+        else:
+            raw_list = \
+                list(raw_list) + [fill_value] * (limit_width - len(raw_list))
+        isometric_lists.append(raw_list)
+    return np.array(isometric_lists)
+
+
 def calc_neighbor_coords(center_coords, neighbor_coords, bds, pbc):
     if list(pbc) == [0, 0, 0]:
         return neighbor_coords

@@ -1,17 +1,3 @@
-
-
-    subroutine cn_voro(cn, n_atoms, n_neighbor_list)
-        integer, dimension(n_atoms) :: cn, n_neighbor_list
-
-!f2py   intent(in, out) :: cn
-!f2py   intent(in) :: n_atoms, n_neighbor_list
-
-        cn = n_neighbor_list
-
-    end subroutine cn_voro
-
-
-
     SUBROUTINE voronoi_index(voronoi_index_list, n_atoms, n_neighbor_limit, &
                              n_neighbor_list, neighbor_edge_lists, &
                              edge_min, edge_max, include_beyond_edge_max)

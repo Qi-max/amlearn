@@ -261,9 +261,10 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
         nn_kwargs: Nearest Neighbor class's keyword arguments.
     """
 
-    def __init__(self, save=True, backend=None,
-                 dependent_class=None, **nn_kwargs):
+    def __init__(self, save=True, backend=None, dependent_class=None,
+                 verbose=1, **nn_kwargs):
         super(BaseSRO, self).__init__(save=save,
+                                      verbose=verbose,
                                       backend=backend)
         self.calculated_X = None
         if dependent_class is None:
@@ -277,13 +278,28 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
             self.dependent_class_ = get_nn_instance(self.dependent_name_,
                                                     backend, **nn_kwargs)
         else:
-            raise ValueError('dependent name {} is unknown, Possible values '
-                             'are {} or voro/dist object.'.format(
-                              dependent_class, '[voro, voronoi, dist, distance]'))
+            raise ValueError(
+                'dependent_class {} is unknown, Possible values are {} or '
+                'voro/dist object.'.format(dependent_class,
+                                           '[voro, voronoi, dist, distance]'))
+        self.neighbor_num_col = \
+            'neighbor_num_{}'.format(self.dependent_name_)
+        self.neighbor_ids_col = \
+            'neighbor_ids_{}'.format(self.dependent_name_)
+        self.neighbor_dists_col = \
+            'neighbor_dists_{}'.format(self.dependent_name_)
+        self.neighbor_areas_col = \
+            'neighbor_areas_{}'.format(self.dependent_name_)
+        self.neighbor_vols_col = \
+            'neighbor_vols_{}'.format(self.dependent_name_)
+        self.neighbor_edges_col = \
+            'neighbor_edges_{}'.format(self.dependent_name_)
 
     def fit(self, X=None):
         self.dependent_class_ = self.check_dependency(X)
         if self.dependent_class_:
+            self.backend.logger_.info("Input X don't have it's dependent "
+                                      "columns, now calculate it automatically")
             self.calculated_X = self.dependent_class_.fit_transform(X)
         return self
 
@@ -292,30 +308,22 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
         return 'sro'
 
 
-class DistanceInterstice(BaseSRO):
+class BaseInterstice(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro", type_col='type',
-                 type_to_atomic_number_list=None, neighbor_num_limit=80, 
-                 save=True, radii=None, radius_type="miracle_radius", 
+                 type_to_atomic_number_list=None, neighbor_num_limit=80,
+                 save=True, radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
-        super(DistanceInterstice, self).__init__(
+        super(BaseInterstice, self).__init__(
             save=save, backend=backend,
             dependent_class=dependent_class, **nn_kwargs)
+        self.type_col = type_col
         self.type_to_atomic_number_list = type_to_atomic_number_list
         self.neighbor_num_limit = neighbor_num_limit
         self.radii = load_radii() if radii is None else radii
         self.radius_type = radius_type
-        self.type_col = type_col
         self.verbose = verbose
-        self.neighbor_id_col = \
-            'neighbor_ids_{}'.format(self.dependent_name_)
-        self.neighbor_dist_col = \
-            'neighbor_dists_{}'.format(self.dependent_name_)
-        self.dependent_cols_ = \
-            ['neighbor_num_{}'.format(self.dependent_name_),
-             self.neighbor_id_col, self.neighbor_dist_col]
 
-
-    def transform(self, X, lammps_df=None, lammps_path=None):
+    def fit(self, X=None, lammps_df=None, Bds=None, lammps_path=None):
         """
         Args:
             X (DataFrame): X can be a DataFrame which composed of partial
@@ -326,8 +334,57 @@ class DistanceInterstice(BaseSRO):
                 method, then feed it as input to this transform() method.
             lammps_df (DataFrame): Constructed from the output of lammps, which
                 common columns is ['type', 'x', 'y', 'z'...] columns.
+            Bds (list like): X, y, z boundaries.
             lammps_path (DataFrame): If lammps_df is None, then we automatically
                 construct the DataFrame from lammps output path.
+
+        Returns:
+            self (object): Interstice or Packing instance.
+        """
+        self.dependent_class_ = self.check_dependency(X)
+        if self.dependent_class_:
+            self.calculated_X = self.dependent_class_.fit_transform(X)
+
+        if lammps_df is None and \
+                lammps_path is not None and os.path.exists(lammps_path):
+            self.lammps_df, self.Bds = read_lammps_dump(lammps_path)
+        else:
+            self.lammps_df = lammps_df
+            self.Bds = Bds
+        if self.type_to_atomic_number_list is not None:
+            self.lammps_df[self.type_col] = self.lammps_df[self.type_col].apply(
+                lambda x: self.type_to_atomic_number_list[x-1])
+
+        self.calculated_X = self.calculated_X.join(self.lammps_df)
+        return self
+
+
+class DistanceInterstice(BaseInterstice):
+    def __init__(self, backend=None, dependent_class="voro", type_col='type',
+                 type_to_atomic_number_list=None, neighbor_num_limit=80, 
+                 save=True, radii=None, radius_type="miracle_radius", 
+                 verbose=0, **nn_kwargs):
+        super(DistanceInterstice, self).__init__(
+            save=save, backend=backend,
+            dependent_class=dependent_class, type_col=type_col,
+            type_to_atomic_number_list=type_to_atomic_number_list,
+            neighbor_num_limit=neighbor_num_limit,
+            radii=radii, radius_type = radius_type,
+            verbose = verbose, **nn_kwargs)
+
+        self.dependent_cols_ = [self.neighbor_num_col,
+                                self.neighbor_ids_col,
+                                self.neighbor_dists_col]
+
+    def transform(self, X):
+        """
+        Args:
+            X (DataFrame): X can be a DataFrame which composed of partial
+                columns of Nearest Neighbor class's output; or X can be the
+                input of Nearest Neighbor class, which should contains
+                ['type', 'x', 'y', 'z'...] columns, we will automatic call
+                Nearest Neighbor class to calculate X's output by self.fit()
+                method, then feed it as input to this transform() method.
 
         Returns:
             dist_interstice_df (DataFrame): Distance interstice DataFrame, which
@@ -335,14 +392,8 @@ class DistanceInterstice(BaseSRO):
                 [neighbor_dists_interstice_voro] or
                 [neighbor_dists_interstice_dist] dependent on dependent_class.
         """
-        X = X if self.calculated_X is None else self.calculated_X
-
-        if lammps_df is None and \
-                lammps_path is not None and os.path.exists(lammps_path):
-            lammps_df, _ = read_lammps_dump(lammps_path)
-        if self.type_to_atomic_number_list is not None:
-            lammps_df[self.type_col] = lammps_df[self.type_col].apply(
-                lambda x: self.type_to_atomic_number_list[x-1])
+        X = X.join(self.lammps_df) \
+            if self.calculated_X is None else self.calculated_X
 
         # define print verbose
         if self.verbose > 0:
@@ -352,12 +403,11 @@ class DistanceInterstice(BaseSRO):
                     init_msg='Calculating DistanceInterstice features.',
                     epoch_name='Atoms', stage=1)
 
-        X = X.join(lammps_df)
         feature_lists = list()
         for idx, row in X.iterrows():
             neighbor_dist_interstice_list = list()
-            for neighbor_id, neighbor_dist in zip(row[self.neighbor_id_col],
-                                                  row[self.neighbor_dist_col]):
+            for neighbor_id, neighbor_dist in zip(row[self.neighbor_ids_col],
+                                                  row[self.neighbor_dists_col]):
                 if neighbor_id > 0:
                     neighbor_dist_interstice_list.append(
                         neighbor_dist / (
@@ -383,7 +433,7 @@ class DistanceInterstice(BaseSRO):
         return feature_names
 
 
-class VolumeAreaInterstice(BaseSRO):
+class VolumeAreaInterstice(BaseInterstice):
     def __init__(self, pbc, backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
                  type_to_atomic_number_list=None,
@@ -393,25 +443,22 @@ class VolumeAreaInterstice(BaseSRO):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VolumeAreaInterstice, self).__init__(
             save=save, backend=backend,
-            dependent_class=dependent_class, **nn_kwargs)
+            dependent_class=dependent_class, type_col=type_col,
+            type_to_atomic_number_list=type_to_atomic_number_list,
+            neighbor_num_limit=neighbor_num_limit,
+            radii=radii, radius_type = radius_type,
+            verbose = verbose, **nn_kwargs)
         self.pbc = pbc
+        self.calc_volume_area = calc_volume_area
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
-        self.type_col = type_col
-        self.type_to_atomic_number_list = type_to_atomic_number_list
-        self.neighbor_num_limit = neighbor_num_limit
-        self.radii = load_radii() if radii is None else radii
-        self.radius_type = radius_type
-        self.calc_volume_area = calc_volume_area
-        self.verbose = verbose
         self.area_list = list()
         self.area_interstice_list = list()
         self.volume_list = list()
         self.volume_interstice_list = list()
-        self.neighbor_id_col = 'neighbor_ids_voro'
-        self.dependent_cols_ = ['neighbor_num_voro', self.neighbor_id_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
 
-    def transform(self, X, lammps_df=None, Bds=None, lammps_path=None):
+    def transform(self, X):
         """
         Args:
             X (DataFrame): X can be a DataFrame which composed of partial
@@ -420,11 +467,6 @@ class VolumeAreaInterstice(BaseSRO):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
-            lammps_df (DataFrame): Constructed from the output of lammps, which
-                common columns is ['type', 'x', 'y', 'z'...] columns.
-            Bds (list like): X, y, z boundaries.
-            lammps_path (DataFrame): If lammps_df is None, then we automatically
-                construct the DataFrame from lammps output path.
 
         Returns:
             volume_area_interstice_df (DataFrame): Volume/Area interstice
@@ -432,13 +474,8 @@ class VolumeAreaInterstice(BaseSRO):
                 get_feature_names() method for column names.
         """
 
-        X = X if self.calculated_X is None else self.calculated_X
-        if lammps_df is None and \
-                lammps_path is not None and os.path.exists(lammps_path):
-            lammps_df, Bds = read_lammps_dump(lammps_path)
-        if self.type_to_atomic_number_list is not None:
-            lammps_df[self.type_col] = lammps_df[self.type_col].apply(
-                lambda x: self.type_to_atomic_number_list[x-1])
+        X = X.join(self.lammps_df) \
+            if self.calculated_X is None else self.calculated_X
 
         # define print verbose
         if self.verbose > 0:
@@ -448,18 +485,17 @@ class VolumeAreaInterstice(BaseSRO):
                     init_msg='Calculating VolumeAreaInterstice features.',
                     epoch_name='Atoms', stage=1)
 
-        X = X.join(lammps_df)
         feature_lists = list()
         for idx, row in X.iterrows():
             neighbor_type = list()
             neighbor_coords = list()
-            for neighbor_id in row[self.neighbor_id_col]:
+            for neighbor_id in row[self.neighbor_ids_col]:
                 if neighbor_id > 0:
                     neighbor_type.append(X.loc[neighbor_id][self.type_col])
                     neighbor_coords.append(X.loc[neighbor_id][self.coords_cols])
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, Bds,
+            pos_ = PackingOfSite(self.pbc, self.Bds,
                                  row[self.type_col], row[self.coords_cols],
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
@@ -567,7 +603,7 @@ class VolumeAreaInterstice(BaseSRO):
         return feature_names
 
 
-class ClusterPackingEfficiency(BaseSRO):
+class ClusterPackingEfficiency(BaseInterstice):
     """
     Yang, L. et al. Atomic-Scale Mechanisms of the Glass-Forming Ability
     in Metallic Glasses. Phys. Rev. Lett. 109, 105502 (2012).
@@ -585,20 +621,17 @@ class ClusterPackingEfficiency(BaseSRO):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(ClusterPackingEfficiency, self).__init__(
             save=save, backend=backend,
-            dependent_class=dependent_class, **nn_kwargs)
+            dependent_class=dependent_class, type_col=type_col,
+            type_to_atomic_number_list=type_to_atomic_number_list,
+            neighbor_num_limit=neighbor_num_limit,
+            radii=radii, radius_type = radius_type,
+            verbose = verbose, **nn_kwargs)
         self.pbc = pbc
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
-        self.type_col = type_col
-        self.type_to_atomic_number_list = type_to_atomic_number_list
-        self.neighbor_num_limit = neighbor_num_limit
-        self.radii = load_radii() if radii is None else radii
-        self.radius_type = radius_type
-        self.verbose = verbose
-        self.neighbor_id_col = 'neighbor_ids_voro'
-        self.dependent_cols_ = ['neighbor_num_voro', self.neighbor_id_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
 
-    def transform(self, X, lammps_df=None, Bds=None, lammps_path=None):
+    def transform(self, X):
         """
         Args:
             X (DataFrame): X can be a DataFrame which composed of partial
@@ -607,24 +640,14 @@ class ClusterPackingEfficiency(BaseSRO):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
-            lammps_df (DataFrame): Constructed from the output of lammps, which
-                common columns is ['type', 'x', 'y', 'z'...] columns.
-            Bds (list like): X, y, z boundaries.
-            lammps_path (DataFrame): If lammps_df is None, then we automatically
-                construct the DataFrame from lammps output path.
 
         Returns:
             cluster_packing_efficiency_df (DataFrame): Cluster Packing
                 Efficiency_df DataFrame, which index is same as X's index,
                 see get_feature_names() method for column names.
         """
-        X = X if self.calculated_X is None else self.calculated_X
-        if lammps_df is None and \
-                lammps_path is not None and os.path.exists(lammps_path):
-            lammps_df, Bds = read_lammps_dump(lammps_path)
-        if self.type_to_atomic_number_list is not None:
-            lammps_df[self.type_col] = lammps_df[self.type_col].apply(
-                lambda x: self.type_to_atomic_number_list[x-1])
+        X = X.join(self.lammps_df) \
+            if self.calculated_X is None else self.calculated_X
 
         # define print verbose
         if self.verbose > 0:
@@ -634,18 +657,17 @@ class ClusterPackingEfficiency(BaseSRO):
                     init_msg='Calculating Cluster Packing Efficiency features.',
                     epoch_name='Atoms', stage=1)
 
-        X = X.join(lammps_df)
         feature_lists = list()
         for idx, row in X.iterrows():
             neighbor_type = list()
             neighbor_coords = list()
-            for neighbor_id in row[self.neighbor_id_col]:
+            for neighbor_id in row[self.neighbor_ids_col]:
                 if neighbor_id > 0:
                     neighbor_type.append(X.loc[neighbor_id][self.type_col])
                     neighbor_coords.append(X.loc[neighbor_id][self.coords_cols])
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, Bds,
+            pos_ = PackingOfSite(self.pbc, self.Bds,
                                  row[self.type_col], row[self.coords_cols],
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
@@ -671,7 +693,7 @@ class ClusterPackingEfficiency(BaseSRO):
         return feature_names
 
 
-class AtomicPackingEfficiency(BaseSRO):
+class AtomicPackingEfficiency(BaseInterstice):
     """
     Laws, K. J., Miracle, D. B. & Ferry, M. A predictive structural model for
     bulk metallic glasses. Nat. Commun. 6, 8123 (2015).
@@ -685,20 +707,17 @@ class AtomicPackingEfficiency(BaseSRO):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(AtomicPackingEfficiency, self).__init__(
             save=save, backend=backend,
-            dependent_class=dependent_class, **nn_kwargs)
+            dependent_class=dependent_class, type_col=type_col,
+            type_to_atomic_number_list=type_to_atomic_number_list,
+            neighbor_num_limit=neighbor_num_limit,
+            radii=radii, radius_type = radius_type,
+            verbose = verbose, **nn_kwargs)
         self.pbc = pbc
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
-        self.type_col = type_col
-        self.type_to_atomic_number_list = type_to_atomic_number_list
-        self.neighbor_num_limit = neighbor_num_limit
-        self.radii = load_radii() if radii is None else radii
-        self.radius_type = radius_type
-        self.verbose = verbose
-        self.neighbor_id_col = 'neighbor_ids_voro'
-        self.voro_depend_cols = ['neighbor_num_voro', self.neighbor_id_col]
+        self.voro_depend_cols = [self.neighbor_num_col, self.neighbor_ids_col]
 
-    def transform(self, X, lammps_df=None, Bds=None, lammps_path=None):
+    def transform(self, X):
         """
         Args:
             X (DataFrame): X can be a DataFrame which composed of partial
@@ -707,11 +726,6 @@ class AtomicPackingEfficiency(BaseSRO):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
-            lammps_df (DataFrame): Constructed from the output of lammps, which
-                common columns is ['type', 'x', 'y', 'z'...] columns.
-            Bds (list like): X, y, z boundaries.
-            lammps_path (DataFrame): If lammps_df is None, then we automatically
-                construct the DataFrame from lammps output path.
 
         Returns:
             atomic_packing_efficiency_df (DataFrame): Atomic Packing Efficiency
@@ -719,13 +733,8 @@ class AtomicPackingEfficiency(BaseSRO):
                 get_feature_names() method for column names.
 
         """
-        X = X if self.calculated_X is None else self.calculated_X
-        if lammps_df is None and \
-                lammps_path is not None and os.path.exists(lammps_path):
-            lammps_df, Bds = read_lammps_dump(lammps_path)
-        if self.type_to_atomic_number_list is not None:
-            lammps_df[self.type_col] = lammps_df[self.type_col].apply(
-                lambda x: self.type_to_atomic_number_list[x-1])
+        X = X.join(self.lammps_df) \
+            if self.calculated_X is None else self.calculated_X
 
         # define print verbose
         if self.verbose > 0:
@@ -735,18 +744,17 @@ class AtomicPackingEfficiency(BaseSRO):
                     init_msg='Calculating Atomic Packing Efficiency features.',
                     epoch_name='Atoms', stage=1)
 
-        X = X.join(lammps_df)
         feature_lists = list()
         for idx, row in X.iterrows():
             neighbor_type = list()
             neighbor_coords = list()
-            for neighbor_id in row[self.neighbor_id_col]:
+            for neighbor_id in row[self.neighbor_ids_col]:
                 if neighbor_id > 0:
                     neighbor_type.append(X.loc[neighbor_id][self.type_col])
                     neighbor_coords.append(X.loc[neighbor_id][self.coords_cols])
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, Bds,
+            pos_ = PackingOfSite(self.pbc, self.Bds,
                                  row[self.type_col], row[self.coords_cols],
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
@@ -780,7 +788,7 @@ class CN(BaseSRO):
                                  dependent_class=dependent_class,
                                  remain_stat=remain_stat,
                                  **nn_kwargs)
-        self.dependent_cols_ = ['neighbor_num_{}'.format(self.dependent_name_)]
+        self.dependent_cols_ = [self.neighbor_num_col]
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -802,26 +810,22 @@ class CN(BaseSRO):
 class VoroIndex(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, include_beyond_edge_max=True,
-                 save=True, remain_stat=False, edge_min=3, edge_max=7,
-                 **nn_kwargs):
+                 save=True, edge_min=3, edge_max=7, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VoroIndex, self).__init__(save=save,
                                         backend=backend,
                                         dependent_class=dependent_class,
-                                        remain_stat=remain_stat,
                                         **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
         self.edge_max = edge_max
-        self.edge_col = 'neighbor_edges_voro'
-        self.neighbor_num_col = 'neighbor_num_voro'
-        self.dependent_cols_ = [self.neighbor_num_col, self.edge_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col]
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
         edge_num = self.edge_max - self.edge_min + 1
-        edge_lists = get_isometric_lists(X[self.edge_col].values,
+        edge_lists = get_isometric_lists(X[self.neighbor_edges_col].values,
                                          limit_width=self.neighbor_num_limit)
 
         voronoi_index_list = np.zeros((len(X), edge_num))
@@ -881,7 +885,6 @@ class CharacterMotif(BaseSRO):
         voro_idx_lists = get_isometric_lists(
             X[self.dependent_cols_].values, limit_width=self.neighbor_num_limit)
 
-
         motif_one_hot = np.zeros((len(X),
                                   len(self.target_voro_idx) + self.frank_kasper))
         motif_one_hot = \
@@ -923,14 +926,12 @@ class IFoldSymmetry(BaseSRO):
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
         self.edge_max = edge_max
-        self.edge_col = 'neighbor_edges_voro'
-        self.neighbor_num_col = 'neighbor_num_voro'
-        self.dependent_cols_ = [self.neighbor_num_col, self.edge_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col]
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
         edge_num = self.edge_max - self.edge_min + 1
-        edge_lists = get_isometric_lists(X[self.edge_col].values,
+        edge_lists = get_isometric_lists(X[self.neighbor_edges_col].values,
                                          limit_width=self.neighbor_num_limit)
 
         i_symm_list = np.zeros((len(X), edge_num))
@@ -966,18 +967,16 @@ class AreaWtIFoldSymmetry(BaseSRO):
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
         self.edge_max = edge_max
-        self.neighbor_num_col = 'neighbor_num_voro'
-        self.edge_col = 'neighbor_edges_voro'
-        self.area_col = 'neighbor_areas_voro'
-        self.dependent_cols_ = \
-            [self.neighbor_num_col, self.edge_col, self.area_col]
+        self.dependent_cols_ = [self.neighbor_num_col,
+                                self.neighbor_edges_col,
+                                self.neighbor_areas_col]
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        edge_lists = get_isometric_lists(
-            X[self.edge_col].values, limit_width=self.neighbor_num_limit)
+        edge_lists = get_isometric_lists(X[self.neighbor_edges_col].values,
+                                         limit_width=self.neighbor_num_limit)
         area_lists = get_isometric_lists(
-            X[self.area_col].values,
+            X[self.neighbor_areas_col].values,
             limit_width=self.neighbor_num_limit).astype(np.float128)
         edge_num = self.edge_max - self.edge_min + 1
 
@@ -1008,26 +1007,23 @@ class VolWtIFoldSymmetry(BaseSRO):
                  neighbor_num_limit=80, include_beyond_edge_max=True,
                  edge_min=3, edge_max=7, save=True, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
-        super(VolWtIFoldSymmetry, self).__init__(save=save,
-                                            backend=backend,
-                                            dependent_class=dependent_class,
-                                            **nn_kwargs)
+        super(VolWtIFoldSymmetry, self).__init__(
+            save=save, backend=backend,
+            dependent_class=dependent_class, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
         self.edge_max = edge_max
-        self.neighbor_num_col = 'neighbor_num_voro'
-        self.edge_col = 'neighbor_edges_voro'
-        self.vol_col = 'neighbor_vols_voro'
-        self.dependent_cols_ = \
-            [self.neighbor_num_col, self.edge_col, self.vol_col]
+        self.dependent_cols_ = [self.neighbor_num_col,
+                                self.neighbor_edges_col,
+                                self.neighbor_vols_col]
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        edge_lists = get_isometric_lists(
-            X[self.edge_col].values, limit_width=self.neighbor_num_limit)
+        edge_lists = get_isometric_lists(X[self.neighbor_edges_col].values,
+                                         limit_width=self.neighbor_num_limit)
         vol_lists = get_isometric_lists(
-            X[self.vol_col].values,
+            X[self.neighbor_vols_col].values,
             limit_width=self.neighbor_num_limit).astype(np.float128)
 
         edge_num = self.edge_max - self.edge_min + 1
@@ -1055,14 +1051,11 @@ class VolWtIFoldSymmetry(BaseSRO):
 
 
 class VoroAreaStats(BaseSRO):
-    def __init__(self, neighbor_num_limit=80,
-                 atoms_df=None, dependent_class="voro",
-                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+    def __init__(self, backend=None, dependent_class="voro",
+                 neighbor_num_limit=80, save=True, **nn_kwargs):
         super(VoroAreaStats, self).__init__(save=save,
                                             backend=backend,
                                             dependent_class=dependent_class,
-                                            atoms_df=atoms_df,
-                                            remain_stat=remain_stat,
                                             **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.voro_depend_cols = ['neighbor_num_voro'] + \

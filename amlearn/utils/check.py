@@ -19,20 +19,6 @@ def check_featurizer_X(X, atoms_df):
     return X
 
 
-def check_dependency(depend_cls, df_cols,
-                     voro_depend_cols=None, dist_denpend_cols=None):
-    if depend_cls.__class__.__name__ == "VoroNN" \
-         and set(voro_depend_cols).issubset(set(df_cols)):
-        return True
-
-    elif depend_cls.__class__.__name__ == "DistanceNN" \
-            and set(dist_denpend_cols).issubset(set(df_cols)):
-        return True
-
-    else:
-        return False
-
-
 def appropriate_kwargs(kwargs, func):
     """
     Auto get the appropriate kwargs according to those allowed by the func.
@@ -53,20 +39,18 @@ def appropriate_kwargs(kwargs, func):
     return appropriate_dict
 
 
-def check_neighbor_col(neighbor_col):
-    valid_cols = ['n_neighbors_voro', 'n_neighbors_dist']
-    if neighbor_col == "all":
-        neighbor_col = ['n_neighbors_voro', 'n_neighbors_dist']
-    elif isinstance(neighbor_col, list_like):
-        neighbor_col = neighbor_col
-    else:
-        neighbor_col = [neighbor_col]
+def check_neighbor_col(neighbor_cols):
+    valid_cols = ['neighbor_num_voro', 'neighbor_num_dist']
+    if neighbor_cols == "all":
+        neighbor_cols = valid_cols
+    elif not isinstance(neighbor_cols, list_like):
+        neighbor_cols = [neighbor_cols]
 
-    if not set(neighbor_col).issubset(valid_cols):
-        raise ValueError("neighbor_col {} is unknown. "
-                         "Possible values are: {}".format(neighbor_col,
+    if not set(neighbor_cols).issubset(valid_cols):
+        raise ValueError("neighbor_cols {} is unknown. "
+                         "Possible values are: {}".format(neighbor_cols,
                                                           valid_cols))
-    return neighbor_col
+    return neighbor_cols
 
 
 # common check

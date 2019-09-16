@@ -61,8 +61,9 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
             paths and define the common amlearn's load/save method.
     """
 
-    def __init__(self, save=True, backend=None):
+    def __init__(self, save=True, verbose=1, backend=None):
         self.save = save
+        self.verbose = verbose
         self.backend = backend if backend is not None \
             else create_featurizer_backend()
         self.dependent_class_ = None
@@ -81,7 +82,7 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
 
     @property
     def category(self):
-        return 'sro'
+        return 'nearest_neighbor'
 
     def check_dependency(self, X):
         if self.dependent_class_ is None:
