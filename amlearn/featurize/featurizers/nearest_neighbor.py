@@ -116,8 +116,7 @@ class VoroNN(BaseNN):
                                  neighbor_edge_list], valid_num=neighbor_num))
 
         prop_cols = self.get_nn_cols()
-        prop_df = pd.DataFrame(voro_props,
-                               index=range(n_atoms), columns=prop_cols)
+        prop_df = pd.DataFrame(voro_props, index=X.index, columns=prop_cols)
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,
@@ -176,8 +175,8 @@ class DistanceNN(BaseNN):
             dist_props.append(get_valid_lists(
                 [neighbor_id_list, neighbor_dist_list], valid_num=neighbor_num))
 
-        prop_df = pd.DataFrame(dist_props,
-                               index=range(n_atoms), columns=self.get_nn_cols())
+        prop_df = pd.DataFrame(dist_props, index=X.index,
+                               columns=self.get_nn_cols())
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,

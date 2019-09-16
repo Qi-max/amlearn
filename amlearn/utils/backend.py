@@ -250,12 +250,16 @@ class FeatureBackend(Backend):
 
         return os.path.join(self.tmp_path, 'featurizer')
 
-    def save_featurizer_as_dataframe(self, output_df, name='all'):
+    def save_featurizer_as_dataframe(self, output_df, name='all',
+                                     save_type='pickle.gz'):
         featurizer_dir = self._get_featurizer_output_dir()
         create_path(featurizer_dir, merge=True)
-        featurizer_file = os.path.join(featurizer_dir,
-                                       'featurizer_{}.csv'.format(name))
-        output_df.to_csv(featurizer_file)
+        featurizer_file = os.path.join(
+            featurizer_dir, 'featurizer_{}.{}'.format(name, save_type))
+        if save_type == 'csv':
+            output_df.to_csv(featurizer_file)
+        elif save_type.startswith('pickle'):
+            output_df.to_pickle(featurizer_file)
 
 
 def check_path(path, path_tag, setup_path_tag=None):
