@@ -6,11 +6,12 @@ from math import pi
 import numpy as np
 import pandas as pd
 import six
+from copy import copy
 from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN
 
 from scipy.spatial.qhull import ConvexHull
 from amlearn.featurize.base import load_radii, BaseFeaturize
-from amlearn.utils.data import read_imd, read_lammps_dump, get_isometric_lists
+from amlearn.utils.data import read_imd, read_lammps_dump, get_isometric_lists, list_like
 from amlearn.utils.packing import solid_angle, \
     triangular_angle, calc_stats, triangle_area, tetra_volume
 from amlearn.utils.verbose import VerboseReporter
@@ -31,17 +32,19 @@ class PackingOfSite(object):
         self.pbc = pbc
         self.Bds = Bds
         self.atom_type = atom_type
-        self.coords = coords
+        self.coords = coords.astype(float)
         self.neighbors_type = neighbors_type
         self.neighbors_coords = neighbors_coords
         self.radii = load_radii() if radii is None else radii
         self.radius_type = radius_type
 
     def nn_coords(self):
-        nn_coords_ = [calc_neighbor_coords(self.coords, neighbor_coords,
-                                           self.Bds, self.pbc)
-                      for neighbor_coords in self.neighbors_coords]
-        return nn_coords_
+        if not hasattr(self, 'nn_coords_'):
+            self.nn_coords_ = [calc_neighbor_coords(self.coords,
+                                                    neighbor_coords,
+                                                    self.Bds, self.pbc)
+                               for neighbor_coords in self.neighbors_coords]
+        return self.nn_coords_
 
     def convex_hull(self):
         if not hasattr(self, 'convex_hull_'):
@@ -99,6 +102,7 @@ class PackingOfSite(object):
 
         # get nn_coords
         nn_coords = np.array(self.nn_coords())
+        self.calculate_hull_facet_angles()
 
         # iter convex surface (neighbor indices)
         for convex_surface_indices, triangular_angle_list in \
@@ -127,7 +131,7 @@ class PackingOfSite(object):
 
         # get nn_coords
         nn_coords = np.array(self.nn_coords())
-
+        self.calculate_hull_tetra_angles()
         # iter convex surface (neighbor indices)
         for convex_surface_indices, solid_angle_list in \
                 zip(self.convex_hull().simplices, self.solid_angle_lists_):
@@ -143,6 +147,8 @@ class PackingOfSite(object):
                 packed_volume += sol_angle / 3 * pow(r, 3)
 
             # add center's packed_volume
+            # surface_coords = surface_coords.astype(float)
+            # self.coords = self.coords.astype(float)
             center_solid_angle = solid_angle(self.coords, *surface_coords)
             center_r = self.radii[str(self.atom_type)][self.radius_type]
             packed_volume += center_solid_angle / 3 * pow(center_r, 3)
@@ -156,9 +162,10 @@ class PackingOfSite(object):
 
     def combine_neighbor_solid_angles(self):
         if not hasattr(self, 'neighbors_solid_angle_'):
+            self.calculate_hull_tetra_angles()
+
             # init neighbors_solid_angle list
             neighbors_solid_angle = [0] * len(self.neighbors_type)
-
             # iter convex surface (neighbor indices)
             for convex_surface_indices, solid_angle_list in \
                     zip(self.convex_hull().simplices, self.solid_angle_lists_):
@@ -180,14 +187,15 @@ class PackingOfSite(object):
         Returns:
             packed_volume
         """
+        self.combine_neighbor_solid_angles()
         packed_volume = 4/3 * pi * pow(self.radii[str(self.atom_type)]
                                        [self.radius_type], 3)
         for neighbor_type, solid_angle_ in zip(self.neighbors_type,
-                                              self.neighbors_solid_angle_):
+                                               self.neighbors_solid_angle_):
             if solid_angle_ == 0:
                 continue
-            packed_volume += solid_angle_ * 1/3 * pow(self.radii[neighbor_type]
-                                                      [self.radius_type], 3)
+            packed_volume += solid_angle_ * 1/3 * pow(
+                self.radii[str(int(neighbor_type))][self.radius_type], 3)
         return packed_volume
 
     def cluster_packing_efficiency(self):
@@ -341,21 +349,20 @@ class BaseInterstice(BaseSRO):
         Returns:
             self (object): Interstice or Packing instance.
         """
-        self.dependent_class_ = self.check_dependency(X)
-        if self.dependent_class_:
-            self.calculated_X = self.dependent_class_.fit_transform(X)
-
         if lammps_df is None and \
                 lammps_path is not None and os.path.exists(lammps_path):
             self.lammps_df, self.Bds = read_lammps_dump(lammps_path)
         else:
-            self.lammps_df = lammps_df
+            self.lammps_df = copy(lammps_df)
             self.Bds = Bds
         if self.type_to_atomic_number_list is not None:
             self.lammps_df[self.type_col] = self.lammps_df[self.type_col].apply(
                 lambda x: self.type_to_atomic_number_list[x-1])
 
-        self.calculated_X = self.calculated_X.join(self.lammps_df)
+        self.dependent_class_ = self.check_dependency(X)
+        if self.dependent_class_:
+            self.calculated_X = self.dependent_class_.fit_transform(X)
+            self.calculated_X = self.calculated_X.join(self.lammps_df)
         return self
 
 
@@ -411,25 +418,26 @@ class DistanceInterstice(BaseInterstice):
                 if neighbor_id > 0:
                     neighbor_dist_interstice_list.append(
                         neighbor_dist / (
-                            self.radii[X.loc[idx][self.type_col]] +
-                            self.radii[X.loc[neighbor_id][self.type_col]]))
+                            self.radii[str(int(X.loc[idx][self.type_col]))][self.radius_type] +
+                            self.radii[str(int(X.loc[neighbor_id][self.type_col]))][self.radius_type]))
                 else:
                     continue
-            feature_lists.append(neighbor_dist_interstice_list)
-        dist_interstice_df = pd.DataFrame(feature_lists, index=X.index,
-                                          columns=self.get_feature_names())
+            feature_lists.append([1, neighbor_dist_interstice_list])
+        dist_interstice_df = \
+            pd.DataFrame(feature_lists, columns=self.get_feature_names(),
+                         index=X.index)[[self.get_feature_names()[1]]]
         if self.save:
             self.backend.save_featurizer_as_dataframe(
                 output_df=dist_interstice_df,
                 name='{}_{}_{}_distance_interstice'.format(self.category,
                                                            self.dependent_name_,
                                                            self.radius_type))
-
         return dist_interstice_df
 
     def get_feature_names(self):
         feature_names = \
-            ['neighbor_dists_interstice_{}'.format(self.dependent_name_)]
+            ['placeholder',
+             'neighbor_dists_interstice_{}'.format(self.dependent_name_)]
         return feature_names
 
 
@@ -439,7 +447,25 @@ class VolumeAreaInterstice(BaseInterstice):
                  type_to_atomic_number_list=None,
                  neighbor_num_limit=80, save=True,
                  radii=None, radius_type="miracle_radius",
-                 calc_volume_area='all', verbose=0, **nn_kwargs):
+                 calc_volume_area='all', verbose=0,
+                 volume_types=None, area_types=None, **nn_kwargs):
+        """
+        Args:
+            volume_types (list like): Can be one or several of the arrays
+                ["volume_interstice",
+                 "fractional_volume_interstice_tetrahedra",
+                 "fractional_volume_interstice_tetrahedra_avg",
+                 "fractional_volume_interstice_center_v"];
+                 default is : ["fractional_volume_interstice_tetrahedra"]
+
+            area_types (list like): Can be one or several of the arrays
+                ["area_interstice",
+                "fractional_area_interstice_triangle",
+                "fractional_area_interstice_triangle_avg",
+                "fractional_area_interstice_center_slice_a"]
+                default is : ["fractional_area_interstice_triangle"]
+
+        """
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VolumeAreaInterstice, self).__init__(
             save=save, backend=backend,
@@ -457,6 +483,14 @@ class VolumeAreaInterstice(BaseInterstice):
         self.volume_list = list()
         self.volume_interstice_list = list()
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
+        self.volume_types = \
+            volume_types if isinstance(volume_types, list_like()) \
+                else [volume_types] if volume_types is not None \
+                else ['fractional_volume_interstice_tetrahedra']
+        self.area_types = \
+            area_types if isinstance(area_types, list_like()) \
+                else [area_types] if area_types is not None \
+                else ['fractional_area_interstice_triangle']
 
     def transform(self, X):
         """
@@ -492,11 +526,12 @@ class VolumeAreaInterstice(BaseInterstice):
             for neighbor_id in row[self.neighbor_ids_col]:
                 if neighbor_id > 0:
                     neighbor_type.append(X.loc[neighbor_id][self.type_col])
-                    neighbor_coords.append(X.loc[neighbor_id][self.coords_cols])
+                    neighbor_coords.append(
+                        X.loc[neighbor_id][self.coords_cols].astype(float))
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, self.Bds,
-                                 row[self.type_col], row[self.coords_cols],
+            pos_ = PackingOfSite(self.pbc, self.Bds, row[self.type_col],
+                                 row[self.coords_cols].values.astype(float),
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
             if len(neighbor_type) < 4:
@@ -514,26 +549,31 @@ class VolumeAreaInterstice(BaseInterstice):
                     center_volume = 4/3 * pi * pow(
                         pos_.radii[str(pos_.atom_type)][pos_.radius_type], 3)
 
-                    # fractional volume_interstices in relative to the
-                    # tetrahedra volume
-                    feature_list.extend(calc_stats(volume_interstice_list))
-
-                    # original volume_interstices (in the units of volume)
-                    feature_list.extend(
-                        calc_stats(volume_interstice_original_array))
-
-                    # fractional volume_interstices in relative to the entire volume
-                    feature_list.extend(
-                        calc_stats(volume_interstice_original_array /
-                                   volume_total * len(volume_list)))
-
-                    # fractional volume_interstices in relative to the center atom volume
-                    feature_list.extend(calc_stats(
-                        volume_interstice_original_array / center_volume))
-
-                    self.volume_list.append(pos_.volume_list_)
-                    self.volume_interstice_list.append(
-                        pos_.volume_interstice_list_)
+                    for volume_type in self.volume_types:
+                        # fractional volume_interstices in relative to the
+                        # tetrahedra volume
+                        if volume_type == \
+                                "fractional_volume_interstice_tetrahedra":
+                            feature_list.extend(
+                                calc_stats(volume_interstice_list))
+                        # original volume_interstices (in the units of volume)
+                        elif volume_type == "volume_interstice":
+                            feature_list.extend(
+                                calc_stats(volume_interstice_original_array))
+                        # fractional volume_interstices in relative to the
+                        # entire volume
+                        elif volume_type == \
+                                "fractional_volume_interstice_tetrahedra_avg":
+                            feature_list.extend(
+                                calc_stats(volume_interstice_original_array /
+                                           volume_total * len(volume_list)))
+                        # fractional volume_interstices in relative to the
+                        # center atom volume
+                        elif volume_type == \
+                                "fractional_volume_interstice_center_v":
+                            feature_list.extend(
+                                calc_stats(volume_interstice_original_array /
+                                           center_volume))
 
                 if self.calc_volume_area == 'area' or \
                         self.calc_volume_area == 'all':
@@ -546,25 +586,29 @@ class VolumeAreaInterstice(BaseInterstice):
                     center_slice_area = pi * pow(
                         pos_.radii[str(pos_.atom_type)][pos_.radius_type], 2)
 
-                    # fractional area_interstices in relative to the
-                    # tetrahedra area
-                    feature_list.extend(calc_stats(area_interstice_list))
-
-                    # original area_interstices (in the units of area)
-                    feature_list.extend(
-                        calc_stats(area_interstice_original_array))
-
-                    # fractional area_interstices in relative to the entire area
-                    feature_list.extend(
-                        calc_stats(area_interstice_original_array / area_total *
-                                   len(area_list)))
-
-                    # fractional area_interstices in relative to the center atom volume
-                    feature_list.extend(calc_stats(
-                        area_interstice_original_array / center_slice_area))
-
-                    self.area_list.append(pos_.area_list_)
-                    self.area_interstice_list.append(pos_.area_interstice_list_)
+                    for area_type in self.area_types:
+                        # fractional area_interstices in relative to the
+                        # tetrahedra area
+                        if area_type == "fractional_area_interstice_triangle":
+                            feature_list.extend(
+                                calc_stats(area_interstice_list))
+                        # original area_interstices (in the units of area)
+                        if area_type == "area_interstice":
+                            feature_list.extend(
+                                calc_stats(area_interstice_original_array))
+                        # fractional area_interstices in relative to the entire area
+                        if area_type == \
+                                "fractional_area_interstice_triangle_avg":
+                            feature_list.extend(
+                                calc_stats(area_interstice_original_array /
+                                           area_total * len(area_list)))
+                        # fractional area_interstices in relative to the center
+                        # atom volume
+                        if area_type == \
+                                "fractional_area_interstice_center_slice_a":
+                            feature_list.extend(
+                                calc_stats(area_interstice_original_array /
+                                           center_slice_area))
                 feature_lists.append(feature_list)
 
             if self.verbose > 0:
@@ -587,16 +631,10 @@ class VolumeAreaInterstice(BaseInterstice):
 
         stats = ['sum', 'mean', 'std', 'min', 'max']
         if self.calc_volume_area == 'volume' or self.calc_volume_area == 'all':
-            feature_prefixs += ['fractional_volume_interstice_tetrahedra',
-                                "volume_interstice",
-                                "fractional_volume_interstice_tetrahedra_avg",
-                                "fractional_volume_interstice_center_v"]
+            feature_prefixs += self.volume_types
         if self.calc_volume_area == 'area' or self.calc_volume_area == 'all':
-            feature_prefixs += ['fractional_area_interstice_triangle',
-                                "area_interstice",
-                                "fractional_area_interstice_triangle_avg",
-                                "fractional_area_interstice_center_slice_a"]
-        feature_names += ['{} {} {}'.format(feature_prefix, stat,
+            feature_prefixs += self.area_types
+        feature_names += ['{}_{}_{}'.format(feature_prefix, stat,
                                             self.dependent_name_)
                           for feature_prefix in feature_prefixs
                           for stat in stats]
@@ -715,7 +753,7 @@ class AtomicPackingEfficiency(BaseInterstice):
         self.pbc = pbc
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
-        self.voro_depend_cols = [self.neighbor_num_col, self.neighbor_ids_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
 
     def transform(self, X):
         """
