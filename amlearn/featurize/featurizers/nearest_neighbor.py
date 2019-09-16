@@ -29,17 +29,20 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
     """
 
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
-                 pbc=None, Bds=None, save=True, backend=None):
+                 type_col='type', coords_cols=None, pbc=None, Bds=None,
+                 save=True, backend=None, output_file=None):
         self.cutoff = cutoff
         self.allow_neighbor_limit = allow_neighbor_limit
         self.n_neighbor_limit = n_neighbor_limit
+        self.type_col = type_col
+        self.coords_cols = coords_cols \
+            if coords_cols is not None else ['x', 'y', 'z']
         self.pbc = pbc if pbc else [1, 1, 1]
-        self.Bds = Bds if Bds else [[-35.5040474, 35.5040474],
-                                    [-35.5040474, 35.5040474],
-                                    [-35.5040474, 35.5040474]]
+        self.Bds = Bds if Bds else [[-36, 36], [-36, 36], [-36, 36]]
         self.save = save
         self.backend = backend if backend is not None \
             else create_featurizer_backend()
+        self.output_file = output_file
 
     def fit_transform(self, X=None, y=None, **fit_params):
         return self.transform(X)
@@ -50,12 +53,14 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
 
 class VoroNN(BaseNN):
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
-                 pbc=None, Bds=None, small_face_thres=0.05,
-                 save=True, backend=None):
-        super(VoroNN, self).__init__(save=save, backend=backend, cutoff=cutoff,
-                                     allow_neighbor_limit=allow_neighbor_limit,
-                                     n_neighbor_limit=n_neighbor_limit,
-                                     pbc=pbc, Bds=Bds)
+                 type_col='type', coords_cols=None, pbc=None, Bds=None,
+                 save=True, backend=None, output_file='voro_nn',
+                 small_face_thres=0.05):
+        super(VoroNN, self).__init__(
+            cutoff=cutoff,  allow_neighbor_limit=allow_neighbor_limit,
+            n_neighbor_limit=n_neighbor_limit, type_col=type_col,
+            coords_cols=coords_cols, pbc=pbc, Bds=Bds,
+            save=save, backend=backend, output_file=output_file)
         self.small_face_thres = small_face_thres
 
     def transform(self, X=None):
@@ -69,25 +74,27 @@ class VoroNN(BaseNN):
                 list and neighbor edge list, which calculated based Voronoi.
         """
         n_atoms = len(X)
-        neighbor_num_list = np.zeros(n_atoms, dtype=np.float128)
-        neighbor_id_lists = np.zeros((n_atoms, self.n_neighbor_limit),
-                                  dtype=np.float128)
-        neighbor_edge_lists = np.zeros((n_atoms, self.n_neighbor_limit),
-                                       dtype=np.float128)
-        neighbor_area_lists = np.zeros((n_atoms, self.n_neighbor_limit),
-                                       dtype=np.float128)
-        neighbor_vol_lists = np.zeros((n_atoms, self.n_neighbor_limit),
-                                      dtype=np.float128)
-        neighbor_dist_lists = np.zeros(
-            (n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_num_list = \
+            np.zeros(n_atoms, dtype=np.float128)
+        neighbor_id_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_edge_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_area_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_vol_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_dist_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
 
-        n_neighbor_max = 0
         n_edge_max = 0
+        n_neighbor_max = 0
 
         neighbor_num_list, neighbor_id_lists,  neighbor_area_lists, \
         neighbor_vol_lists, neighbor_dist_lists, neighbor_edge_lists, \
         n_neighbor_max, n_edge_max = \
-            voronoi_nn.voronoi(X['type'].values, X[['x', 'y', 'z']].values,
+            voronoi_nn.voronoi(X[self.type_col].values,
+                               X[self.coords_cols].values,
                                self.cutoff, self.allow_neighbor_limit,
                                self.small_face_thres, self.pbc, self.Bds,
                                neighbor_num_list, neighbor_id_lists,
@@ -114,7 +121,7 @@ class VoroNN(BaseNN):
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,
-                                                      name='voro_prop')
+                                                      name=self.output_file)
         return prop_df
 
     def get_nn_cols(self):
@@ -126,12 +133,14 @@ class VoroNN(BaseNN):
 
 class DistanceNN(BaseNN):
     def __init__(self, cutoff=4, allow_neighbor_limit=300,
-                 n_neighbor_limit=80, pbc=None, Bds=None,
-                 backend=None, save=True):
+                 n_neighbor_limit=80, type_col='type',
+                 coords_cols=None, pbc=None, Bds=None,
+                 backend=None, save=True, output_file='dist_nn'):
         super(DistanceNN, self).__init__(
-            save=save, backend=backend, cutoff=cutoff,
-            allow_neighbor_limit=allow_neighbor_limit,
-            n_neighbor_limit=n_neighbor_limit, pbc=pbc, Bds=Bds)
+            cutoff=cutoff, allow_neighbor_limit=allow_neighbor_limit,
+            n_neighbor_limit=n_neighbor_limit, type_col=type_col,
+            coords_cols=coords_cols, pbc=pbc, Bds=Bds, save=save,
+            backend=backend, output_file=output_file)
 
     def transform(self, X=None):
         """
@@ -144,19 +153,18 @@ class DistanceNN(BaseNN):
         """
 
         n_atoms = len(X)
-        neighbor_num_list = np.zeros(n_atoms, dtype=np.float128)
-        neighbor_id_lists = np.zeros((n_atoms, self.n_neighbor_limit),
-                                  dtype=np.float128)
-        neighbor_dist_lists = np.zeros(
-            (n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_num_list = \
+            np.zeros(n_atoms, dtype=np.float128)
+        neighbor_id_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+        neighbor_dist_lists = \
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
 
         n_neighbor_max = 0
-
-        print(distance_nn.distance_nn.distance_neighbor.__doc__)
         (n_neighbor_max, neighbor_num_list, neighbor_id_lists,
          neighbor_dist_lists) = \
-            distance_nn.distance_nn.distance_neighbor(
-                X['type'].values, X[['x', 'y', 'z']].values,
+            distance_nn.distance_neighbor(
+                X[self.type_col].values, X[self.coords_cols].values,
                 self.cutoff, self.allow_neighbor_limit, self.pbc,
                 self.Bds, n_neighbor_max, neighbor_num_list,
                 neighbor_id_lists, neighbor_dist_lists,
@@ -173,7 +181,7 @@ class DistanceNN(BaseNN):
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,
-                                                      name='dist_prop')
+                                                      name=self.output_file)
 
         return prop_df
 

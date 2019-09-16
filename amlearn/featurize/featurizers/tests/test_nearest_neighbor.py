@@ -27,24 +27,27 @@ class TestNearestNeighbor(AmLearnTest):
                       [cls.sc['y'].min(), cls.sc['y'].max()],
                       [cls.sc['z'].min(), cls.sc['z'].max()]]
 
+
     def test_voro(self):
         nn = VoroNN(Bds=self.sc_Bds, cutoff=5, allow_neighbor_limit=300,
                     n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
         result_df = nn.fit_transform(self.sc)
-        self.assertEqual(len(result_df.columns), 401)
+        self.assertEqual(len(result_df.columns), 6)
         self.assertEqual(len(result_df), 13)
-        self.assertEqual(result_df['n_neighbors_voro'].iloc[0], 10.0)
-        self.assertEqual(result_df['n_neighbors_voro'].iloc[1], 11.0)
-        self.assertEqual(result_df['neighbor_id_0_voro'].iloc[1], 1.0)
+        self.assertEqual(result_df['neighbor_num_voro'].iloc[0], 10.0)
+        self.assertEqual(result_df['neighbor_num_voro'].iloc[1], 11.0)
+        self.assertListEqual(list(result_df['neighbor_edges_voro'].iloc[1]),
+                             [5, 6, 5, 6, 4, 6, 3, 6, 5, 4, 4])
 
     def test_dist(self):
         nn = DistanceNN(Bds=self.sc_Bds, cutoff=4, allow_neighbor_limit=300,
                         n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
         result_df = nn.fit_transform(self.sc)
-        self.assertEqual(len(result_df.columns), 161)
+        self.assertEqual(len(result_df.columns), 3)
         self.assertEqual(len(result_df), 13)
-        self.assertEqual(result_df['n_neighbors_dist'].iloc[0], 12.0)
-        self.assertEqual(result_df['n_neighbors_dist'].iloc[1], 12.0)
-        self.assertEqual(result_df['neighbor_id_0_dist'].iloc[0], 2.0)
+        self.assertEqual(result_df['neighbor_num_dist'].iloc[0], 12.0)
+        self.assertEqual(result_df['neighbor_num_dist'].iloc[1], 12.0)
+        self.assertListEqual(list(result_df['neighbor_ids_dist'].iloc[1]),
+                             [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
 
 
