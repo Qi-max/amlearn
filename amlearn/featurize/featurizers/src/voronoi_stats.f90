@@ -1,15 +1,15 @@
-    SUBROUTINE voronoi_index(voronoi_index_list, n_atoms, n_neighbor_limit, &
+    SUBROUTINE voronoi_index(voronoi_index_list, n_atoms, neighbor_num_limit, &
                              n_neighbor_list, neighbor_edge_lists, &
                              edge_min, edge_max, include_beyond_edge_max)
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
+        integer, dimension(n_atoms, neighbor_num_limit) :: neighbor_edge_lists
         integer :: include_beyond_edge_max
         integer :: edge_min, edge_max
         integer, dimension(n_atoms, edge_max - edge_min + 1) :: voronoi_index_list
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
@@ -31,17 +31,17 @@
     end SUBROUTINE voronoi_index
 
 
-    subroutine i_fold_symmetry(i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
+    subroutine i_fold_symmetry(i_symm_list, n_atoms, neighbor_num_limit, n_neighbor_list, &
         neighbor_edge_lists, edge_min, edge_max, include_beyond_edge_max)
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
+        integer, dimension(n_atoms, neighbor_num_limit) :: neighbor_edge_lists
         integer :: include_beyond_edge_max
         integer :: edge_min, edge_max
         REAL(8), dimension(n_atoms, edge_max - edge_min + 1) :: i_symm_list
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
@@ -50,7 +50,7 @@
         integer :: atom
         integer, dimension(n_atoms, edge_max - edge_min + 1) :: voronoi_index_list
 
-        call voronoi_index(voronoi_index_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
+        call voronoi_index(voronoi_index_list, n_atoms, neighbor_num_limit, n_neighbor_list, &
             neighbor_edge_lists, edge_min, edge_max, include_beyond_edge_max)
 
         do atom = 1, n_atoms
@@ -135,18 +135,18 @@
 !    end subroutine special_polyhedron
 
 
-    subroutine area_wt_i_fold_symmetry(area_wt_i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
+    subroutine area_wt_i_fold_symmetry(area_wt_i_symm_list, n_atoms, neighbor_num_limit, n_neighbor_list, &
         neighbor_edge_lists, neighbor_area_lists, edge_min, edge_max, include_beyond_edge_max)
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_area_lists
+        integer, dimension(n_atoms, neighbor_num_limit) :: neighbor_edge_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_area_lists
         integer :: include_beyond_edge_max
         integer :: edge_min, edge_max
         REAL(8), dimension(n_atoms, edge_max - edge_min + 1) :: area_wt_i_symm_list
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists, neighbor_area_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
@@ -174,24 +174,24 @@
     end subroutine area_wt_i_fold_symmetry
 
 
-    subroutine vol_wt_i_fold_symmetry(vol_wt_i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
+    subroutine vol_wt_i_fold_symmetry(vol_wt_i_symm_list, n_atoms, neighbor_num_limit, n_neighbor_list, &
         neighbor_edge_lists, neighbor_vol_lists, edge_min, edge_max, include_beyond_edge_max)
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_vol_lists
+        integer, dimension(n_atoms, neighbor_num_limit) :: neighbor_edge_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_vol_lists
         integer :: include_beyond_edge_max
         integer :: edge_min, edge_max
         REAL(8), dimension(n_atoms, edge_max - edge_min + 1) :: vol_wt_i_symm_list
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists, neighbor_vol_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
 !f2py   intent(in, out) :: vol_wt_i_symm_list
 
-        call area_wt_i_fold_symmetry(vol_wt_i_symm_list, n_atoms, n_neighbor_limit, n_neighbor_list, &
+        call area_wt_i_fold_symmetry(vol_wt_i_symm_list, n_atoms, neighbor_num_limit, n_neighbor_list, &
         neighbor_edge_lists, neighbor_vol_lists, edge_min, edge_max, include_beyond_edge_max)
 
     end subroutine vol_wt_i_fold_symmetry
@@ -199,16 +199,16 @@
 
 
     subroutine voronoi_area_stats(area_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_area_lists)
+        n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_area_lists)
 
         use :: a_stats, only: all_stats
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_area_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_area_lists
         REAL(8), dimension(n_atoms, 5) :: area_stats
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_area_lists
 !f2py   intent(in, out) :: area_stats
@@ -223,21 +223,21 @@
 
 
     subroutine voronoi_area_stats_separate(area_stats_separate, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_edge_lists, &
+        n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_edge_lists, &
         neighbor_area_lists, edge_min, edge_max, include_beyond_edge_max)
 
         use :: a_stats, only: all_stats
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_area_lists
+        integer, dimension(n_atoms, neighbor_num_limit) :: neighbor_edge_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_area_lists
         integer :: edge_min, edge_max, include_beyond_edge_max
         REAL(8), allocatable:: atom_area_stats_separate(:,:)
         integer, dimension(edge_max - edge_min + 1) :: atom_count_list_separate
         REAL(8), dimension(n_atoms, 5 * (edge_max - edge_min + 1)) :: area_stats_separate
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists, neighbor_area_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
@@ -271,41 +271,41 @@
     end subroutine voronoi_area_stats_separate
 
     subroutine voronoi_vol_stats(vol_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_vol_lists)
-        integer :: n_atoms, n_neighbor_limit
+        n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_vol_lists)
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_vol_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_vol_lists
         REAL(8), dimension(n_atoms, 5) :: vol_stats
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_vol_lists
 !f2py   intent(in, out) :: vol_stats
 
-        call voronoi_area_stats(vol_stats, n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_vol_lists)
+        call voronoi_area_stats(vol_stats, n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_vol_lists)
     end subroutine voronoi_vol_stats
 
 
     subroutine voronoi_vol_stats_separate(vol_stats_separate, &
-            n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_edge_lists, &
+            n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_edge_lists, &
             neighbor_vol_lists, edge_min, edge_max, include_beyond_edge_max)
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        integer, dimension(n_atoms, n_neighbor_limit) :: neighbor_edge_lists
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_vol_lists
+        integer, dimension(n_atoms, neighbor_num_limit) :: neighbor_edge_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_vol_lists
         integer :: edge_min, edge_max, include_beyond_edge_max
         REAL(8), allocatable:: atom_vol_stats_separate(:,:)
         integer, dimension(edge_max - edge_min + 1) :: atom_count_list_separate
         REAL(8), dimension(n_atoms, 5 * (edge_max - edge_min + 1)) :: vol_stats_separate
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_edge_lists, neighbor_vol_lists
 !f2py   intent(in) :: edge_min, edge_max, include_beyond_edge_max
 !f2py   intent(in, out) :: vol_stats_separate
 
         call voronoi_area_stats_separate(vol_stats_separate, &
-            n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_edge_lists, &
+            n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_edge_lists, &
             neighbor_vol_lists, edge_min, edge_max, include_beyond_edge_max)
 
     end subroutine voronoi_vol_stats_separate
@@ -313,17 +313,17 @@
 
 
     subroutine voronoi_distance_stats(distance_stats, &
-        n_atoms, n_neighbor_limit, n_neighbor_list, neighbor_distance_lists)
+        n_atoms, neighbor_num_limit, n_neighbor_list, neighbor_distance_lists)
 
         use :: a_stats, only : all_stats
         use :: c_stats, only : customize_stats
 
-        integer :: n_atoms, n_neighbor_limit
+        integer :: n_atoms, neighbor_num_limit
         integer, dimension(n_atoms) :: n_neighbor_list
-        REAL(8), dimension(n_atoms, n_neighbor_limit) :: neighbor_distance_lists
+        REAL(8), dimension(n_atoms, neighbor_num_limit) :: neighbor_distance_lists
         REAL(8), dimension(n_atoms, 5) :: distance_stats
 
-!f2py   intent(in) :: n_atoms, n_neighbor_limit
+!f2py   intent(in) :: n_atoms, neighbor_num_limit
 !f2py   intent(in) :: n_neighbor_list
 !f2py   intent(in) :: neighbor_distance_lists
 !f2py   intent(in, out) :: distance_stats

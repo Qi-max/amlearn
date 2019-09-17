@@ -28,6 +28,10 @@ loggers:
         level: DEBUG
         handlers: [console]
         propagate: no
+    FeatureBackend:
+        level: DEBUG
+        handlers: [console]
+        propagate: no
     Preprocessor:
         level: DEBUG
         handlers: [console]
