@@ -44,19 +44,24 @@ class TestSro(AmLearnTest):
             DistanceNN(Bds=self.sc_Bds, cutoff=4, allow_neighbor_limit=300,
                        n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
             VolumeAreaInterstice(
-                pbc=[1, 1, 1], lammps_df=self.sc_df, Bds=self.sc_Bds,
                 type_to_atomic_number_list=[29, 40], save=True,
-                radii=None, radius_type="miracle_radius", verbose=1),
+                radii=None, radius_type="miracle_radius", verbose=2),
             ClusterPackingEfficiency(
-                pbc=[1, 1, 1], lammps_df=self.sc_df, Bds=self.sc_Bds,
                 type_to_atomic_number_list=[29, 40], save=True,
-                radii=None, radius_type="miracle_radius", verbose=1),
+                radii=None, radius_type="miracle_radius", verbose=2),
             AtomicPackingEfficiency(
-                pbc=[1, 1, 1], lammps_df=self.sc_df, Bds=self.sc_Bds,
                 type_to_atomic_number_list=[29, 40], save=True,
-                radii=None, radius_type="miracle_radius", verbose=1),
+                radii=None, radius_type="miracle_radius", verbose=2),
             MRO(output_file_name='pipeline_mro')
         ]
         multi_featurizer = MultiFeaturizer(featurizers=featurizers)
-        result_df = multi_featurizer.fit_transform(X=self.sc_df)
+        result_df = multi_featurizer.fit_transform(X=self.sc_df,
+                                                   Bds=self.sc_Bds,
+                                                   lammps_df=self.sc_df)
         print(result_df)
+
+
+    # def test_all_featurizes_multiFeaturizer(self):
+    #     multi_featurizer = MultiFeaturizer()
+    #     result_df = multi_featurizer.fit_transform(X=self.sc_df)
+    #     print(result_df)

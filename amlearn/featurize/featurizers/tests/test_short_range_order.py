@@ -317,7 +317,7 @@ class TestSRO(AmLearnTest):
     #                            3.0226, 4)
     #
     # def test_boop(self):
-    #     atom_coords = self.sc[['x', 'y', 'z']].values.astype(np.float128)
+    #     atom_coords = self.sc[['x', 'y', 'z']].values.astype(np.longdouble)
     #     nn = BOOP(atoms_df=self.sc_voro, atom_coords=atom_coords,
     #               Bds=self.sc_Bds)
     #     result_df = nn.fit_transform(X=None)
