@@ -1,10 +1,10 @@
 import os
 import inspect
 import pkgutil
+import pandas as pd
 from operator import itemgetter
 from amlearn.featurize.base import BaseFeaturize
 from amlearn.featurize.featurizers.nearest_neighbor import BaseNN
-from amlearn.featurize.featurizers.short_range_order import BaseInterstice
 from amlearn.utils.check import is_abstract
 from sklearn.base import BaseEstimator
 from sklearn.pipeline import FeatureUnion, Pipeline
@@ -40,7 +40,8 @@ class MultiFeaturizer(BaseFeaturize):
             save=save, backend=backend)
         self.featurizers = featurizers
 
-    def fit(self, X=None):
+    def fit(self, X=None, dependent_df=None, lammps_df=None, Bds=None,
+            lammps_path=None):
         featurizer_dict = dict()
         if self.featurizers == "all":
             for featurizer in all_featurizers():
@@ -58,10 +59,13 @@ class MultiFeaturizer(BaseFeaturize):
                 else:
                     featurizer_dict[featurizer.category] = [featurizer]
         self.featurizer_dict = featurizer_dict
+        self.dependent_df = dependent_df
+        self.lammps_df = lammps_df
+        self.Bds=Bds
+        self.lammps_path=lammps_path
         return self
 
-    def transform(self, X, dependent_df=None):
-        pipeline_list = []
+    def transform(self, X):
         category_list = self.featurizer_dict.keys()
         if 'nearest_neighbor' in category_list:
             nn_pipeline = list()
@@ -73,24 +77,72 @@ class MultiFeaturizer(BaseFeaturize):
                  ))
             nn_pipeline.append(('final', FinalEstimator()))
             nn_pipe = Pipeline(nn_pipeline)
-            nn_pipe.fit(X, y=None)
-            dependent_df = nn_pipe.named_steps['final'].data
+            nn_pipe.fit(X)
+            dependent_df = pd.DataFrame(
+                nn_pipe.named_steps['final'].data, index=X.index,
+                columns=[name.split("__")[1] for name in
+                         nn_pipe.named_steps[
+                             'nearest_neighbor'].get_feature_names()])
+        else:
+            dependent_df = self.dependent_df
 
         if 'sro' in category_list:
-            pipeline_list.append(
+            sro_pipeline = list()
+            sro_pipeline.append(
                 ('sro',
                  FeatureUnion([(instance.__class__.__name__, instance)
                                for instance in
                                self.featurizer_dict['sro']])))
-        if 'mro' in category_list:
-            pipeline_list.append(
-                ('mro', self.featurizer_dict['mro'][0]))
-        pipeline_list.append(('final', FinalEstimator()))
+            sro_pipeline.append(('final', FinalEstimator()))
+            sro_pipe = Pipeline(sro_pipeline)
+            sro_pipe.fit(X)
+            common_sro_df = pd.DataFrame(
+                sro_pipe.named_steps['final'].data, index=X.index,
+                columns=[name.split("__")[1] for name in
+                         sro_pipe.named_steps['sro'].get_feature_names()])
+        else:
+            common_sro_df = None
 
-        all_pipe = Pipeline(pipeline_list)
-        all_pipe.fit(X, mro__dependent_df=dependent_df)
-        X = all_pipe.named_steps['final'].data
-        return X
+        if 'interstice_sro' in category_list:
+            interstice_sro_pipeline = list()
+            interstice_sro_pipeline.append(
+                ('interstice_sro',
+                 FeatureUnion([(instance.__class__.__name__, instance)
+                               for instance in
+                               self.featurizer_dict['interstice_sro']])))
+            interstice_sro_pipeline.append(('final', FinalEstimator()))
+            interstice_sro_pipe = Pipeline(interstice_sro_pipeline)
+            interstice_sro_pipe.fit(
+                X, interstice_sro__lammps_df=self.lammps_df,
+                interstice_sro__lammps_path=self.lammps_path,
+                interstice_sro__Bds=self.Bds)
+            interstice_sro_df = pd.DataFrame(
+                interstice_sro_pipe.named_steps['final'].data, index=X.index,
+                columns=[name.split("__")[1] for name in
+                         interstice_sro_pipe.named_steps[
+                             'interstice_sro'].get_feature_names()])
+        else:
+            interstice_sro_df = None
+        sro_df = common_sro_df.join(interstice_sro_df) \
+            if common_sro_df is not None and interstice_sro_df is not None \
+            else common_sro_df if common_sro_df is not None \
+            else interstice_sro_df
+
+        if 'mro' in category_list:
+            mro_list = []
+            mro_list.append(
+                ('mro', self.featurizer_dict['mro'][0]))
+            mro_list.append(('final', FinalEstimator()))
+            mro_pipe = Pipeline(mro_list)
+            mro_pipe.fit(sro_df, mro__dependent_df=dependent_df)
+            mro_df = pd.DataFrame(mro_pipe.named_steps['final'].data,
+                                  index=X.index,
+                                  columns=[name.split("__")[1] for name in
+                                           mro_pipe.named_steps[
+                                               'mro'].get_feature_names()])
+        else:
+            mro_df = None
+        return mro_df if mro_df is not None else sro_df
 
     def get_feature_names(self):
         pass
