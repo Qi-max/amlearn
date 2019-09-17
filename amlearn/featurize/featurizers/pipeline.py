@@ -1,9 +1,11 @@
-import inspect
 import os
+import inspect
 import pkgutil
 from operator import itemgetter
-from amlearn.featurize.featurizers.base import BaseFeaturize
-from amlearn.utils.check import check_featurizer_X, is_abstract
+from amlearn.featurize.base import BaseFeaturize
+from amlearn.featurize.featurizers.nearest_neighbor import BaseNN
+from amlearn.featurize.featurizers.short_range_order import BaseInterstice
+from amlearn.utils.check import is_abstract
 from sklearn.base import BaseEstimator
 from sklearn.pipeline import FeatureUnion, Pipeline
 
@@ -20,62 +22,74 @@ def all_featurizers():
         module = __import__(modname, fromlist="dummy")
         classes = inspect.getmembers(module, inspect.isclass)
         all_classes.extend(classes)
-
     all_classes = set(all_classes)
 
     estimators = [c for c in all_classes
                   if (issubclass(c[1], BaseFeaturize) and
-                      c[0] != 'BaseFeaturize')]
+                      c[0] != 'BaseFeaturize') or
+                  ((issubclass(c[1], BaseNN) and c[0] != 'BaseNN'))]
 
     # get rid of abstract base classes
     estimators = [c for c in estimators if not is_abstract(c[1])]
-
     return sorted(set(estimators), key=itemgetter(0))
 
 
 class MultiFeaturizer(BaseFeaturize):
-    def __init__(self, featurizers="all",
-                 atoms_df=None, tmp_save=True, context=None):
+    def __init__(self, featurizers="all", save=True, backend=None):
         super(MultiFeaturizer, self).__init__(
-            tmp_save=tmp_save, context=context, atoms_df=atoms_df)
+            save=save, backend=backend)
         self.featurizers = featurizers
 
     def fit(self, X=None):
         featurizer_dict = dict()
-        for featurizer in all_featurizers():
-            instance = featurizer[1]()
-            if instance.category in featurizer_dict.keys():
-                featurizers = featurizer_dict[instance.category]
-                featurizers.append(instance)
-            else:
-                featurizer_dict[instance.category] = [instance]
+        if self.featurizers == "all":
+            for featurizer in all_featurizers():
+                instance = featurizer[1]()
+                if instance.category in featurizer_dict.keys():
+                    featurizers = featurizer_dict[instance.category]
+                    featurizers.append(instance)
+                else:
+                    featurizer_dict[instance.category] = [instance]
+        else:
+            for featurizer in self.featurizers:
+                if featurizer.category in featurizer_dict.keys():
+                    featurizers = featurizer_dict[featurizer.category]
+                    featurizers.append(featurizer)
+                else:
+                    featurizer_dict[featurizer.category] = [featurizer]
         self.featurizer_dict = featurizer_dict
         return self
 
-    def transform(self, X=None):
+    def transform(self, X, dependent_df=None):
         pipeline_list = []
         category_list = self.featurizer_dict.keys()
-        if 'voro_and_dist' in category_list:
-            pipeline_list.append(
-                ('voro_and_dist',
-                 FeatureUnion(((instance.__class__.__name__, instance)
+        if 'nearest_neighbor' in category_list:
+            nn_pipeline = list()
+            nn_pipeline.append(
+                ('nearest_neighbor',
+                 FeatureUnion([(instance.__class__.__name__, instance)
                                for instance in
-                               self.featurizer_dict['voro_and_dist']))))
+                               self.featurizer_dict['nearest_neighbor']])
+                 ))
+            nn_pipeline.append(('final', FinalEstimator()))
+            nn_pipe = Pipeline(nn_pipeline)
+            nn_pipe.fit(X, y=None)
+            dependent_df = nn_pipe.named_steps['final'].data
+
         if 'sro' in category_list:
             pipeline_list.append(
                 ('sro',
-                 FeatureUnion(((instance.__class__.__name__, instance)
+                 FeatureUnion([(instance.__class__.__name__, instance)
                                for instance in
-                               self.featurizer_dict['sro']))))
+                               self.featurizer_dict['sro']])))
         if 'mro' in category_list:
             pipeline_list.append(
                 ('mro', self.featurizer_dict['mro'][0]))
         pipeline_list.append(('final', FinalEstimator()))
 
-        X = check_featurizer_X(X=X, atoms_df=self.atoms_df)
-        pipe = Pipeline(pipeline_list)
-        pipe.fit(X)
-        X = pipe.named_steps['final'].data
+        all_pipe = Pipeline(pipeline_list)
+        all_pipe.fit(X, mro__dependent_df=dependent_df)
+        X = all_pipe.named_steps['final'].data
         return X
 
     def get_feature_names(self):
@@ -84,7 +98,7 @@ class MultiFeaturizer(BaseFeaturize):
 
 class FinalEstimator(BaseEstimator):
 
-    def fit(self, X):
+    def fit(self, X, y=None):
         self._data = X
         return self
 

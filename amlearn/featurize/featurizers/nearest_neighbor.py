@@ -50,6 +50,10 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
     def transform(self, X=None):
         pass
 
+    @property
+    def category(self):
+        return 'nearest_neighbor'
+
 
 class VoroNN(BaseNN):
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,

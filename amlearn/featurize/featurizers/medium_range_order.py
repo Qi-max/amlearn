@@ -7,7 +7,7 @@ from amlearn.utils.data import get_isometric_lists
 try:
     from amlearn.featurize.featurizers.src import mro_stats, voronoi_stats
 except Exception:
-    print("import fortran file voronoi_stats error!\n")
+    print("import fortran file mro_stats/voronoi_stats error!\n")
 
 
 class MRO(BaseFeaturize):
@@ -26,7 +26,7 @@ class MRO(BaseFeaturize):
         self.output_file_name = output_file_name
         self.neighbor_ids_col = 'neighbor_ids_{}'
 
-        # calced_sysmm_percent used in get_feature_cols() method, it tags
+        # calced_sysmm_percent used in get_feature_names() method, it tags
         # whether 'Avg i-fold symm idx' features have been calculated.
         self.calced_sysmm_percent = False
 
@@ -57,7 +57,7 @@ class MRO(BaseFeaturize):
         return self
 
     def transform(self, X):
-        feature_lists = list()
+        feature_lists = None
 
         for neighbor_col in self.calced_neighbor_cols:
             neighbor_tag = neighbor_col.split('_')[-1]
@@ -68,7 +68,6 @@ class MRO(BaseFeaturize):
                 self.dependent_df[
                     self.neighbor_ids_col.format(neighbor_tag)].values,
                 limit_width=self.neighbor_num_limit).astype(int)
-
             for feature in self.calc_features:
                 if not feature.endswith(neighbor_tag):
                     continue
@@ -80,10 +79,10 @@ class MRO(BaseFeaturize):
                     self.stats_types, mro_feature, n_atoms=len(X),
                     neighbor_num_limit=self.neighbor_num_limit)
                 feature_lists = np.append(feature_lists, mro_feature, axis=1) \
-                    if feature_lists else mro_feature
-
+                    if feature_lists is not None else mro_feature
+                print(feature_lists)
         result_df = pd.DataFrame(feature_lists, index=X.index,
-                                 columns=self.get_common_features())
+                                 columns=self.get_common_names())
 
         voro_mean_cols = [col for col in result_df.columns
                           if col.startswith('Voronoi idx_')
@@ -96,7 +95,7 @@ class MRO(BaseFeaturize):
             percent_list = \
                 line_percent(value_list=result_df[voro_mean_cols].values)
             percent_df = pd.DataFrame(percent_list, index=X.index,
-                                      columns=self.get_symm_percent_features())
+                                      columns=self.get_symm_percent_names())
             result_df = result_df.join(percent_df)
 
         if self.save:
@@ -105,27 +104,27 @@ class MRO(BaseFeaturize):
 
         return result_df
 
-    def get_common_features(self):
+    def get_common_names(self):
         feature_names = list()
         for neighbor_col in self.calced_neighbor_cols:
             neighbor_tag = neighbor_col.split('_')[-1]
             feature_names += \
-                ["{} {}".format(feature, stats_name)
+                ["{}_{}".format(feature, stats_name)
                  for feature in self.calc_features if feature.endswith(neighbor_tag)
                  for stats_name, stats_type in zip(self.stats_names,
                                                    self.stats_types)
                  if stats_type == 1]
         return feature_names
 
-    def get_symm_percent_features(self):
-        feature_names = ['Avg {}-fold symm idx'.format(edge)
+    def get_symm_percent_names(self):
+        feature_names = ['Avg_{}_fold_symm_idx'.format(edge)
                          for edge in self.idx_list]
         return feature_names
 
-    def get_feature_cols(self):
-        feature_names = self.get_common_features()
+    def get_feature_names(self):
+        feature_names = self.get_common_names()
         if self.calced_sysmm_percent:
-            feature_names += self.get_symm_percent_features()
+            feature_names += self.get_symm_percent_names()
         return feature_names
 
     @property

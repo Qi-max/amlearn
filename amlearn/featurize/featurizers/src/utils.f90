@@ -12,7 +12,6 @@
 
 
     module distance
-
     CONTAINS
       subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
 
@@ -42,7 +41,6 @@
           end do
 
           d = sqrt(r(1)**2 + r(2)**2 + r(3)**2)
-
       end subroutine distance_info
     end module distance
 

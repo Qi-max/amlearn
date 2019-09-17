@@ -21,7 +21,7 @@ from amlearn.utils.data import calc_neighbor_coords
 try:
     from amlearn.featurize.featurizers.src import voronoi_stats, boop
 except Exception:
-    print("import fortran file voronoi_stats error!\n")
+    print("import fortran file voronoi_stats/boop error!\n")
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -220,7 +220,8 @@ class PackingOfSite(object):
             r += self.radii[str(t)][self.radius_type] * n
         r = r / len(self.neighbors_type)
         return self.radii[str(self.atom_type)][self.radius_type] / r - \
-               ideal_ratio_[len(self.neighbors_type)]
+            ideal_ratio_[len(self.neighbors_type)]
+
 
 @lru_cache(maxsize=5)
 def get_nn_instance(dependent_name, backend, **nn_kwargs):
@@ -316,14 +317,27 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
         return 'sro'
 
 
-class BaseInterstice(BaseSRO):
-    def __init__(self, backend=None, dependent_class="voro", type_col='type',
+class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
+    def __init__(self, lammps_df=None, Bds=None, lammps_path=None,
+                 backend=None, dependent_class="voro", type_col='type',
                  type_to_atomic_number_list=None, neighbor_num_limit=80,
                  save=True, radii=None, radius_type="miracle_radius",
                  verbose=0, **nn_kwargs):
+        """
+        Args:
+            lammps_df (DataFrame): Constructed from the output of lammps, which
+                common columns is ['type', 'x', 'y', 'z'...] columns.
+            Bds (list like): X, y, z boundaries.
+            lammps_path (DataFrame): If lammps_df is None, then we automatically
+                construct the DataFrame from lammps output path.
+
+        """
         super(BaseInterstice, self).__init__(
             save=save, backend=backend,
             dependent_class=dependent_class, **nn_kwargs)
+        self.lammps_df = lammps_df
+        self.Bds = Bds
+        self.lammps_path = lammps_path
         self.type_col = type_col
         self.type_to_atomic_number_list = type_to_atomic_number_list
         self.neighbor_num_limit = neighbor_num_limit
@@ -331,7 +345,7 @@ class BaseInterstice(BaseSRO):
         self.radius_type = radius_type
         self.verbose = verbose
 
-    def fit(self, X=None, lammps_df=None, Bds=None, lammps_path=None):
+    def fit(self, X=None):
         """
         Args:
             X (DataFrame): X can be a DataFrame which composed of partial
@@ -340,21 +354,16 @@ class BaseInterstice(BaseSRO):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
-            lammps_df (DataFrame): Constructed from the output of lammps, which
-                common columns is ['type', 'x', 'y', 'z'...] columns.
-            Bds (list like): X, y, z boundaries.
-            lammps_path (DataFrame): If lammps_df is None, then we automatically
-                construct the DataFrame from lammps output path.
 
         Returns:
             self (object): Interstice or Packing instance.
         """
-        if lammps_df is None and \
-                lammps_path is not None and os.path.exists(lammps_path):
-            self.lammps_df, self.Bds = read_lammps_dump(lammps_path)
+        if self.lammps_df is None and self.lammps_path is not None \
+                and os.path.exists(self.lammps_path):
+            self.lammps_df, self.Bds = read_lammps_dump(self.lammps_path)
         else:
-            self.lammps_df = copy(lammps_df)
-            self.Bds = Bds
+            self.lammps_df = copy(self.lammps_df)
+            self.Bds = self.Bds
         if self.type_to_atomic_number_list is not None:
             self.lammps_df[self.type_col] = self.lammps_df[self.type_col].apply(
                 lambda x: self.type_to_atomic_number_list[x-1])
@@ -367,11 +376,13 @@ class BaseInterstice(BaseSRO):
 
 
 class DistanceInterstice(BaseInterstice):
-    def __init__(self, backend=None, dependent_class="voro", type_col='type',
+    def __init__(self, lammps_df=None, Bds=None, lammps_path=None,
+                 backend=None, dependent_class="voro", type_col='type',
                  type_to_atomic_number_list=None, neighbor_num_limit=80, 
                  save=True, radii=None, radius_type="miracle_radius", 
                  verbose=0, **nn_kwargs):
         super(DistanceInterstice, self).__init__(
+            lammps_df=lammps_df, Bds=Bds, lammps_path=lammps_path,
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
             type_to_atomic_number_list=type_to_atomic_number_list,
@@ -442,7 +453,8 @@ class DistanceInterstice(BaseInterstice):
 
 
 class VolumeAreaInterstice(BaseInterstice):
-    def __init__(self, pbc, backend=None, dependent_class="voro",
+    def __init__(self, pbc, lammps_df=None, Bds=None, lammps_path=None,
+                 backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
                  type_to_atomic_number_list=None,
                  neighbor_num_limit=80, save=True,
@@ -468,6 +480,7 @@ class VolumeAreaInterstice(BaseInterstice):
         """
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VolumeAreaInterstice, self).__init__(
+            lammps_df=lammps_df, Bds=Bds, lammps_path=lammps_path,
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
             type_to_atomic_number_list=type_to_atomic_number_list,
@@ -650,7 +663,8 @@ class ClusterPackingEfficiency(BaseInterstice):
     distinguish this with that proposed in Laws, K. J. et al. Nat. Commun.
     6, 8123 (2015).
     """
-    def __init__(self, pbc, backend=None, dependent_class="voro",
+    def __init__(self, pbc, lammps_df=None, Bds=None, lammps_path=None,
+                 backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
                  type_to_atomic_number_list=None,
                  neighbor_num_limit=80, save=True,
@@ -658,6 +672,7 @@ class ClusterPackingEfficiency(BaseInterstice):
                  verbose=0, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(ClusterPackingEfficiency, self).__init__(
+            lammps_df=lammps_df, Bds=Bds, lammps_path=lammps_path,
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
             type_to_atomic_number_list=type_to_atomic_number_list,
@@ -736,7 +751,8 @@ class AtomicPackingEfficiency(BaseInterstice):
     Laws, K. J., Miracle, D. B. & Ferry, M. A predictive structural model for
     bulk metallic glasses. Nat. Commun. 6, 8123 (2015).
     """
-    def __init__(self, pbc, backend=None, dependent_class="voro",
+    def __init__(self, pbc, lammps_df=None, Bds=None, lammps_path=None,
+                 backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
                  type_to_atomic_number_list=None,
                  neighbor_num_limit=80,  save=True,
@@ -744,6 +760,7 @@ class AtomicPackingEfficiency(BaseInterstice):
                  verbose=0, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(AtomicPackingEfficiency, self).__init__(
+            lammps_df=lammps_df, Bds=Bds, lammps_path=lammps_path,
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
             type_to_atomic_number_list=type_to_atomic_number_list,

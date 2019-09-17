@@ -1,4 +1,6 @@
 import os
+from functools import lru_cache
+
 import six
 import json
 import numpy as np
@@ -31,6 +33,7 @@ def load_radii():
     return PTE_dict_
 
 
+@lru_cache(maxsize=5)
 def create_featurizer_backend():
     """Create default featurizer backend.
 
@@ -82,7 +85,7 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
 
     @property
     def category(self):
-        return 'nearest_neighbor'
+        return 'sro'
 
     def check_dependency(self, X):
         if self.dependent_class_ is None:
