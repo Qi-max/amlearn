@@ -3,6 +3,7 @@ import pandas as pd
 from amlearn.featurize.base import BaseFeaturize
 from amlearn.utils.check import check_neighbor_col
 from amlearn.utils.data import get_isometric_lists
+from amlearn.utils.verbose import VerboseReporter
 
 try:
     from amlearn.featurize.featurizers.src import mro_stats, voronoi_stats
@@ -42,6 +43,7 @@ class MRO(BaseFeaturize):
 
         self.dependent_df = dependent_df
         self.calced_neighbor_cols = list()
+
         for neighbor_col in self.neighbor_cols:
             if neighbor_col not in list(self.dependent_df.columns):
                 self.backend.logger.warning(
@@ -59,6 +61,19 @@ class MRO(BaseFeaturize):
     def transform(self, X):
         feature_lists = None
 
+        # define print verbose
+        if self.verbose > 0:
+            vr = VerboseReporter(self.backend, total_stage=1,
+                                 verbose=self.verbose, max_verbose_mod=10000)
+            vr.init(total_epoch=len(self.calced_neighbor_cols) *
+                                len(self.calc_features), start_epoch=0,
+                    init_msg='Calculating Medium Range Order features, '
+                             'statistics from {} features.'.format(
+                        len(self.calced_neighbor_cols) *
+                        len(self.calc_features)),
+                    epoch_name='Feature', stage=1)
+            vr_idx = 0
+
         for neighbor_col in self.calced_neighbor_cols:
             neighbor_tag = neighbor_col.split('_')[-1]
 
@@ -72,15 +87,19 @@ class MRO(BaseFeaturize):
                 if not feature.endswith(neighbor_tag):
                     continue
                 mro_feature = np.zeros(
-                    (len(X), sum(self.stats_types)), dtype=np.float128)
+                    (len(X), sum(self.stats_types)), dtype=np.longdouble)
                 mro_feature = mro_stats.sro_to_mro(
-                    np.array(X[feature].values, dtype=np.float128),
+                    np.array(X[feature].values, dtype=np.longdouble),
                     neighbor_num_list, neighbor_ids_lists,
                     self.stats_types, mro_feature, n_atoms=len(X),
                     neighbor_num_limit=self.neighbor_num_limit)
                 feature_lists = np.append(feature_lists, mro_feature, axis=1) \
                     if feature_lists is not None else mro_feature
                 print(feature_lists)
+                if self.verbose > 0:
+                    vr_idx += 1
+                    vr.update(vr_idx)
+
         result_df = pd.DataFrame(feature_lists, index=X.index,
                                  columns=self.get_common_names())
 

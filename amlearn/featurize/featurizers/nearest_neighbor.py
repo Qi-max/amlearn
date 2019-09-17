@@ -79,17 +79,17 @@ class VoroNN(BaseNN):
         """
         n_atoms = len(X)
         neighbor_num_list = \
-            np.zeros(n_atoms, dtype=np.float128)
+            np.zeros(n_atoms, dtype=np.longdouble)
         neighbor_id_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
         neighbor_edge_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
         neighbor_area_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
         neighbor_vol_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
         neighbor_dist_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
 
         n_edge_max = 0
         n_neighbor_max = 0
@@ -119,7 +119,7 @@ class VoroNN(BaseNN):
                                  neighbor_area_list, neighbor_vol_list,
                                  neighbor_edge_list], valid_num=neighbor_num))
 
-        prop_cols = self.get_nn_cols()
+        prop_cols = self.get_feature_names()
         prop_df = pd.DataFrame(voro_props, index=X.index, columns=prop_cols)
 
         if self.save:
@@ -127,7 +127,7 @@ class VoroNN(BaseNN):
                                                       name=self.output_file)
         return prop_df
 
-    def get_nn_cols(self):
+    def get_feature_names(self):
         prop_columns = ['neighbor_num_voro', 'neighbor_ids_voro',
                         'neighbor_dists_voro', 'neighbor_areas_voro',
                         'neighbor_vols_voro', 'neighbor_edges_voro']
@@ -157,11 +157,11 @@ class DistanceNN(BaseNN):
 
         n_atoms = len(X)
         neighbor_num_list = \
-            np.zeros(n_atoms, dtype=np.float128)
+            np.zeros(n_atoms, dtype=np.longdouble)
         neighbor_id_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
         neighbor_dist_lists = \
-            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.float128)
+            np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
 
         n_neighbor_max = 0
         (n_neighbor_max, neighbor_num_list, neighbor_id_lists,
@@ -180,7 +180,7 @@ class DistanceNN(BaseNN):
                 [neighbor_id_list, neighbor_dist_list], valid_num=neighbor_num))
 
         prop_df = pd.DataFrame(dist_props, index=X.index,
-                               columns=self.get_nn_cols())
+                               columns=self.get_feature_names())
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(output_df=prop_df,
@@ -188,7 +188,7 @@ class DistanceNN(BaseNN):
 
         return prop_df
 
-    def get_nn_cols(self):
+    def get_feature_names(self):
         prop_cols = ['neighbor_num_dist', 'neighbor_ids_dist',
                      'neighbor_dists_dist']
         return prop_cols
