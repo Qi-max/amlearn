@@ -245,10 +245,9 @@ class MLBackend(Backend):
 class FeatureBackend(Backend):
     """Utility class to save featurized features."""
     def _get_featurizer_output_dir(self):
-        check_path(self.tmp_path, 'tmp_path',
-                   'BackendContext.tmp_path')
-
-        return os.path.join(self.tmp_path, 'featurizer')
+        check_path(self.output_path, 'output_path',
+                   'BackendContext.output_path')
+        return os.path.join(self.output_path, 'featurizer')
 
     def save_featurizer_as_dataframe(self, output_df, name='all',
                                      save_type='pickle.gz'):
