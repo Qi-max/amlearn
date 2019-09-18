@@ -7,60 +7,47 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class TestMro(AmLearnTest):
-    def setUp(self):
-        pass
-    #
-    # def test_volume_area_interstice_mro(self):
-    #     nn_df = pd.read_pickle(os.path.join(
-    #         module_dir, 'data', 'featurizer_voro_nn.pickle.gz'))
-    #
-    #     sro_df = pd.read_pickle(os.path.join(
-    #         module_dir, 'data', 'sro', 'featurizer_sro_voro_miracle_radius_'
-    #                                    'volume_area_interstice.pickle.gz'))
-    #     mro = MRO(output_file_name='volume_area_interstice_mro')
-    #     result_df = mro.fit_transform(X=sro_df, dependent_df=nn_df)
-    #     self.assertEqual(len(result_df.columns), 60)
-    #     self.assertEqual(result_df.iloc[3, -1], -0.026078)
-    #
-    # def test_atomic_packing_mro(self):
-    #     nn_df = pd.read_pickle(os.path.join(
-    #         module_dir, 'data', 'featurizer_voro_nn.pickle.gz'))
-    #
-    #     sro_df = pd.read_pickle(os.path.join(
-    #         module_dir, 'data', 'sro', 'featurizer_sro_voro_miracle_radius_'
-    #                                    'atomic_packing_efficiency.pickle.gz'))
-    #     mro = MRO(output_file_name='volume_area_interstice_mro')
-    #     result_df = mro.fit_transform(X=sro_df, dependent_df=nn_df)
-    #     print(result_df)
-    #
-    # def test_cluster_packing_mro(self):
-    #     nn_df = pd.read_pickle(os.path.join(
-    #         module_dir, 'data', 'featurizer_voro_nn.pickle.gz'))
-    #
-    #     sro_df = pd.read_pickle(os.path.join(
-    #         module_dir, 'data', 'sro', 'featurizer_sro_voro_miracle_radius_'
-    #                                    'cluster_packing_efficiency.pickle.gz'))
-    #     mro = MRO(output_file_name='cluster_packing_efficiency_mro')
-    #     result_df = mro.fit_transform(X=sro_df, dependent_df=nn_df)
-    #     print(result_df)
-
-    def test_all_interstice_and_packing_mro(self):
-        nn_df = pd.read_pickle(os.path.join(
+    @classmethod
+    def setUpClass(cls):
+        cls.nn_df = pd.read_pickle(os.path.join(
             module_dir, 'data', 'featurizer_voro_nn.pickle.gz'))
 
-        sro_volume_area_df = pd.read_pickle(os.path.join(
+        cls.sro_volume_area_df = pd.read_pickle(os.path.join(
             module_dir, 'data', 'sro', 'featurizer_sro_voro_miracle_radius_'
                                        'volume_area_interstice.pickle.gz'))
-        cluster_packing_df = pd.read_pickle(os.path.join(
+        cls.cluster_packing_df = pd.read_pickle(os.path.join(
             module_dir, 'data', 'sro', 'featurizer_sro_voro_miracle_radius_'
                                        'cluster_packing_efficiency.pickle.gz'))
-        atomic_packing_df = pd.read_pickle(os.path.join(
+        cls.atomic_packing_df = pd.read_pickle(os.path.join(
             module_dir, 'data', 'sro', 'featurizer_sro_voro_miracle_radius_'
                                        'atomic_packing_efficiency.pickle.gz'))
-        all_df = cluster_packing_df.join(atomic_packing_df)
-        all_df = all_df.join(sro_volume_area_df)
+
+    def test_volume_area_interstice_mro(self):
+        mro = MRO(output_file_name='volume_area_interstice_mro')
+        result_df = mro.fit_transform(X=self.sro_volume_area_df,
+                                      dependent_df=self.nn_df)
+        self.assertEqual(len(result_df.columns), 60)
+        self.assertEqual(result_df.iloc[3, -1], -0.026077608080648407)
+
+    def test_cluster_packing_mro(self):
+        mro = MRO(output_file_name='cluster_packing_efficiency_mro')
+        result_df = mro.fit_transform(X=self.cluster_packing_df,
+                                      dependent_df=self.nn_df)
+        self.assertEqual(len(result_df.columns), 6)
+        self.assertEqual(result_df.iloc[7, 0], 11.287025655788824)
+
+    def test_atomic_packing_mro(self):
+        mro = MRO(output_file_name='volume_area_interstice_mro')
+        result_df = mro.fit_transform(X=self.atomic_packing_df,
+                                      dependent_df=self.nn_df)
+        self.assertEqual(len(result_df.columns), 6)
+        self.assertEqual(result_df.iloc[5, 0], 1.6896773481062306)
+
+    def test_all_interstice_and_packing_mro(self):
+        all_df = self.cluster_packing_df.join(self.atomic_packing_df)
+        all_df = all_df.join(self.sro_volume_area_df)
         mro = MRO(output_file_name='all_insterstice_and_packing_mro')
-        result_df = mro.fit_transform(X=all_df, dependent_df=nn_df)
+        result_df = mro.fit_transform(X=all_df, dependent_df=self.nn_df)
         self.assertEqual(len(result_df.columns), 72)
         self.assertEqual(result_df.iloc[3, -1], -0.026077608080648407)
 

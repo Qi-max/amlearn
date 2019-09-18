@@ -83,8 +83,10 @@ class MultiFeaturizer(BaseFeaturize):
                 columns=[name.split("__")[1] for name in
                          nn_pipe.named_steps[
                              'nearest_neighbor'].get_feature_names()])
+            nn_df = dependent_df
         else:
             dependent_df = self.dependent_df
+            nn_df = X
 
         if 'sro' in category_list:
             sro_pipeline = list()
@@ -95,7 +97,7 @@ class MultiFeaturizer(BaseFeaturize):
                                self.featurizer_dict['sro']])))
             sro_pipeline.append(('final', FinalEstimator()))
             sro_pipe = Pipeline(sro_pipeline)
-            sro_pipe.fit(X)
+            sro_pipe.fit(nn_df)
             common_sro_df = pd.DataFrame(
                 sro_pipe.named_steps['final'].data, index=X.index,
                 columns=[name.split("__")[1] for name in
@@ -113,7 +115,7 @@ class MultiFeaturizer(BaseFeaturize):
             interstice_sro_pipeline.append(('final', FinalEstimator()))
             interstice_sro_pipe = Pipeline(interstice_sro_pipeline)
             interstice_sro_pipe.fit(
-                X, interstice_sro__lammps_df=self.lammps_df,
+                nn_df, interstice_sro__lammps_df=self.lammps_df,
                 interstice_sro__lammps_path=self.lammps_path,
                 interstice_sro__Bds=self.Bds)
             interstice_sro_df = pd.DataFrame(
@@ -123,10 +125,11 @@ class MultiFeaturizer(BaseFeaturize):
                              'interstice_sro'].get_feature_names()])
         else:
             interstice_sro_df = None
+
         sro_df = common_sro_df.join(interstice_sro_df) \
             if common_sro_df is not None and interstice_sro_df is not None \
             else common_sro_df if common_sro_df is not None \
-            else interstice_sro_df
+            else interstice_sro_df if interstice_sro_df is not None else nn_df
 
         if 'mro' in category_list:
             mro_list = []
@@ -135,11 +138,9 @@ class MultiFeaturizer(BaseFeaturize):
             mro_list.append(('final', FinalEstimator()))
             mro_pipe = Pipeline(mro_list)
             mro_pipe.fit(sro_df, mro__dependent_df=dependent_df)
-            mro_df = pd.DataFrame(mro_pipe.named_steps['final'].data,
-                                  index=X.index,
-                                  columns=[name.split("__")[1] for name in
-                                           mro_pipe.named_steps[
-                                               'mro'].get_feature_names()])
+            mro_df = pd.DataFrame(
+                mro_pipe.named_steps['final'].data, index=X.index,
+                columns=mro_pipe.named_steps['mro'].get_feature_names())
         else:
             mro_df = None
         return mro_df if mro_df is not None else sro_df

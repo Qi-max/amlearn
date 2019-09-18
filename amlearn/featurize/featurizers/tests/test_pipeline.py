@@ -46,13 +46,13 @@ class TestSro(AmLearnTest):
                        n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
             VolumeAreaInterstice(
                 type_to_atomic_number_list=[29, 40], save=True,
-                radii=None, radius_type="miracle_radius", verbose=2),
+                radii=None, radius_type="miracle_radius", verbose=1),
             ClusterPackingEfficiency(
                 type_to_atomic_number_list=[29, 40], save=True,
-                radii=None, radius_type="miracle_radius", verbose=2),
+                radii=None, radius_type="miracle_radius", verbose=1),
             AtomicPackingEfficiency(
                 type_to_atomic_number_list=[29, 40], save=True,
-                radii=None, radius_type="miracle_radius", verbose=2),
+                radii=None, radius_type="miracle_radius", verbose=1),
             MRO(output_file_name='pipeline_mro')
         ]
         multi_featurizer = MultiFeaturizer(featurizers=featurizers)

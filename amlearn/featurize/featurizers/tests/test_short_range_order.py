@@ -1,6 +1,4 @@
 import os
-from math import pi
-
 import numpy as np
 import pandas as pd
 from amlearn.featurize.featurizers.short_range_order import CN, VoroIndex, \
@@ -9,8 +7,6 @@ from amlearn.featurize.featurizers.short_range_order import CN, VoroIndex, \
     VoroVolStatsSeparate, DistStats, DistanceInterstice, VolumeAreaInterstice, \
     ClusterPackingEfficiency, AtomicPackingEfficiency
 from amlearn.utils.basetest import AmLearnTest
-from amlearn.utils.packing import calc_stats
-
 from amlearn.featurize.featurizers.short_range_order import PackingOfSite
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -69,8 +65,9 @@ class TestSRO(AmLearnTest):
             neighbors_type.append('4')
             neighbors_coords.append(x)
         pos_ = PackingOfSite([1, 1, 1], [[0, 1], [0, 1], [0, 1]], '4',
-                             [.5, .5, .5], neighbors_type, neighbors_coords,
-                             radii=self.bcc_radii, radius_type='miracle_radius')
+                             np.array([.5, .5, .5]), neighbors_type,
+                             neighbors_coords, radii=self.bcc_radii,
+                             radius_type='miracle_radius')
         pos_.calculate_hull_facet_angles()
         pos_.calculate_hull_tetra_angles()
         pos_.analyze_hull_tetra_interstice()
