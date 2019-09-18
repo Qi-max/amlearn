@@ -14,9 +14,11 @@ except Exception:
 class MRO(BaseFeaturize):
     def __init__(self, backend=None, neighbor_num_limit=80,
                  stats_types="all", stats_names=None, neighbor_cols="all",
-                 calc_features="all", save=True, output_file_name='mro'):
+                 calc_features="all", save=True, output_path=None,
+                 output_file_name='mro'):
         super(MRO, self).__init__(save=save,
-                                  backend=backend)
+                                  backend=backend,
+                                  output_path=output_path)
         self.stats_types = stats_types if stats_types != "all" \
             else [1, 1, 1, 1, 1, 1]
         self.neighbor_num_limit = neighbor_num_limit
@@ -60,7 +62,7 @@ class MRO(BaseFeaturize):
 
     def transform(self, X):
         feature_lists = None
-
+        n_atoms = len(X)
         # define print verbose
         if self.verbose > 0:
             vr = VerboseReporter(self.backend, total_stage=1,
@@ -77,25 +79,24 @@ class MRO(BaseFeaturize):
         for neighbor_col in self.calced_neighbor_cols:
             neighbor_tag = neighbor_col.split('_')[-1]
 
-            neighbor_num_list = \
-                np.array(self.dependent_df[neighbor_col].values, dtype=int)
+            neighbor_num_list = self.dependent_df[neighbor_col].values
             neighbor_ids_lists = get_isometric_lists(
                 self.dependent_df[
                     self.neighbor_ids_col.format(neighbor_tag)].values,
-                limit_width=self.neighbor_num_limit).astype(int)
+                limit_width=self.neighbor_num_limit)
             for feature in self.calc_features:
                 if not feature.endswith(neighbor_tag):
                     continue
                 mro_feature = np.zeros(
-                    (len(X), sum(self.stats_types)), dtype=np.longdouble)
+                    (len(X), sum(self.stats_types)))
                 mro_feature = mro_stats.sro_to_mro(
-                    np.array(X[feature].values, dtype=np.longdouble),
+                    X[feature].values,
                     neighbor_num_list, neighbor_ids_lists,
-                    self.stats_types, mro_feature, n_atoms=len(X),
-                    neighbor_num_limit=self.neighbor_num_limit)
+                    self.stats_types, mro_feature, n_atoms=n_atoms,
+                    n_neighbor_limit=self.neighbor_num_limit,
+                    sum_stats_types=sum(self.stats_types))
                 feature_lists = np.append(feature_lists, mro_feature, axis=1) \
                     if feature_lists is not None else mro_feature
-                print(feature_lists)
                 if self.verbose > 0:
                     vr_idx += 1
                     vr.update(vr_idx)

@@ -30,7 +30,7 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
 
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
                  type_col='type', coords_cols=None, pbc=None, Bds=None,
-                 save=True, backend=None, output_file=None):
+                 save=True, backend=None, output_path=None, output_file=None):
         self.cutoff = cutoff
         self.allow_neighbor_limit = allow_neighbor_limit
         self.n_neighbor_limit = n_neighbor_limit
@@ -41,7 +41,7 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
         self.Bds = Bds if Bds else [[-36, 36], [-36, 36], [-36, 36]]
         self.save = save
         self.backend = backend if backend is not None \
-            else create_featurizer_backend()
+            else create_featurizer_backend(output_path=output_path)
         self.output_file = output_file
 
     def fit_transform(self, X=None, y=None, **fit_params):
@@ -56,15 +56,16 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
 
 
 class VoroNN(BaseNN):
-    def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
-                 type_col='type', coords_cols=None, pbc=None, Bds=None,
-                 save=True, backend=None, output_file='voro_nn',
-                 small_face_thres=0.05):
+    def __init__(self, small_face_thres=0.05, cutoff=5,
+                 allow_neighbor_limit=300, n_neighbor_limit=80,
+                 type_col='type', coords_cols=None, pbc=None,
+                 Bds=None, save=True, backend=None, output_path=None,
+                 output_file='voro_nn'):
         super(VoroNN, self).__init__(
             cutoff=cutoff,  allow_neighbor_limit=allow_neighbor_limit,
             n_neighbor_limit=n_neighbor_limit, type_col=type_col,
-            coords_cols=coords_cols, pbc=pbc, Bds=Bds,
-            save=save, backend=backend, output_file=output_file)
+            coords_cols=coords_cols, pbc=pbc, Bds=Bds, save=save,
+            backend=backend, output_path=output_path, output_file=output_file)
         self.small_face_thres = small_face_thres
 
     def transform(self, X=None):
@@ -138,12 +139,13 @@ class DistanceNN(BaseNN):
     def __init__(self, cutoff=4, allow_neighbor_limit=300,
                  n_neighbor_limit=80, type_col='type',
                  coords_cols=None, pbc=None, Bds=None,
-                 backend=None, save=True, output_file='dist_nn'):
+                 backend=None, save=True, output_path=None,
+                 output_file='dist_nn'):
         super(DistanceNN, self).__init__(
             cutoff=cutoff, allow_neighbor_limit=allow_neighbor_limit,
             n_neighbor_limit=n_neighbor_limit, type_col=type_col,
             coords_cols=coords_cols, pbc=pbc, Bds=Bds, save=save,
-            backend=backend, output_file=output_file)
+            backend=backend, output_path=output_path, output_file=output_file)
 
     def transform(self, X=None):
         """

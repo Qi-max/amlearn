@@ -1,4 +1,5 @@
 import os
+import time
 from functools import lru_cache
 
 import six
@@ -34,14 +35,19 @@ def load_radii():
 
 
 @lru_cache(maxsize=5)
-def create_featurizer_backend():
+def create_featurizer_backend(output_path='tmp'):
     """Create default featurizer backend.
 
     Returns:
         featurizer_backend (object): Featurizer Backend.
     """
-    backend_context = BackendContext(merge_path=True, output_path='tmp',
-                                     tmp_path='tmp')
+    output_path = 'tmp' if output_path is None or output_path == 'tmp' \
+        else output_path
+    tmp_path = 'tmp' if output_path is None or output_path == 'tmp' \
+        else os.path.join(output_path, 'tmp_{}'.format(int(time.time())))
+    backend_context = BackendContext(merge_path=True,
+                                     output_path=output_path,
+                                     tmp_path=tmp_path)
     featurizer_backend = FeatureBackend(backend_context)
     return featurizer_backend
 
@@ -64,11 +70,11 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
             paths and define the common amlearn's load/save method.
     """
 
-    def __init__(self, save=True, verbose=1, backend=None):
+    def __init__(self, save=True, verbose=1, backend=None, output_path=None):
         self.save = save
         self.verbose = verbose
         self.backend = backend if backend is not None \
-            else create_featurizer_backend()
+            else create_featurizer_backend(output_path=output_path)
         self.dependent_class_ = None
         self.dependent_cols_ = None
 
