@@ -15,7 +15,7 @@ class MRO(BaseFeaturize):
     def __init__(self, backend=None, neighbor_num_limit=80,
                  stats_types="all", stats_names=None, neighbor_cols="all",
                  calc_features="all", save=True, output_path=None,
-                 output_file_name='mro'):
+                 output_file_prefix='feature_mro'):
         super(MRO, self).__init__(save=save,
                                   backend=backend,
                                   output_path=output_path)
@@ -26,7 +26,7 @@ class MRO(BaseFeaturize):
         self.calc_features = calc_features
         self.stats_names = stats_names if stats_names is not None else \
             ['sum_NN', 'mean_NN', 'std_NN', 'min_NN', 'max_NN', 'diff_NN']
-        self.output_file_name = output_file_name
+        self.output_file_prefix = output_file_prefix
         self.neighbor_ids_col = 'neighbor_ids_{}'
 
         # calced_sysmm_percent used in get_feature_names() method, it tags
@@ -120,7 +120,7 @@ class MRO(BaseFeaturize):
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=result_df, name=self.output_file_name)
+                output_df=result_df, name=self.output_file_prefix)
 
         return result_df
 

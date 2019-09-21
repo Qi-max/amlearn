@@ -5,8 +5,8 @@ from amlearn.featurize.featurizers.short_range_order import \
     VolumeAreaInterstice, ClusterPackingEfficiency, AtomicPackingEfficiency, \
     BaseInterstice
 from amlearn.utils.basetest import AmLearnTest
-from amlearn.featurize.featurizers.pipeline import all_featurizers, \
-    MultiFeaturizer
+from amlearn.featurize.featurizers.featurizer_pipeline import all_featurizers, \
+    FeaturizerPipeline
 
 
 class TestSro(AmLearnTest):
@@ -38,7 +38,7 @@ class TestSro(AmLearnTest):
         self.assertTrue(issubclass(featurizers['VolumeAreaInterstice'],
                                    BaseInterstice))
 
-    def test_multiFeaturizer(self):
+    def test_featurizer_pipeline(self):
         featurizers = [
             VoroNN(Bds=self.sc_Bds, cutoff=5, allow_neighbor_limit=300,
                    n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
@@ -53,16 +53,16 @@ class TestSro(AmLearnTest):
             AtomicPackingEfficiency(
                 type_to_atomic_number_list=[29, 40], save=True,
                 radii=None, radius_type="miracle_radius", verbose=1),
-            MRO(output_file_name='pipeline_mro')
+            MRO(output_file_prefix='pipeline_mro')
         ]
-        multi_featurizer = MultiFeaturizer(featurizers=featurizers)
+        multi_featurizer = FeaturizerPipeline(featurizers=featurizers)
         result_df = multi_featurizer.fit_transform(X=self.sc_df,
                                                    Bds=self.sc_Bds,
                                                    lammps_df=self.sc_df)
         print(result_df)
 
 
-    # def test_all_featurizes_multiFeaturizer(self):
-    #     multi_featurizer = MultiFeaturizer()
-    #     result_df = multi_featurizer.fit_transform(X=self.sc_df)
+    # def test_all_featurizes_pipeline(self):
+    #     featurizer_pipeline = FeaturizerPipeline()
+    #     result_df = featurizer_pipeline.fit_transform(X=self.sc_df)
     #     print(result_df)

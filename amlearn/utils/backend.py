@@ -249,12 +249,12 @@ class FeatureBackend(Backend):
                    'BackendContext.output_path')
         return os.path.join(self.output_path, 'featurizer')
 
-    def save_featurizer_as_dataframe(self, output_df, name='all',
+    def save_featurizer_as_dataframe(self, output_df, name='featurizer',
                                      save_type='pickle.gz'):
         featurizer_dir = self._get_featurizer_output_dir()
         create_path(featurizer_dir, merge=True)
         featurizer_file = os.path.join(
-            featurizer_dir, 'featurizer_{}.{}'.format(name, save_type))
+            featurizer_dir, '{}.{}'.format(name, save_type))
         if save_type == 'csv':
             output_df.to_csv(featurizer_file)
         elif save_type.startswith('pickle'):

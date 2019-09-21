@@ -34,10 +34,11 @@ def all_featurizers():
     return sorted(set(estimators), key=itemgetter(0))
 
 
-class MultiFeaturizer(BaseFeaturize):
-    def __init__(self, featurizers="all", save=True, backend=None):
-        super(MultiFeaturizer, self).__init__(
-            save=save, backend=backend)
+class FeaturizerPipeline(BaseFeaturize):
+    def __init__(self, featurizers="all", save=True, backend=None,
+                 output_path=None):
+        super(FeaturizerPipeline, self).__init__(
+            save=save, backend=backend, output_path=output_path)
         self.featurizers = featurizers
 
     def fit(self, X=None, dependent_df=None, lammps_df=None, Bds=None,
@@ -92,8 +93,9 @@ class MultiFeaturizer(BaseFeaturize):
             sro_pipeline = list()
             sro_pipeline.append(
                 ('sro',
-                 FeatureUnion([(instance.__class__.__name__, instance)
-                               for instance in
+                 FeatureUnion([('{}_{}'.format(instance.__class__.__name__,
+                                               instance.dependent_class),
+                                instance) for instance in
                                self.featurizer_dict['sro']])))
             sro_pipeline.append(('final', FinalEstimator()))
             sro_pipe = Pipeline(sro_pipeline)
@@ -109,8 +111,9 @@ class MultiFeaturizer(BaseFeaturize):
             interstice_sro_pipeline = list()
             interstice_sro_pipeline.append(
                 ('interstice_sro',
-                 FeatureUnion([(instance.__class__.__name__, instance)
-                               for instance in
+                 FeatureUnion([('{}_{}'.format(instance.__class__.__name__,
+                                               instance.dependent_class),
+                                instance) for instance in
                                self.featurizer_dict['interstice_sro']])))
             interstice_sro_pipeline.append(('final', FinalEstimator()))
             interstice_sro_pipe = Pipeline(interstice_sro_pipeline)
@@ -143,6 +146,10 @@ class MultiFeaturizer(BaseFeaturize):
                 columns=mro_pipe.named_steps['mro'].get_feature_names())
         else:
             mro_df = None
+        if sro_df is not X and mro_df is not None:
+            self.backend.save_featurizer_as_dataframe(sro_df.join(mro_df),
+                                                      name='features_all')
+            return sro_df.join(mro_df)
         return mro_df if mro_df is not None else sro_df
 
     def get_feature_names(self):
