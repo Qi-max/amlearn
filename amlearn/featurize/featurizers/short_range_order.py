@@ -381,7 +381,7 @@ class DistanceInterstice(BaseInterstice):
     def __init__(self, backend=None, dependent_class="voro", type_col='type',
                  type_to_atomic_number_list=None, neighbor_num_limit=80, 
                  save=True, radii=None, radius_type="miracle_radius", 
-                 verbose=1, output_path=None, output_file_name=None,
+                 verbose=1, output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         super(DistanceInterstice, self).__init__(
             save=save, backend=backend,
@@ -390,9 +390,9 @@ class DistanceInterstice(BaseInterstice):
             neighbor_num_limit=neighbor_num_limit,
             radii=radii, radius_type = radius_type,
             verbose = verbose, output_path=output_path, **nn_kwargs)
-        self.output_file_name = output_file_name \
-            if output_file_name is not None \
-            else '{}_{}_{}_distance_interstice'.format(self.category,
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_{}_distance_interstice'.format(self.category,
                                                        self.dependent_name_,
                                                        self.radius_type)
         self.dependent_cols_ = [self.neighbor_num_col,
@@ -432,26 +432,30 @@ class DistanceInterstice(BaseInterstice):
             for neighbor_id, neighbor_dist in zip(row[self.neighbor_ids_col],
                                                   row[self.neighbor_dists_col]):
                 if neighbor_id > 0:
-                    neighbor_dist_interstice_list.append(
-                        neighbor_dist / (
-                            self.radii[str(int(X.loc[idx][self.type_col]))][self.radius_type] +
-                            self.radii[str(int(X.loc[neighbor_id][self.type_col]))][self.radius_type]))
+                    neighbor_dist_interstice_list.append(neighbor_dist / (
+                            self.radii[str(int(X.loc[idx][self.type_col]))][
+                                self.radius_type] +
+                            self.radii[
+                                str(int(X.loc[neighbor_id][self.type_col]))][
+                                self.radius_type]))
                 else:
                     continue
-            feature_lists.append([1, neighbor_dist_interstice_list])
+            feature_lists.append(calc_stats(neighbor_dist_interstice_list))
+            if self.verbose > 0:
+                vr.update(idx - 1)
+
         dist_interstice_df = \
             pd.DataFrame(feature_lists, columns=self.get_feature_names(),
-                         index=X.index)[[self.get_feature_names()[1]]]
+                         index=X.index)
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=dist_interstice_df, name=self.output_file_name)
+                output_df=dist_interstice_df, name=self.output_file_prefix)
         return dist_interstice_df
 
     def get_feature_names(self):
-        feature_names = \
-            ['placeholder',
-             'neighbor_dists_interstice_{}'.format(self.dependent_name_)]
-        return feature_names
+        stats = ['sum', 'mean', 'std', 'min', 'max']
+        return ['neighbor_dists_interstice_{}_{}'.format(
+            stat, self.dependent_name_) for stat in stats]
 
 
 class VolumeAreaInterstice(BaseInterstice):
@@ -462,7 +466,7 @@ class VolumeAreaInterstice(BaseInterstice):
                  radii=None, radius_type="miracle_radius",
                  calc_volume_area='all', verbose=1,
                  volume_types=None, area_types=None,
-                 output_path=None, output_file_name=None,
+                 output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         """
         Args:
@@ -506,8 +510,8 @@ class VolumeAreaInterstice(BaseInterstice):
             area_types if isinstance(area_types, list_like()) \
                 else [area_types] if area_types is not None \
                 else ['fractional_area_interstice_triangle']
-        self.output_file_name = output_file_name if output_file_name is not None \
-            else '{}_{}_{}_volume_area_interstice'.format(
+        self.output_file_prefix = output_file_prefix if output_file_prefix is not None \
+            else 'feature_{}_{}_{}_volume_area_interstice'.format(
                     self.category, self.dependent_name_, self.radius_type)
 
     def transform(self, X):
@@ -638,7 +642,7 @@ class VolumeAreaInterstice(BaseInterstice):
         if self.save:
             self.backend.save_featurizer_as_dataframe(
                 output_df=volume_area_interstice_df,
-                name=self.output_file_name)
+                name=self.output_file_prefix)
 
         return volume_area_interstice_df
 
@@ -672,7 +676,7 @@ class ClusterPackingEfficiency(BaseInterstice):
                  type_to_atomic_number_list=None,
                  neighbor_num_limit=80, save=True,
                  radii=None, radius_type="miracle_radius",
-                 verbose=1, output_path=None, output_file_name=None,
+                 verbose=1, output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(ClusterPackingEfficiency, self).__init__(
@@ -686,8 +690,9 @@ class ClusterPackingEfficiency(BaseInterstice):
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
-        self.output_file_name = output_file_name if output_file_name is not None \
-            else '{}_{}_{}_cluster_packing_efficiency'.format(
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_{}_cluster_packing_efficiency'.format(
                     self.category, self.dependent_name_, self.radius_type)
 
     def transform(self, X):
@@ -744,12 +749,12 @@ class ClusterPackingEfficiency(BaseInterstice):
         if self.save:
             self.backend.save_featurizer_as_dataframe(
                 output_df=cluster_packing_efficiency_df,
-                name=self.output_file_name)
+                name=self.output_file_prefix)
 
         return cluster_packing_efficiency_df
 
     def get_feature_names(self):
-        feature_names = ['{}_cluster_packing_efficiency {}'.format(
+        feature_names = ['{}_cluster_packing_efficiency_{}'.format(
             self.radius_type.replace("_radius", ""), self.dependent_name_)]
         return feature_names
 
@@ -764,7 +769,7 @@ class AtomicPackingEfficiency(BaseInterstice):
                  type_to_atomic_number_list=None,
                  neighbor_num_limit=80,  save=True,
                  radii=None, radius_type="miracle_radius",
-                 verbose=1, output_path=None, output_file_name=None,
+                 verbose=1, output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(AtomicPackingEfficiency, self).__init__(
@@ -778,8 +783,9 @@ class AtomicPackingEfficiency(BaseInterstice):
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
-        self.output_file_name = output_file_name if output_file_name is not None \
-            else '{}_{}_{}_atomic_packing_efficiency'.format(
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_{}_atomic_packing_efficiency'.format(
                     self.category, self.dependent_name_, self.radius_type)
 
     def transform(self, X):
@@ -837,27 +843,28 @@ class AtomicPackingEfficiency(BaseInterstice):
         if self.save:
             self.backend.save_featurizer_as_dataframe(
                 output_df=atomic_packing_efficiency_df,
-                name=self.output_file_name)
+                name=self.output_file_prefix)
 
         return atomic_packing_efficiency_df
 
     def get_feature_names(self):
-        feature_names = ['{}_atomic_packing_efficiency {}'.format(
+        feature_names = ['{}_atomic_packing_efficiency_{}'.format(
             self.radius_type.replace("_radius", ""), self.dependent_name_)]
         return feature_names
 
 
 class CN(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro", save=True,
-                 output_path=None, output_file_name=None, **nn_kwargs):
+                 output_path=None, output_file_prefix=None, **nn_kwargs):
         super(CN, self).__init__(save=save,
                                  backend=backend,
                                  dependent_class=dependent_class,
                                  output_path=output_path,
                                  **nn_kwargs)
         self.dependent_cols_ = [self.neighbor_num_col]
-        self.output_file_name = output_file_name if output_file_name is not None \
-            else '{}_{}_cn'.format(self.category, self.dependent_name_)
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_cn'.format(self.category, self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -866,7 +873,7 @@ class CN(BaseSRO):
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=cn_df, name=self.output_file_name)
+                output_df=cn_df, name=self.output_file_prefix)
 
         return cn_df
 
@@ -879,7 +886,7 @@ class VoroIndex(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, include_beyond_edge_max=True,
                  save=True, edge_min=3, edge_max=7, output_path=None,
-                 output_file_name=None, **nn_kwargs):
+                 output_file_prefix=None, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VoroIndex, self).__init__(save=save,
                                         backend=backend,
@@ -891,8 +898,9 @@ class VoroIndex(BaseSRO):
         self.edge_min = edge_min
         self.edge_max = edge_max
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col]
-        self.output_file_name = output_file_name if output_file_name is not None \
-            else '{}_voronoi_index'.format(self.category)
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_voronoi_index'.format(self.category)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -910,7 +918,7 @@ class VoroIndex(BaseSRO):
                                      columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=voro_index_df, name=self.output_file_name)
+                output_df=voro_index_df, name=self.output_file_prefix)
 
         return voro_index_df
 
@@ -922,7 +930,7 @@ class CharacterMotif(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, include_beyond_edge_max=True,
                  edge_min=3, target_voro_idx=None, frank_kasper=1,
-                 save=True, output_path=None, output_file_name=None,
+                 save=True, output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(CharacterMotif, self).__init__(save=save,
@@ -939,8 +947,9 @@ class CharacterMotif(BaseSRO):
         self.frank_kasper = frank_kasper
         self.edge_min = edge_min
         self.dependent_cols_ = ['Voronoi_indices_voro']
-        self.output_file_name = output_file_name if output_file_name is not None \
-            else '{}_character_motif'.format(self.category)
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_character_motif'.format(self.category)
 
     def fit(self, X=None):
         self.dependent_class_ = self.check_dependency(X)
@@ -975,7 +984,7 @@ class CharacterMotif(BaseSRO):
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=character_motif_df, name=self.output_file_name)
+                output_df=character_motif_df, name=self.output_file_prefix)
 
         return character_motif_df
 

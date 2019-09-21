@@ -116,9 +116,8 @@ class TestSRO(AmLearnTest):
             X=pd.read_pickle(os.path.join(module_dir, 'data',
                                           'featurizer_voro_nn.pickle.gz')),
             lammps_df = self.sc_df)
-        self.assertListEqual(list(result_df.columns),
-                             ['neighbor_dists_interstice_voro'])
-        self.assertEqual(result_df.iloc[2, 0][0], 0.9550110478698599)
+        self.assertEqual(len(result_df.columns), 5)
+        self.assertEqual(result_df.iloc[2, 0], 10.136853319891685)
 
     def test_volume_area_interstice(self):
         volume_area_interstice = VolumeAreaInterstice(
@@ -153,7 +152,7 @@ class TestSRO(AmLearnTest):
                                           'featurizer_voro_nn.pickle.gz')),
             Bds=self.sc_Bds, lammps_df=self.sc_df)
         self.assertEqual(result_df.iloc[2, 0], 0.05121967206477729)
-    #
+
     # def test_cn_voro_from_dump_voro(self):
     #     nn = CN.from_file(
     #         data_path_file=os.path.join(module_dir, 'data', 'dump.overall.0'),
