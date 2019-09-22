@@ -174,12 +174,11 @@ class Backend(object):
 
 class MLBackend(Backend):
     """Utility class to load model, save model and save predictions."""
-    def _get_prediction_output_dir(self, name='all'):
-        check_path(self.tmp_path, 'tmp_path',
-                   'BackendContext.tmp_path')
+    def _get_prediction_output_dir(self, sub_dir='prediction'):
+        check_path(self.output_path, 'output_path',
+                   'BackendContext.output_path')
 
-        return os.path.join(self.tmp_path,
-                            'predictions_{}'.format(name))
+        return os.path.join(self.output_path, sub_dir)
 
     @property
     def valid_predictions_type(self):
@@ -190,49 +189,65 @@ class MLBackend(Backend):
                  if func.startswith('save_predictions_as_')]
         return self.valid_predictions_type_
 
-    def save_predictions_as_npy(self, predictions,
-                                seed, name='all'):
-        output_dir = self._get_prediction_output_dir(name)
+    def save_predictions_as_npy(self, predictions, sub_dir='prediction',
+                                name='prediction', seed=None):
+        output_dir = self._get_prediction_output_dir(sub_dir)
         create_path(output_dir, merge=True)
         predict_file = os.path.join(output_dir,
-                                    'predictions_{}_{}.npy'.format(name, seed))
+                                    '{}.npy'.format(name) if seed is None
+                                    else '{}_{}.npy'.format(name, seed))
+        np.save(predict_file, predictions)
+
+    def save_predictions_as_pickle(self, predictions, sub_dir='prediction',
+                                name='prediction', seed=None):
+        output_dir = self._get_prediction_output_dir(sub_dir)
+        create_path(output_dir, merge=True)
+        predict_file = os.path.join(output_dir,
+                                    '{}.pickle'.format(name) if seed is None
+                                    else '{}_{}.pickle'.format(name, seed))
         pickle.dump(predictions.astype(np.float32), predict_file)
 
-    def save_predictions_as_txt(self, predictions,
-                                seed, name='all'):
-        output_dir = self._get_prediction_output_dir(name)
+    def save_predictions_as_txt(self, predictions, sub_dir='prediction',
+                                name='prediction', seed=None):
+        output_dir = self._get_prediction_output_dir(sub_dir)
         create_path(output_dir, merge=True)
         predict_file = os.path.join(output_dir,
-                                    'predictions_{}_{}.txt'.format(name, seed))
+                                    '{}.txt'.format(name) if seed is None
+                                    else '{}_{}.txt'.format(name, seed))
 
         with open(predict_file, 'w') as wf:
             wf.write("\n".join(list(map(str, predictions))))
 
-    def save_predictions_as_dataframe(self, predictions,
-                                      seed, name='all'):
-        predict_dir = self._get_prediction_output_dir(name)
+    def save_predictions_as_dataframe(self, predictions, subdir='prediction',
+                                      name='prediction', seed=None):
+        predict_dir = self._get_prediction_output_dir(subdir)
         create_path(predict_dir, merge=True)
         predict_file = os.path.join(predict_dir,
-                                    'predictions_{}_{}.csv'.format(name, seed))
+                                    '{}.csv'.format(name) if seed is None
+                                    else '{}_{}.csv'.format(name, seed))
 
         predict_df = pd.DataFrame(predictions, columns=['predict'])
         predict_df.to_csv(predict_file)
 
-    def _get_model_dir(self):
-        check_path(self.tmp_path, 'tmp_path',
-                   'BackendContext.tmp_path')
+    def _get_model_dir(self, sub_dir='model'):
+        check_path(self.output_path, 'output_path',
+                   'BackendContext.output_path')
 
-        return os.path.join(self.tmp_path)
+        return os.path.join(self.output_path, sub_dir)
 
-    def save_model(self, model, seed):
-        model_dir = self._get_model_dir()
+    def save_model(self, model, sub_dir='model', name='model', seed=None):
+        model_dir = self._get_model_dir(sub_dir)
         create_path(model_dir, merge=True)
-        model_file = os.path.join(model_dir, 'model_{}.pkl'.format(seed))
+        model_file = os.path.join(model_dir,
+                                  '{}.pkl'.format(name) if seed is None
+                                  else '{}_{}.pkl'.format(name, seed))
         joblib.dump(model, model_file)
 
-    def load_model(self, seed):
-        model_dir = self._get_model_dir()
-        model_file = os.path.join(model_dir, 'model_{}.pkl'.format(seed))
+    def load_model(self, sub_dir='model', name='model', seed=None):
+        model_dir = self._get_model_dir(sub_dir)
+        model_file = os.path.join(model_dir,
+                                  '{}.pkl'.format(name) if seed is None
+                                  else '{}_{}.pkl'.format(name, seed))
         model = joblib.load(model_file)
         return model
 

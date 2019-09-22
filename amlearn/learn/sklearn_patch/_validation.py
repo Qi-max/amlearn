@@ -206,18 +206,18 @@ def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
         for train, test in cv.split(X, y, groups))
 
     if return_train_score:
-        train_scores, test_scores, fit_times, score_times, indexs, models = zip(*scores)
+        train_scores, test_scores, fit_times, score_times, indices, models = zip(*scores)
         train_scores = _aggregate_score_dicts(train_scores)
     else:
-        test_scores, fit_times, score_times, indexs, models = zip(*scores)
+        test_scores, fit_times, score_times, indices, models = zip(*scores)
     test_scores = _aggregate_score_dicts(test_scores)
 
     # TODO: replace by a dict in 0.21
     ret = DeprecationDict() if return_train_score == 'warn' else {}
     ret['fit_time'] = np.array(fit_times)
     ret['score_time'] = np.array(score_times)
-    ret['indexs'] = np.array(indexs)
-    ret['estimator'] = models
+    ret['indices'] = np.array(indices)
+    ret['estimators'] = models
 
     for name in scorers:
         ret['test_%s' % name] = np.array(test_scores[name])

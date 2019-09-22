@@ -1905,7 +1905,7 @@ def check_cv(cv=3, y=None, classifier=False):
                 (type_of_target(y) in ('binary', 'multiclass'))):
             return StratifiedKFold(cv, shuffle=True)
         else:
-            return KFold(cv)
+            return KFold(cv, shuffle=True)
 
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):
