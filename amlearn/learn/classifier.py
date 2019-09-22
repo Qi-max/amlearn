@@ -56,9 +56,10 @@ class AmClassifier(AmBaseLearn):
             Random seed
 
     """
-    def __init__(self, backend=None, random_state=None,
+    def __init__(self, backend=None, output_path='tmp', random_state=None,
                  classifier=None, classifier_params=None,
                  decimals=None, seed=1):
+        super().__init__(backend, output_path, decimals=decimals, seed=seed)
 
         self.random_state = random_state
 
@@ -92,16 +93,6 @@ class AmClassifier(AmBaseLearn):
         classifier_params = appropriate_kwargs(classifier_params, classifier_class)
         self.classifier = classifier_class(**classifier_params)
 
-        # Set backend object
-        if backend is None:
-            backend_context = BackendContext(merge_path=True)
-            backend = MLBackend(backend_context)
-        elif backend == 'tmp' or backend == 'default':
-            backend_context = BackendContext(output_path='tmp', tmp_path='tmp',
-                                             merge_path=True)
-            backend = MLBackend(backend_context)
-
-        super().__init__(backend, decimals=decimals, seed=seed)
         self.backend.logger.info(
             'Initialize classification, classifier is : \n\t{}'.format(
                 self.classifier))

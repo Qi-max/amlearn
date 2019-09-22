@@ -12,7 +12,6 @@ import time
 from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import cross_validate
 from amlearn.learn.sklearn_patch import calc_scores
-from amlearn.utils.backend import BackendContext, MLBackend
 from amlearn.utils.data import list_like
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import RegressorMixin
@@ -43,8 +42,10 @@ class AmRegressor(AmBaseLearn):
             Random seed.
 
     """
-    def __init__(self, backend=None, regressor=None, regressor_params=None,
-                 decimals=None, seed=1):
+    def __init__(self, backend=None, output_path='tmp', regressor=None,
+                 regressor_params=None, decimals=None, seed=1):
+        super().__init__(backend, output_path, decimals=decimals, seed=seed)
+
         # Get all supported regressors
         regressors_dict = dict(self.valid_components)
 
@@ -66,63 +67,48 @@ class AmRegressor(AmBaseLearn):
                                              regressors_dict.keys()))
         if regressor_params is None:
             regressor_params = {}
-        self.regressor = regressor if isinstance(regressor, RegressorMixin) \
+        self.regressor = \
+            regressor if isinstance(regressor, RegressorMixin) \
             else regressors_dict[regressor_name](**regressor_params)
 
-        # Set backend object
-        if backend is None:
-            backend_context = BackendContext(merge_path=True)
-            backend = MLBackend(backend_context)
-
-        super().__init__(backend, decimals=decimals, seed=seed)
         self.backend.logger.info(
             'Initialize regression, regressor is : \n\t{}'.format(
                 self.regressor))
 
-    def fit(self, X, y, random_state=None, scoring=None,
-            cv_num=1, cv_params=None, val_size=0.3,
-            save_model=True, save_prediction=True,
-            save_train_val_idx=True, prediction_types='dataframe', **fit_params):
+    def fit(self, X, y, val_size=0.3, random_state=None, scoring=None,
+            cv_num=1, cv_params=None, save_train_val_idx=True, save_model=True,
+            save_prediction=True, prediction_types='dataframe', **fit_params):
         """Fit the amlearn regressor model.
 
         Args:
-            X: array-like
-                The data to fit. Can be for example a list, or an array.
-            y: array-like, optional, default: None
-                The target variable to try to predict in the case of
+            X (list like): The data to fit.
+            y (list like): The target variable to try to predict in the case of
                 supervised learning.
-            random_state: int, RandomState instance or None, optional (default=0)
-                If int, random_state is the seed used by the random number generator;
-                If RandomState instance, random_state is the random number generator;
-                If None, the random number generator is the RandomState instance used
-                by `np.random`.
-            scoring: string, callable or None, optional, default: None
-                A string (see model evaluation documentation) or
-                a scorer callable object / function with signature
-                ``scorer(estimator, X, y)``.
-            cv_num: int. (default: 1)
-                Determines the cross-validation splitting strategy.
-                If cv_num is 1, not use cross_validation, just fit the
-                model by train_test_split.
-            cv_params: dict. (default: {})
-                Cross-validation parameters.
-            val_size: float, int or None, optional (default=0.3)
-                If float, should be between 0.0 and 1.0 and represent the
-                proportion of the dataset to include in the validation split.
-                If int, represents the absolute number of validation samples.
-                If None, the value is set to the complement of the train size.
-                By default, the value is set to 0.3.
-            save_model: boolean (default: True)
-                Whether to save the model.
-            save_prediction: boolean (default: True)
-                Whether to save the prediction from each cross validation model.
-            save_train_val_idx: boolean (default: True)
-                Whether to save the train validation indexes.
-            prediction_types: str (default: dataframe)
-                It effect when save_prediction is True.
+            val_size (float, int or None): If float, should be between 0.0 and
+                1.0 and represent the proportion of the dataset to include in
+                the validation split. If int, represents the absolute number of
+                validation samples. If None, the value is set to the complement
+                of the train size. By default, the value is set to 0.3.
+            random_state (int, RandomState instance or None): If int,
+                random_state is the seed used by the random number generator;
+                If RandomState instance, random_state is the random number
+                generator; If None, the random number generator is the
+                RandomState instance used by `np.random`.
+            scoring (string, callable or None): A string (see model evaluation
+                documentation) or a scorer callable object / function with
+                signature ``scorer(estimator, X, y)``.
+            cv_num (int): Determines the cross-validation splitting strategy.
+                If cv_num is 1, not use cross_validation, just fit the model
+                by train_test_split.
+            cv_params (dict): Cross-validation parameters.
+            save_train_val_idx (boolean): Whether to save the train
+                validation indexes.
+            save_model (boolean): Whether to save the model.
+            save_prediction (boolean): Whether to save the prediction from each
+                cross validation model.
+            prediction_types (str): It effect when save_prediction is True.
                 The Optional parameters are: {"npy", "txt", "dataframe"}.
-            **fit_params:
-                regressor fit parameters.
+            **fit_params: regressor fit parameters.
 
         Returns:
             self
@@ -138,7 +124,7 @@ class AmRegressor(AmBaseLearn):
 
     def _fit(self, X, y, regressor, val_size=0.3, random_state=None,
              scoring=None, return_train_score=False, **fit_params):
-        ret = dict()
+        result_dict = dict()
         indices = range(np.array(X).shape[0])
         X_train, X_val, y_train, y_val, train_idx, val_idx = \
             train_test_split(X, y, indices,
@@ -149,8 +135,8 @@ class AmRegressor(AmBaseLearn):
 
         np.random.seed(random_state)
         regressor = regressor.fit(X_train, y_train, **fit_params)
-        ret['models'] = [regressor]
-        ret['indexs'] = [[train_idx, val_idx]]
+        result_dict['estimators'] = [regressor]
+        result_dict['indices'] = [[train_idx, val_idx]]
 
         val_scores, scorers = calc_scores(X=X_val, y=y_val,
                                           estimator=regressor,
@@ -161,10 +147,10 @@ class AmRegressor(AmBaseLearn):
                                           estimator=regressor,
                                           scoring=scoring)
         for name in scorers:
-            ret['test_%s' % name] = [val_scores[name]]
+            result_dict['test_%s' % name] = [val_scores[name]]
             if return_train_score:
                 key = 'train_%s' % name
-                ret[key] = [train_scores[name]]
+                result_dict[key] = [train_scores[name]]
                 if return_train_score == 'warn':
                     message = (
                         'You are accessing a training score ({!r}), '
@@ -172,13 +158,13 @@ class AmRegressor(AmBaseLearn):
                         'any more in 0.21. If you need training scores, '
                         'please set return_train_score=True').format(key)
                     # warn on key access
-                    ret.add_warning(key, message, FutureWarning)
-        return ret, scorers
+                    result_dict.add_warning(key, message, FutureWarning)
+        return result_dict, scorers
 
-    def _fit_cv(self, X, y, random_state=None, scoring=None,
-                cv_num=1, cv_params=None, val_size=0.3,
-                save_model=True, save_prediction=True, prediction_types='dataframe',
-                save_train_val_idx=True, **fit_params):
+    def _fit_cv(self, X, y, val_size=0.3, random_state=None, scoring=None,
+                cv_num=1, cv_params=None, save_train_val_idx=True,
+                save_model=True, save_prediction=True,
+                prediction_types='dataframe', **fit_params):
 
         # If user's cv_params contains 'cv_num' parameter, use the max value
         # between function parameter 'cv_num' and cv_params's 'cv_num'.
@@ -209,20 +195,16 @@ class AmRegressor(AmBaseLearn):
                 scoring=scoring, **fit_params)
             cv_num = 1
 
-        # TODO: now if scoring is more than one, score_name only can be the first of them.
+        # TODO: now if scorers list length is more than 1, score_name only can
+        #  be the first of them.
         self.score_name = self.score_name if hasattr(self, 'score_name') \
             else list(scorers.keys())[0]
         self.best_score_, (self.best_model_, self.best_model_tag_)= \
             max(zip(results['test_{}'.format(self.score_name)],
-                    zip(results['models'],
+                    zip(results['estimators'],
                         [''] if cv_num == 1 else
                         ["cv_{}".format(i) for i in range(cv_num)])),
                 key=lambda x: x[0])
-
-        # get temporary path, if self._tmp_path exist get it (most create by
-        # imblearn), else get self.backend.tmp_path
-        tmp_path = self._tmp_path \
-            if hasattr(self, '_tmp_path') else self.backend.tmp_path
 
         self.backend.logger.info(
             "\tCV regression finish in {:.4f} seconds. "
@@ -230,38 +212,45 @@ class AmRegressor(AmBaseLearn):
                 time.time() - cv_start_time,
                 self.score_name, self.best_score_))
 
-        if save_model or save_train_val_idx or save_prediction:
-            for cv_idx in range(cv_num):
-                tmp_path_cv = os.path.join(tmp_path, "cv_{}".format(cv_idx))
-                create_path(tmp_path_cv)
-                score_model = results['models'][cv_idx]
-                if save_model:
-                    self.backend.save_model(score_model, self.seed)
-                if save_train_val_idx:
-                    train_idx = results['indexs'][cv_idx][0]
-                    val_idx = results['indexs'][cv_idx][1]
-                    write_file( os.path.join(tmp_path_cv, 'train_idx.txt'),
-                                "\n".join(list(map(str, train_idx))))
+        for cv_idx in range(cv_num):
+            cv_tag = "cv_{}".format(cv_idx)
+            cv_output_path = os.path.join(self.backend.output_path, cv_tag)
+            create_path(cv_output_path, merge=True)
 
-                    write_file( os.path.join(tmp_path_cv, 'val_idx.txt'),
-                                "\n".join(list(map(str, val_idx))))
+            write_file(
+                os.path.join(cv_output_path, 'scores.txt'),
+                '{}\n{}'.format(','.join(list(scorers.keys())),
+                                ','.join([str(results['test_{}'.format(
+                                    score_name)][cv_idx])
+                                        for score_name in scorers.keys()])))
 
-                if save_prediction:
-                    predictions = score_model.predict(X)
-                    if not isinstance(prediction_types, list_like()):
-                        prediction_types = [prediction_types]
-                    for predict_type in prediction_types:
-                        if predict_type in self.backend.valid_predictions_type:
-                            getattr(self.backend,
-                                    'save_predictions_as_{}'.format(
-                                        predict_type))(predictions, self.seed)
-                        else:
-                            raise ValueError(
-                                'predict_type {} is unknown, '
-                                'Possible values are {}'.format(
-                                    predict_type,
-                                    self.backend.valid_predictions_type))
-        self.backend.tmp_persistence(tmp_path)
+            score_model = results['estimators'][cv_idx]
+            if save_model:
+                self.backend.save_model(score_model, cv_tag)
+            if save_train_val_idx:
+                train_idx = results['indices'][cv_idx][0]
+                val_idx = results['indices'][cv_idx][1]
+                write_file(os.path.join(cv_output_path, 'train_idx.txt'),
+                           "\n".join(list(map(str, train_idx))))
+
+                write_file(os.path.join(cv_output_path, 'val_idx.txt'),
+                           "\n".join(list(map(str, val_idx))))
+            if save_prediction:
+                predictions = score_model.predict(X)
+                if not isinstance(prediction_types, list_like()):
+                    prediction_types = [prediction_types]
+                for predict_type in prediction_types:
+                    if predict_type in self.backend.valid_predictions_type:
+                        instance = getattr(self.backend,
+                                           'save_predictions_as_{}'.format(
+                                               predict_type))
+                        instance(predictions, cv_tag)
+                    else:
+                        raise ValueError(
+                            'predict_type {} is unknown, '
+                            'Possible values are {}'.format(
+                                predict_type,
+                                self.backend.valid_predictions_type))
         return self
 
     def predict(self, X):
