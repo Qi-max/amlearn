@@ -36,12 +36,12 @@ featurizers = [
     VolumeAreaInterstice(atomic_number_list=atomic_number_list,
                          output_path=output_path),
 
-    # from sro to MRO
+    # from SRO to MRO
     MRO(output_path=output_path)]
 
 # defining a featurizer_pipeline
 featurizer_pipeline = FeaturizerPipeline(featurizers=featurizers,
-                                      output_path=output_path)
+                                         output_path=output_path)
 
 # featurization
 featurizer_pipeline.fit_transform(X=structure, Bds=bds, lammps_df=structure)
