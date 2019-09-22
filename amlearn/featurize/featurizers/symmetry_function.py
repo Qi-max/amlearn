@@ -10,13 +10,13 @@ except Exception:
 
 
 class BPRadialFunction(BaseEstimator, TransformerMixin):
-    def __init__(self, A_atomic_number, atom_type_symbols, bds,
+    def __init__(self, ref_atom_number, atom_type_symbols, bds,
                  delta_r=0.1, n_r=50, cutoff_s=None, pbc=None,
                  sigma_AA=None, radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
                  output_file_prefix='feature_bp_radial_function'):
-        self.A_atomic_number = A_atomic_number
+        self.ref_atom_number = ref_atom_number
         self.atom_type_symbols = atom_type_symbols
         self.bds = bds
         self.delta_r = delta_r
@@ -37,11 +37,10 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
         # general setting
         if sigma_AA is None:
             sigma_AA = \
-                self.radii[str(self.A_atomic_number)][self.radius_type] * 2
+                self.radii[str(self.ref_atom_number)][self.radius_type] * 2
         self.delta_r = sigma_AA * self.delta_r
         self.cutoff_r = self.delta_r * self.n_r
         self.cutoff_s = (2.5 * sigma_AA) if cutoff_s is None else cutoff_s
-
 
     def transform(self, X):
         n_atoms = len(X)
@@ -78,18 +77,18 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
 
 
 class BPAngularFunction(BaseEstimator, TransformerMixin):
-    def __init__(self, A_atomic_number, atom_type_symbols, ksaais, lambdas,
+    def __init__(self, ref_atom_number, atom_type_symbols, ksaais, lambdas,
                  zetas, bds, cutoff_s=None, pbc=None, sigma_AA=None,
                  radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
-                 output_file_prefix='feature_bp_radial_function'):
-        self.A_atomic_number = A_atomic_number
+                 output_file_prefix='feature_bp_angular_function'):
+        self.ref_atom_number = ref_atom_number
         self.atom_type_symbols = atom_type_symbols
         self.radii = load_radii() if radii is None else radii
         self.radius_type = radius_type
         self.sigma_AA = sigma_AA if sigma_AA is not None else \
-            self.radii[str(self.A_atomic_number)][self.radius_type] * 2
+            self.radii[str(self.ref_atom_number)][self.radius_type] * 2
         self.ksaais = ksaais * self.sigma_AA
         self.lambdas = lambdas
         self.zetas = zetas
