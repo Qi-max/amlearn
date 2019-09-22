@@ -12,26 +12,24 @@ f2py before running this script.
 
 system = ["Cu65Zr35", "qr_5plus10^10"]
 
-output_path = "xxx/xxx"
 lammps_file = "xxx/dump.lmp"
 structure, bds = read_lammps_dump(lammps_file)
-print(structure)
 
+output_path = "xxx/xxx"
+
+# Calculating B-P radial symmetry function
 ref_atom_number = "29" # Cu
 atom_type_symbols = np.array([1, 2])
-
-
-# Calculating B-P radial symmetry function features
 delta_r=0.1
 n_r=50
 
 bp_radial_function = \
     BPRadialFunction(ref_atom_number, atom_type_symbols, bds,
                      delta_r=delta_r, n_r=n_r, output_path=output_path)
+
 radial_funcs_df = bp_radial_function.fit_transform(structure)
 
-
-# Calculating B-P angular symmetry function features
+# Calculating B-P angular symmetry function
 ksaais = np.array([14.633, 14.633, 14.638, 14.638, 2.554, 2.554, 2.554, 2.554,
                    1.648, 1.648, 1.204, 1.204, 1.204, 1.204, 0.933, 0.933,
                    0.933, 0.933, 0.695, 0.695, 0.695, 0.695])
@@ -40,7 +38,8 @@ lambdas = np.array([-1, 1, -1, 1, -1, 1, -1, 1, 1, 1, 1, 1, 1,
 zetas = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 2, 1, 2,
                   4, 16, 1, 2, 4, 16, 1, 2, 4, 16])
 
-bp_angular_function = BPAngularFunction(ref_atom_number, atom_type_symbols,
-                                       ksaais, lambdas, zetas, bds,
-                                       output_path=output_path)
+bp_angular_function = \
+    BPAngularFunction(ref_atom_number, atom_type_symbols,
+                      ksaais, lambdas, zetas, bds, output_path=output_path)
+
 angular_funcs_df = bp_angular_function.fit_transform(structure)
