@@ -44,4 +44,5 @@ featurizer_pipeline = FeaturizerPipeline(featurizers=featurizers,
                                          output_path=output_path)
 
 # featurization
-featurizer_pipeline.fit_transform(X=structure, Bds=bds, lammps_df=structure)
+feature_df = featurizer_pipeline.fit_transform(X=structure,
+                                               Bds=bds, lammps_df=structure)
