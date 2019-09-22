@@ -24,7 +24,7 @@ class TestNearestNeighbor(AmLearnTest):
                                [1, 1.67348, 1.15745, 0.789788]],
                               columns=['type', 'x', 'y', 'z'],
                               index=range(1, 14))
-        cls.sc_Bds = [[cls.sc['x'].min(), cls.sc['x'].max()],
+        cls.sc_bds = [[cls.sc['x'].min(), cls.sc['x'].max()],
                       [cls.sc['y'].min(), cls.sc['y'].max()],
                       [cls.sc['z'].min(), cls.sc['z'].max()]]
 
@@ -32,12 +32,12 @@ class TestNearestNeighbor(AmLearnTest):
             [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 1, 0], [1, 0, 1, 1],
             [1, 1, 0, 0], [1, 1, 0, 1], [1, 1, 1, 0], [1, 1, 1, 1]],
                                       columns = ['type', 'x', 'y', 'z'])
-        cls.bcc_Bds = [[cls.bcc_df['x'].min(), cls.bcc_df['x'].max()],
+        cls.bcc_bds = [[cls.bcc_df['x'].min(), cls.bcc_df['x'].max()],
                       [cls.bcc_df['y'].min(), cls.bcc_df['y'].max()],
                       [cls.bcc_df['z'].min(), cls.bcc_df['z'].max()]]
 
     def test_voro(self):
-        nn = VoroNN(Bds=self.sc_Bds, cutoff=5, allow_neighbor_limit=300,
+        nn = VoroNN(bds=self.sc_bds, cutoff=5, allow_neighbor_limit=300,
                     n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
         result_df = nn.fit_transform(self.sc)
         self.assertEqual(len(result_df.columns), 6)
@@ -48,7 +48,7 @@ class TestNearestNeighbor(AmLearnTest):
                              [5, 6, 5, 6, 4, 6, 3, 6, 5, 4, 4])
     #
     # def test_bcc_voro(self):
-    #     nn = VoroNN(Bds=self.bcc_Bds, cutoff=5, allow_neighbor_limit=300,
+    #     nn = VoroNN(bds=self.bcc_bds, cutoff=5, allow_neighbor_limit=300,
     #                 n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
     #     result_df = nn.fit_transform(self.bcc_df)
     #     self.assertEqual(len(result_df.columns), 6)
@@ -59,7 +59,7 @@ class TestNearestNeighbor(AmLearnTest):
     #                          [5, 6, 5, 6, 4, 6, 3, 6, 5, 4, 4])
 
     def test_dist(self):
-        nn = DistanceNN(Bds=self.sc_Bds, cutoff=4, allow_neighbor_limit=300,
+        nn = DistanceNN(bds=self.sc_bds, cutoff=4, allow_neighbor_limit=300,
                         n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
         result_df = nn.fit_transform(self.sc)
         self.assertEqual(len(result_df.columns), 3)

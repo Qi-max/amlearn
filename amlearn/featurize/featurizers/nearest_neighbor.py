@@ -22,14 +22,14 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
             allow_neighbor_limit neighbors to calculate voronoi.
         n_neighbor_limit (int):
         pbc (list like): Periodic bond chains.
-        Bds (list like): X, y, z boundaries.
+        bds (list like): X, y, z boundaries.
         save (Boolean): Save file or not.
         backend (Backend): Amlearn Backend object, to prepare amlearn needed
             paths and define the common amlearn's load/save method.
     """
 
     def __init__(self, cutoff=5, allow_neighbor_limit=300, n_neighbor_limit=80,
-                 type_col='type', coords_cols=None, pbc=None, Bds=None,
+                 type_col='type', coords_cols=None, pbc=None, bds=None,
                  save=True, backend=None, output_path=None,
                  output_file_prefix=None):
         self.cutoff = cutoff
@@ -39,7 +39,7 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
         self.coords_cols = coords_cols \
             if coords_cols is not None else ['x', 'y', 'z']
         self.pbc = pbc if pbc else [1, 1, 1]
-        self.Bds = Bds if Bds else [[-36, 36], [-36, 36], [-36, 36]]
+        self.bds = bds if bds else [[-36, 36], [-36, 36], [-36, 36]]
         self.save = save
         self.backend = backend if backend is not None \
             else create_featurizer_backend(output_path=output_path)
@@ -60,12 +60,12 @@ class VoroNN(BaseNN):
     def __init__(self, small_face_thres=0.05, cutoff=5,
                  allow_neighbor_limit=300, n_neighbor_limit=80,
                  type_col='type', coords_cols=None, pbc=None,
-                 Bds=None, save=True, backend=None, output_path=None,
+                 bds=None, save=True, backend=None, output_path=None,
                  output_file_prefix='voro_nn'):
         super(VoroNN, self).__init__(
             cutoff=cutoff,  allow_neighbor_limit=allow_neighbor_limit,
             n_neighbor_limit=n_neighbor_limit, type_col=type_col,
-            coords_cols=coords_cols, pbc=pbc, Bds=Bds, save=save,
+            coords_cols=coords_cols, pbc=pbc, bds=bds, save=save,
             backend=backend, output_path=output_path,
             output_file_prefix=output_file_prefix)
         self.small_face_thres = small_face_thres
@@ -103,7 +103,7 @@ class VoroNN(BaseNN):
             voronoi_nn.voronoi(X[self.type_col].values,
                                X[self.coords_cols].values,
                                self.cutoff, self.allow_neighbor_limit,
-                               self.small_face_thres, self.pbc, self.Bds,
+                               self.small_face_thres, self.pbc, self.bds,
                                neighbor_num_list, neighbor_id_lists,
                                neighbor_area_lists, neighbor_vol_lists,
                                neighbor_dist_lists, neighbor_edge_lists,
@@ -140,13 +140,13 @@ class VoroNN(BaseNN):
 class DistanceNN(BaseNN):
     def __init__(self, cutoff=4, allow_neighbor_limit=300,
                  n_neighbor_limit=80, type_col='type',
-                 coords_cols=None, pbc=None, Bds=None,
+                 coords_cols=None, pbc=None, bds=None,
                  backend=None, save=True, output_path=None,
                  output_file_prefix='dist_nn'):
         super(DistanceNN, self).__init__(
             cutoff=cutoff, allow_neighbor_limit=allow_neighbor_limit,
             n_neighbor_limit=n_neighbor_limit, type_col=type_col,
-            coords_cols=coords_cols, pbc=pbc, Bds=Bds, save=save,
+            coords_cols=coords_cols, pbc=pbc, bds=bds, save=save,
             backend=backend, output_path=output_path,
             output_file_prefix=output_file_prefix)
 
@@ -174,7 +174,7 @@ class DistanceNN(BaseNN):
             distance_nn.distance_neighbor(
                 X[self.type_col].values, X[self.coords_cols].values,
                 self.cutoff, self.allow_neighbor_limit, self.pbc,
-                self.Bds, n_neighbor_max, neighbor_num_list,
+                self.bds, n_neighbor_max, neighbor_num_list,
                 neighbor_id_lists, neighbor_dist_lists,
                 n_atoms=n_atoms, n_neighbor_limit=self.n_neighbor_limit)
 

@@ -8,7 +8,7 @@
 ! n_neighbor_limit:           int, e.g. 50
 ! small_face_thres:           real e.g. 0.05
 ! pbc:                        int(3), e.g. [1, 1, 1]
-! Bds:                        real(3, 2)
+! bds:                        real(3, 2)
 !
 ! n_neighbor_list:            int (n_atoms),
 ! neighbor_lists:             int (n_atoms, n_neighbor_limit)
@@ -40,7 +40,7 @@ END subroutine determinant
 
 
 subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit, &
-    n_neighbor_limit, small_face_thres, pbc, Bds, &
+    n_neighbor_limit, small_face_thres, pbc, bds, &
     n_neighbor_list, neighbor_lists, &
     neighbor_area_lists, neighbor_vol_lists, neighbor_distance_lists, neighbor_edge_lists, &
     n_neighbor_max, n_edge_max)
@@ -50,7 +50,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     integer :: n_atoms, allow_neighbor_limit, n_neighbor_limit, n_neighbor_max, n_edge_max
     REAL(8) :: cutoff, small_face_thres
     integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
+    REAL(8), dimension(3, 2) :: bds
     integer, dimension(n_atoms):: atom_type, n_neighbor_list
     REAL(8), dimension(n_atoms, 3):: atom_coords
     integer, dimension(n_atoms, n_neighbor_limit):: neighbor_lists, neighbor_edge_lists
@@ -59,7 +59,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     REAL(8), dimension(n_atoms, n_neighbor_limit):: neighbor_distance_lists
 
 !f2py   intent(in) n_atoms, atom_type, atom_coords, cutoff, small_face_thres
-!f2py   intent(in) allow_neighbor_limit, n_neighbor_limit, pbc, Bds
+!f2py   intent(in) allow_neighbor_limit, n_neighbor_limit, pbc, bds
 !f2py   intent(in, out) n_neighbor_list
 !f2py   intent(in, out) neighbor_lists, neighbor_edge_lists
 !f2py   intent(in, out) neighbor_area_lists, neighbor_vol_lists, neighbor_distance_lists
@@ -100,7 +100,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
       neighbor_vol_list_with_small = 0
       vertex_face = 0
       do i = 1, n_atoms
-        call distance_info(atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, d)
+        call distance_info(atom_coords(atom, :), atom_coords(i, :), bds, pbc, r, d)
 !        write(*,*) r, d
         if((i /= atom).and.(d < cutoff)) then
           possible_n_neighbor = possible_n_neighbor + 1
@@ -116,14 +116,14 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
       n_vertex_list(atom) = 0
 
       do i = 1, possible_n_neighbor
-        call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), Bds, pbc, r, d)
+        call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), bds, pbc, r, d)
 !        write(*, *) r
         v(1, :) = r(:)
         do j = i+1,possible_n_neighbor
-          call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(j), :), Bds, pbc, r, d)
+          call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(j), :), bds, pbc, r, d)
           v(2, :) = r(:)
           do k = j+1,possible_n_neighbor
-            call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(k), :), Bds, pbc, r, d)
+            call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(k), :), bds, pbc, r, d)
             v(3, :) = r(:)
 
             vv = 0
@@ -177,7 +177,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
             l=0
             s=0
             do l = 1, possible_n_neighbor
-              call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(l), :), Bds, pbc, r, d_temp)
+              call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(l), :), bds, pbc, r, d_temp)
               a(:) = vertex_x(:) * r(:) / d_temp**2
 !              write(*,*) vertex_x, r, a
 
@@ -292,7 +292,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
           end do
 !          write(*, *) 'here 24'
 
-          call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), Bds, pbc, r, d)
+          call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), bds, pbc, r, d)
           neighbor_area_list_with_small(i) = 6.0 * neighbor_vol_list_with_small(i)/d
           area_sum = area_sum + neighbor_area_list_with_small(i)
         end if
@@ -317,7 +317,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
               neighbor_area_lists(atom, s) = neighbor_area_list_with_small(i)
               neighbor_vol_lists(atom, s) = neighbor_vol_list_with_small(i)
               neighbor_edge_lists(atom, s) = vertex_face(i)
-              call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), Bds, pbc, r, d)
+              call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), bds, pbc, r, d)
               neighbor_distance_lists(atom, s) = d
             end if
           end if

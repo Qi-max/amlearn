@@ -13,18 +13,18 @@
 
     module distance
     CONTAINS
-      subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
+      subroutine distance_info(atom_coords_i, atom_coords_j, bds, pbc, r, d)
 
           REAL(8), dimension(3), intent(in) :: atom_coords_i, atom_coords_j
           REAL(8), dimension(3), intent(out):: r
           REAL(8), intent(out) :: d
-          REAL(8), dimension(3, 2) :: Bds
+          REAL(8), dimension(3, 2) :: bds
           REAL(8), dimension(3) :: Lens
           integer, dimension(3) :: pbc
 
-          Lens(1) = Bds(1, 2) - Bds(1, 1)
-          Lens(2) = Bds(2, 2) - Bds(2, 1)
-          Lens(3) = Bds(3, 2) - Bds(3, 1)
+          Lens(1) = bds(1, 2) - bds(1, 1)
+          Lens(2) = bds(2, 2) - bds(2, 1)
+          Lens(3) = bds(3, 2) - bds(3, 1)
 
           do m = 1, 3
             r(m) = atom_coords_i(m) - atom_coords_j(m)
@@ -152,19 +152,19 @@
     module angle
 
     CONTAINS
-      subroutine angle_info(atom_coords_i, atom_coords_j, Bds, pbc, ksai, theta)
+      subroutine angle_info(atom_coords_i, atom_coords_j, bds, pbc, ksai, theta)
       REAL(8), dimension(3), intent(in) :: atom_coords_i, atom_coords_j
       REAL(8), intent(out) :: ksai, theta
-      REAL(8), dimension(3, 2), intent(in) :: Bds
+      REAL(8), dimension(3, 2), intent(in) :: bds
       integer, dimension(3), intent(in) :: pbc
       REAL(8), dimension(3) :: r
       REAL(8) :: d
       REAL(8), dimension(3) :: Lens
       integer :: m
 
-      Lens(1) = Bds(1, 2) - Bds(1, 1)
-      Lens(2) = Bds(2, 2) - Bds(2, 1)
-      Lens(3) = Bds(3, 2) - Bds(3, 1)
+      Lens(1) = bds(1, 2) - bds(1, 1)
+      Lens(2) = bds(2, 2) - bds(2, 1)
+      Lens(3) = bds(3, 2) - bds(3, 1)
 
       do m = 1, 3
         r(m) = atom_coords_i(m) - atom_coords_j(m)

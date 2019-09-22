@@ -23,8 +23,8 @@ output_path = "xxx/xxx"
 
 featurizers = [
     # neighboring analysis
-    VoroNN(Bds=bds, cutoff=5, output_path=output_path),
-    DistanceNN(Bds=bds, cutoff=4, output_path=output_path),
+    VoroNN(bds=bds, cutoff=5, output_path=output_path),
+    DistanceNN(bds=bds, cutoff=4, output_path=output_path),
 
     # distance interstice
     DistanceInterstice(atomic_number_list=atomic_number_list,
@@ -45,4 +45,4 @@ featurizer_pipeline = FeaturizerPipeline(featurizers=featurizers,
 
 # featurization
 feature_df = featurizer_pipeline.fit_transform(X=structure,
-                                               Bds=bds, lammps_df=structure)
+                                               bds=bds, lammps_df=structure)

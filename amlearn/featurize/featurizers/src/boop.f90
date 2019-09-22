@@ -1,5 +1,5 @@
 
-    subroutine calculate_boop(n_atoms, atom_coords, pbc, Bds, &
+    subroutine calculate_boop(n_atoms, atom_coords, pbc, bds, &
         n_neighbor_limit, n_neighbor_list, neighbor_lists, &
         low_order, higher_order, coarse_lower_order, coarse_higher_order, &
         Ql, Wlbar, coarse_Ql, coarse_Wlbar)
@@ -11,13 +11,13 @@
         integer, dimension(n_atoms):: n_neighbor_list
         REAL(8), dimension(n_atoms, 3):: atom_coords
         integer, dimension(3) :: pbc
-        REAL(8), dimension(3, 2) :: Bds
+        REAL(8), dimension(3, 2) :: bds
         integer, dimension(n_atoms, n_neighbor_limit):: neighbor_lists
         integer :: low_order, higher_order, coarse_lower_order, coarse_higher_order
         REAL(8), dimension(n_atoms, 4):: Ql, Wlbar, coarse_Ql, coarse_Wlbar
         REAL(16), dimension(n_atoms, 4):: Ql2, Wlbar2, coarse_Ql2, coarse_Wlbar2
 
-!f2py   intent(in) n_atoms, atom_coords, pbc, Bds
+!f2py   intent(in) n_atoms, atom_coords, pbc, bds
 !f2py   intent(in) n_neighbor_limit, n_neighbor_list, neighbor_lists
 !f2py   intent(in) low_order, higher_order, coarse_lower_order, coarse_higher_order
 !f2py   intent(in, out) Ql, Wlbar, coarse_Ql, coarse_Wlbar
@@ -48,7 +48,7 @@
 !            end if
           do i = 1, n_neighbor_list(atom)
             j = neighbor_lists(atom, i)
-            call angle_info(atom_coords(atom, :), atom_coords(j, :), Bds, pbc, ksai, theta)
+            call angle_info(atom_coords(atom, :), atom_coords(j, :), bds, pbc, ksai, theta)
             do l = 4, 10, 2
               do m = -l, l
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!Q4!!!!!!!!!!!!!!!!!!!!!!!!!!!

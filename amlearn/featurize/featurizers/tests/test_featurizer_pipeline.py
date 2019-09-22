@@ -28,7 +28,7 @@ class TestSro(AmLearnTest):
                           [1, 1.67348, 1.15745, 0.789788]],
                          columns=['type', 'x', 'y', 'z'],
                          index=range(1, 14))
-        cls.sc_Bds = [[cls.sc_df['x'].min(), cls.sc_df['x'].max()],
+        cls.sc_bds = [[cls.sc_df['x'].min(), cls.sc_df['x'].max()],
                       [cls.sc_df['y'].min(), cls.sc_df['y'].max()],
                       [cls.sc_df['z'].min(), cls.sc_df['z'].max()]]
 
@@ -40,24 +40,24 @@ class TestSro(AmLearnTest):
 
     def test_featurizer_pipeline(self):
         featurizers = [
-            VoroNN(Bds=self.sc_Bds, cutoff=5, allow_neighbor_limit=300,
+            VoroNN(bds=self.sc_bds, cutoff=5, allow_neighbor_limit=300,
                    n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
-            DistanceNN(Bds=self.sc_Bds, cutoff=4, allow_neighbor_limit=300,
+            DistanceNN(bds=self.sc_bds, cutoff=4, allow_neighbor_limit=300,
                        n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
             VolumeAreaInterstice(
-                type_to_atomic_number_list=[29, 40], save=True,
+                atomic_number_list=[29, 40], save=True,
                 radii=None, radius_type="miracle_radius", verbose=1),
             ClusterPackingEfficiency(
-                type_to_atomic_number_list=[29, 40], save=True,
+                atomic_number_list=[29, 40], save=True,
                 radii=None, radius_type="miracle_radius", verbose=1),
             AtomicPackingEfficiency(
-                type_to_atomic_number_list=[29, 40], save=True,
+                atomic_number_list=[29, 40], save=True,
                 radii=None, radius_type="miracle_radius", verbose=1),
             MRO(output_file_prefix='pipeline_mro')
         ]
         multi_featurizer = FeaturizerPipeline(featurizers=featurizers)
         result_df = multi_featurizer.fit_transform(X=self.sc_df,
-                                                   Bds=self.sc_Bds,
+                                                   bds=self.sc_bds,
                                                    lammps_df=self.sc_df)
         print(result_df)
 

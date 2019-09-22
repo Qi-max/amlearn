@@ -13,7 +13,7 @@ def read_lammps_dump(data_path):
         with open(data_path, 'r') as rf:
             lines = rf.readlines()
         cols = list()
-        Bds = [list(map(float, lines[5].strip().split())),
+        bds = [list(map(float, lines[5].strip().split())),
                list(map(float, lines[6].strip().split())),
                list(map(float, lines[7].strip().split()))]
         column_names = lines[8].strip().split()[2:]
@@ -23,7 +23,7 @@ def read_lammps_dump(data_path):
                 cols.append(column_values)
         df = pd.DataFrame(cols, columns=column_names)
         df.index = list(df["id"])
-        return df, Bds
+        return df, bds
     else:
         raise FileNotFoundError("File {} not found".format(data_path))
 
@@ -38,7 +38,7 @@ def read_imd(dirs, bds=None, atom_names=None):
     i = 0
     with open(dirs, 'r') as file_object:
         file_lines = file_object.readlines()
-        Bds = [list(map(float, file_lines[5].strip().split())),
+        bds = [list(map(float, file_lines[5].strip().split())),
                list(map(float, file_lines[6].strip().split())),
                list(map(float, file_lines[7].strip().split()))]
 
@@ -73,7 +73,7 @@ def read_imd(dirs, bds=None, atom_names=None):
                     types.append(atom_names[int(data_line[1]) - 1])
                     coords.append([float(data_line[2]), float(data_line[3]),
                                    float(data_line[4])])
-        return cell_coords, types, coords, Bds, id_list
+        return cell_coords, types, coords, bds, id_list
 
 
 def get_valid_lists(raw_lists, valid_num=None, invalid_value=0):

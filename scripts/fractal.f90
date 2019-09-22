@@ -1,5 +1,5 @@
 
-subroutine fractal(n_atoms, atom_type, atom_coords, pbc, Bds, &
+subroutine fractal(n_atoms, atom_type, atom_coords, pbc, bds, &
     cutoff, bin, bin_num, center_types, center_types_num, &
     fractal_distancewise, fractal_accumulative)
 
@@ -16,7 +16,7 @@ subroutine fractal(n_atoms, atom_type, atom_coords, pbc, Bds, &
     integer, dimension(n_atoms):: atom_type
     REAL(8), dimension(n_atoms, 3):: atom_coords
     integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
+    REAL(8), dimension(3, 2) :: bds
     REAL(8) :: cutoff, bin
     integer :: bin_num, center_types_num
     integer, dimension(center_types_num):: center_types
@@ -24,7 +24,7 @@ subroutine fractal(n_atoms, atom_type, atom_coords, pbc, Bds, &
     REAL(8), dimension(bin_num, center_types_num):: fractal_distancewise, fractal_accumulative
     ! dimension: bin_num, types of atom center
 
-!f2py   intent(in) n_atoms, atom_type, atom_coords, pbc, Bds
+!f2py   intent(in) n_atoms, atom_type, atom_coords, pbc, bds
 !f2py   intent(in) cutoff, bin, bin_num, center_types, center_types_num
 !f2py   intent(in, out) fractal_distancewise, fractal_accumulative
 
@@ -59,7 +59,7 @@ subroutine fractal(n_atoms, atom_type, atom_coords, pbc, Bds, &
         end do
 
         do i = atom+1, n_atoms
-            call distance_info(atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, d)
+            call distance_info(atom_coords(atom, :), atom_coords(i, :), bds, pbc, r, d)
             if(d <= cutoff) then
                 range = floor(d/bin)
                 distance_ranges(atom, i) = range
@@ -83,7 +83,7 @@ subroutine fractal(n_atoms, atom_type, atom_coords, pbc, Bds, &
 end subroutine fractal
 
 
-subroutine fractal_intense(n_atoms, atom_type, atom_coords, pbc, Bds, &
+subroutine fractal_intense(n_atoms, atom_type, atom_coords, pbc, bds, &
     cutoff, bin, bin_num, center_types, center_types_num, &
     fractal_distancewise, fractal_accumulative)
 
@@ -100,14 +100,14 @@ subroutine fractal_intense(n_atoms, atom_type, atom_coords, pbc, Bds, &
     integer, dimension(n_atoms):: atom_type
     REAL(8), dimension(n_atoms, 3):: atom_coords
     integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
+    REAL(8), dimension(3, 2) :: bds
     REAL(8) :: cutoff, bin
     integer :: bin_num, center_types_num
     integer, dimension(center_types_num):: center_types   ! dimension: types of atom center
     REAL(8), dimension(bin_num, center_types_num):: fractal_distancewise, fractal_accumulative
     ! dimension: bin_num, types of atom center
 
-!f2py   intent(in) n_atoms, atom_type, atom_coords, pbc, Bds
+!f2py   intent(in) n_atoms, atom_type, atom_coords, pbc, bds
 !f2py   intent(in) cutoff, bin, bin_num, center_types, center_types_num
 !f2py   intent(in, out) fractal_distancewise, fractal_accumulative
 
@@ -130,7 +130,7 @@ subroutine fractal_intense(n_atoms, atom_type, atom_coords, pbc, Bds, &
 
         do i = 1, n_atoms
             if (i/=atom) then
-                call distance_info(atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, d)
+                call distance_info(atom_coords(atom, :), atom_coords(i, :), bds, pbc, r, d)
                 if(d <= cutoff) then
                     range = floor(d/bin)
                     do type = 1, center_types_num
@@ -154,18 +154,18 @@ subroutine fractal_intense(n_atoms, atom_type, atom_coords, pbc, Bds, &
 end subroutine fractal_intense
 
 
-subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
+subroutine distance_info(atom_coords_i, atom_coords_j, bds, pbc, r, d)
 
 	REAL(8), dimension(3), intent(in) :: atom_coords_i, atom_coords_j
 	REAL(8), dimension(3), intent(out):: r
 	REAL(8), intent(out) :: d
-	REAL(8), dimension(3, 2) :: Bds
+	REAL(8), dimension(3, 2) :: bds
 	REAL(8), dimension(3) :: Lens
 	integer, dimension(3) :: pbc
 
-	Lens(1) = Bds(1, 2) - Bds(1, 1)
-	Lens(2) = Bds(2, 2) - Bds(2, 1)
-	Lens(3) = Bds(3, 2) - Bds(3, 1)
+	Lens(1) = bds(1, 2) - bds(1, 1)
+	Lens(2) = bds(2, 2) - bds(2, 1)
+	Lens(3) = bds(3, 2) - bds(3, 1)
 
 	do m = 1, 3
 	r(m) = atom_coords_i(m) - atom_coords_j(m)

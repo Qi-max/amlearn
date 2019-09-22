@@ -41,7 +41,7 @@ class FeaturizerPipeline(BaseFeaturize):
             save=save, backend=backend, output_path=output_path)
         self.featurizers = featurizers
 
-    def fit(self, X=None, dependent_df=None, lammps_df=None, Bds=None,
+    def fit(self, X=None, dependent_df=None, lammps_df=None, bds=None,
             lammps_path=None):
         featurizer_dict = dict()
         if self.featurizers == "all":
@@ -62,7 +62,7 @@ class FeaturizerPipeline(BaseFeaturize):
         self.featurizer_dict = featurizer_dict
         self.dependent_df = dependent_df
         self.lammps_df = lammps_df
-        self.Bds=Bds
+        self.bds=bds
         self.lammps_path=lammps_path
         return self
 
@@ -118,9 +118,9 @@ class FeaturizerPipeline(BaseFeaturize):
             interstice_sro_pipeline.append(('final', FinalEstimator()))
             interstice_sro_pipe = Pipeline(interstice_sro_pipeline)
             interstice_sro_pipe.fit(
-                nn_df, interstice_sro__lammps_df=self.lammps_df,
-                interstice_sro__lammps_path=self.lammps_path,
-                interstice_sro__Bds=self.Bds)
+                nn_df, interstice_sro_lammps_df=self.lammps_df,
+                interstice_sro_lammps_path=self.lammps_path,
+                interstice_sro_bds=self.bds)
             interstice_sro_df = pd.DataFrame(
                 interstice_sro_pipe.named_steps['final'].data, index=X.index,
                 columns=[name.split("__")[1] for name in
@@ -140,7 +140,7 @@ class FeaturizerPipeline(BaseFeaturize):
                 ('mro', self.featurizer_dict['mro'][0]))
             mro_list.append(('final', FinalEstimator()))
             mro_pipe = Pipeline(mro_list)
-            mro_pipe.fit(sro_df, mro__dependent_df=dependent_df)
+            mro_pipe.fit(sro_df, mro_dependent_df=dependent_df)
             mro_df = pd.DataFrame(
                 mro_pipe.named_steps['final'].data, index=X.index,
                 columns=mro_pipe.named_steps['mro'].get_feature_names())

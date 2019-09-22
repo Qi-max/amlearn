@@ -27,10 +27,10 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class PackingOfSite(object):
-    def __init__(self, pbc, Bds, atom_type, coords, neighbors_type,
+    def __init__(self, pbc, bds, atom_type, coords, neighbors_type,
                  neighbors_coords, radii=None, radius_type="miracle_radius"):
         self.pbc = pbc
-        self.Bds = Bds
+        self.bds = bds
         self.atom_type = atom_type
         self.coords = coords.astype(float)
         self.neighbors_type = neighbors_type
@@ -42,7 +42,7 @@ class PackingOfSite(object):
         if not hasattr(self, 'nn_coords_'):
             self.nn_coords_ = [calc_neighbor_coords(self.coords,
                                                     neighbor_coords,
-                                                    self.Bds, self.pbc)
+                                                    self.bds, self.pbc)
                                for neighbor_coords in self.neighbors_coords]
         return self.nn_coords_
 
@@ -321,14 +321,14 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
 
 class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
     def __init__(self, backend=None, dependent_class="voro", type_col='type',
-                 type_to_atomic_number_list=None, neighbor_num_limit=80,
+                 atomic_number_list=None, neighbor_num_limit=80,
                  save=True, radii=None, radius_type="miracle_radius",
                  verbose=1, output_path=None, **nn_kwargs):
         """
         Args:
             lammps_df (DataFrame): Constructed from the output of lammps, which
                 common columns is ['type', 'x', 'y', 'z'...] columns.
-            Bds (list like): X, y, z boundaries.
+            bds (list like): X, y, z boundaries.
             lammps_path (DataFrame): If lammps_df is None, then we automatically
                 construct the DataFrame from lammps output path.
 
@@ -337,13 +337,13 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
         self.type_col = type_col
-        self.type_to_atomic_number_list = type_to_atomic_number_list
+        self.atomic_number_list = atomic_number_list
         self.neighbor_num_limit = neighbor_num_limit
         self.radii = load_radii() if radii is None else radii
         self.radius_type = radius_type
         self.verbose = verbose
 
-    def fit(self, X=None, lammps_df=None, Bds=None, lammps_path=None):
+    def fit(self, X=None, lammps_df=None, bds=None, lammps_path=None):
         """
         Args:
             X (DataFrame): X can be a DataFrame which composed of partial
@@ -358,13 +358,13 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
         """
         if lammps_df is None and lammps_path is not None \
                 and os.path.exists(lammps_path):
-            self.lammps_df, self.Bds = read_lammps_dump(lammps_path)
+            self.lammps_df, self.bds = read_lammps_dump(lammps_path)
         else:
             self.lammps_df = copy(lammps_df)
-            self.Bds = Bds
-        if self.type_to_atomic_number_list is not None:
+            self.bds = bds
+        if self.atomic_number_list is not None:
             self.lammps_df[self.type_col] = self.lammps_df[self.type_col].apply(
-                lambda x: self.type_to_atomic_number_list[x-1])
+                lambda x: self.atomic_number_list[x-1])
 
         self.dependent_class_ = self.check_dependency(X)
         if self.dependent_class_:
@@ -379,14 +379,14 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
 
 class DistanceInterstice(BaseInterstice):
     def __init__(self, backend=None, dependent_class="voro", type_col='type',
-                 type_to_atomic_number_list=None, neighbor_num_limit=80, 
+                 atomic_number_list=None, neighbor_num_limit=80,
                  save=True, radii=None, radius_type="miracle_radius", 
                  verbose=1, output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         super(DistanceInterstice, self).__init__(
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
-            type_to_atomic_number_list=type_to_atomic_number_list,
+            atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit,
             radii=radii, radius_type = radius_type,
             verbose = verbose, output_path=output_path, **nn_kwargs)
@@ -461,7 +461,7 @@ class DistanceInterstice(BaseInterstice):
 class VolumeAreaInterstice(BaseInterstice):
     def __init__(self, pbc=None, backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
-                 type_to_atomic_number_list=None,
+                 atomic_number_list=None,
                  neighbor_num_limit=80, save=True,
                  radii=None, radius_type="miracle_radius",
                  calc_volume_area='all', verbose=1,
@@ -489,7 +489,7 @@ class VolumeAreaInterstice(BaseInterstice):
         super(VolumeAreaInterstice, self).__init__(
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
-            type_to_atomic_number_list=type_to_atomic_number_list,
+            atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit,
             radii=radii, radius_type = radius_type,
             verbose = verbose, output_path=output_path, **nn_kwargs)
@@ -552,7 +552,7 @@ class VolumeAreaInterstice(BaseInterstice):
                         X.loc[neighbor_id][self.coords_cols].astype(float))
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, self.Bds, row[self.type_col],
+            pos_ = PackingOfSite(self.pbc, self.bds, row[self.type_col],
                                  row[self.coords_cols].values.astype(float),
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
@@ -673,7 +673,7 @@ class ClusterPackingEfficiency(BaseInterstice):
     """
     def __init__(self, pbc=None, backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
-                 type_to_atomic_number_list=None,
+                 atomic_number_list=None,
                  neighbor_num_limit=80, save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=1, output_path=None, output_file_prefix=None,
@@ -682,7 +682,7 @@ class ClusterPackingEfficiency(BaseInterstice):
         super(ClusterPackingEfficiency, self).__init__(
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
-            type_to_atomic_number_list=type_to_atomic_number_list,
+            atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit, radii=radii,
             radius_type = radius_type, verbose = verbose,
             output_path=output_path, **nn_kwargs)
@@ -731,7 +731,7 @@ class ClusterPackingEfficiency(BaseInterstice):
                     neighbor_coords.append(X.loc[neighbor_id][self.coords_cols])
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, self.Bds,
+            pos_ = PackingOfSite(self.pbc, self.bds,
                                  row[self.type_col], row[self.coords_cols],
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
@@ -766,7 +766,7 @@ class AtomicPackingEfficiency(BaseInterstice):
     """
     def __init__(self, pbc=None, backend=None, dependent_class="voro",
                  coords_cols=None, type_col='type',
-                 type_to_atomic_number_list=None,
+                 atomic_number_list=None,
                  neighbor_num_limit=80,  save=True,
                  radii=None, radius_type="miracle_radius",
                  verbose=1, output_path=None, output_file_prefix=None,
@@ -775,7 +775,7 @@ class AtomicPackingEfficiency(BaseInterstice):
         super(AtomicPackingEfficiency, self).__init__(
             save=save, backend=backend,
             dependent_class=dependent_class, type_col=type_col,
-            type_to_atomic_number_list=type_to_atomic_number_list,
+            atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit, radii=radii,
             radius_type = radius_type, verbose = verbose,
             output_path=output_path, **nn_kwargs)
@@ -825,7 +825,7 @@ class AtomicPackingEfficiency(BaseInterstice):
                     neighbor_coords.append(X.loc[neighbor_id][self.coords_cols])
                 else:
                     continue
-            pos_ = PackingOfSite(self.pbc, self.Bds,
+            pos_ = PackingOfSite(self.pbc, self.bds,
                                  row[self.type_col], row[self.coords_cols],
                                  neighbor_type, neighbor_coords,
                                  radii=self.radii, radius_type=self.radius_type)
@@ -1401,7 +1401,7 @@ class DistStats(BaseSRO):
 
 
 class BOOP(BaseSRO):
-    def __init__(self, coords_path=None, atom_coords=None, Bds=None, pbc=None,
+    def __init__(self, coords_path=None, atom_coords=None, bds=None, pbc=None,
                  low_order=1, higher_order=1, coarse_lower_order=1,
                  coarse_higher_order=1, neighbor_num_limit=80, atoms_df=None,
                  dependent_class="voro", save=True, backend=None,
@@ -1417,12 +1417,12 @@ class BOOP(BaseSRO):
         self.coarse_lower_order = coarse_lower_order
         self.coarse_higher_order = coarse_higher_order
         if coords_path is not None and os.path.exists(coords_path):
-            _, _, self.atom_coords, self.Bds = read_imd(coords_path)
+            _, _, self.atom_coords, self.bds = read_imd(coords_path)
         else:
             self.atom_coords = atom_coords
-            self.Bds = Bds
-        if self.atom_coords is None or self.Bds is None:
-            raise ValueError("Please make sure atom_coords and Bds are not None"
+            self.bds = bds
+        if self.atom_coords is None or self.bds is None:
+            raise ValueError("Please make sure atom_coords and bds are not None"
                              " or coords_path is not None")
         self.pbc = pbc if pbc else [1, 1, 1]
         self.neighbor_num_limit = neighbor_num_limit
@@ -1448,7 +1448,7 @@ class BOOP(BaseSRO):
         Ql, Wlbar, coarse_Ql, coarse_Wlbar = \
             boop.calculate_boop(
                 self.atom_coords.astype(np.longdouble),
-                self.pbc, np.array(self.Bds, dtype=np.longdouble),
+                self.pbc, np.array(self.bds, dtype=np.longdouble),
                 X[neighbor_col].values,
                 X[id_cols].values,
                 self.low_order, self.higher_order, self.coarse_lower_order,

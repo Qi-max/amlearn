@@ -7,7 +7,7 @@
 ! allow_neighbor_limit:       int, e.g. 80
 ! n_neighbor_limit:           int, e.g. 50
 ! pbc:                        int(3), e.g. [1, 1, 1]
-! Bds:                        real(3, 2)
+! bds:                        real(3, 2)
 !
 ! n_neighbor_list:            int (n_atoms),
 ! neighbor_lists:             int (n_atoms, n_neighbor_limit)
@@ -24,7 +24,7 @@
 !contains
 ! if final neighbors> n_neighbor_limit choose the smallest ones
 subroutine distance_neighbor(n_atoms, atom_type, atom_coords, distance_cutoff, &
-    allow_neighbor_limit, n_neighbor_limit, pbc, Bds, &
+    allow_neighbor_limit, n_neighbor_limit, pbc, bds, &
     n_neighbor_max, n_neighbor_list, neighbor_lists, neighbor_distance_lists)
     use :: distance
     use :: quicksort
@@ -36,10 +36,10 @@ subroutine distance_neighbor(n_atoms, atom_type, atom_coords, distance_cutoff, &
     integer, dimension(n_atoms, n_neighbor_limit):: neighbor_lists
     REAL(8), dimension(n_atoms, n_neighbor_limit):: neighbor_distance_lists
     integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
+    REAL(8), dimension(3, 2) :: bds
 
 !f2py   intent(in) n_atoms, atom_type, atom_coords, distance_cutoff
-!f2py   intent(in) allow_neighbor_limit, n_neighbor_limit, pbc, Bds
+!f2py   intent(in) allow_neighbor_limit, n_neighbor_limit, pbc, bds
 !f2py   intent(in, out) n_neighbor_list, n_neighbor_max
 !f2py   intent(in, out) neighbor_lists, neighbor_distance_lists
 
@@ -60,7 +60,7 @@ subroutine distance_neighbor(n_atoms, atom_type, atom_coords, distance_cutoff, &
       possible_n_neighbor = 0
       pop_n_neighbor = 0
       do i = 1, n_atoms
-        call distance_info(atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, d)
+        call distance_info(atom_coords(atom, :), atom_coords(i, :), bds, pbc, r, d)
         if((i /= atom).and.(d < distance_cutoff)) then
           possible_n_neighbor = possible_n_neighbor + 1
           possible_list(possible_n_neighbor, 1) = d   !! distance

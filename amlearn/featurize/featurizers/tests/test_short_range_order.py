@@ -34,7 +34,7 @@ class TestSRO(AmLearnTest):
                                   [1, 1.6734800, 1.1574500, 0.7897880]],
                                  columns=['type', 'x', 'y', 'z'],
                                  index=range(1, 14))
-        cls.sc_Bds = [[cls.sc_df['x'].min(), cls.sc_df['x'].max()],
+        cls.sc_bds = [[cls.sc_df['x'].min(), cls.sc_df['x'].max()],
                       [cls.sc_df['y'].min(), cls.sc_df['y'].max()],
                       [cls.sc_df['z'].min(), cls.sc_df['z'].max()]]
 
@@ -109,7 +109,7 @@ class TestSRO(AmLearnTest):
 
     def test_distance_interstice(self):
         distance_interstice = DistanceInterstice(
-            type_to_atomic_number_list=[29, 40], save=True,
+            atomic_number_list=[29, 40], save=True,
             radii=None, radius_type="miracle_radius", verbose=1)
 
         result_df = distance_interstice.fit_transform(
@@ -121,36 +121,36 @@ class TestSRO(AmLearnTest):
 
     def test_volume_area_interstice(self):
         volume_area_interstice = VolumeAreaInterstice(
-            pbc=[1,1,1], type_to_atomic_number_list=[29, 40], save=True,
+            pbc=[1,1,1], atomic_number_list=[29, 40], save=True,
             radii=None, radius_type="miracle_radius", verbose=1)
 
         result_df = volume_area_interstice.fit_transform(
             X=pd.read_pickle(os.path.join(module_dir, 'data',
                                           'featurizer_voro_nn.pickle.gz')),
-            Bds=self.sc_Bds, lammps_df=self.sc_df)
+            bds=self.sc_bds, lammps_df=self.sc_df)
         self.assertEqual(result_df.iloc[3, 0], 1.7205243759077298)
         self.assertEqual(result_df.iloc[1, -1], 0.6671266923318973)
 
     def test_cluster_packing_efficiency(self):
         cluster_packing_efficiency = ClusterPackingEfficiency(
-            pbc=[1,1,1], type_to_atomic_number_list=[29, 40], save=True,
+            pbc=[1,1,1], atomic_number_list=[29, 40], save=True,
             radii=None, radius_type="miracle_radius", verbose=1)
 
         result_df = cluster_packing_efficiency.fit_transform(
             X=pd.read_pickle(os.path.join(module_dir, 'data',
                                           'featurizer_voro_nn.pickle.gz')),
-            Bds=self.sc_Bds, lammps_df=self.sc_df)
+            bds=self.sc_bds, lammps_df=self.sc_df)
         self.assertEqual(result_df.iloc[1, 0], 0.826991765889196)
 
     def test_atomic_pcking_efficiency(self):
         atomic_pcking_efficiency = AtomicPackingEfficiency(
-            pbc=[1,1,1], type_to_atomic_number_list=[29, 40], save=True,
+            pbc=[1,1,1], atomic_number_list=[29, 40], save=True,
             radii=None, radius_type="miracle_radius", verbose=1)
 
         result_df = atomic_pcking_efficiency.fit_transform(
             X=pd.read_pickle(os.path.join(module_dir, 'data',
                                           'featurizer_voro_nn.pickle.gz')),
-            Bds=self.sc_Bds, lammps_df=self.sc_df)
+            bds=self.sc_bds, lammps_df=self.sc_df)
         self.assertEqual(result_df.iloc[2, 0], 0.05121967206477729)
 
     # def test_cn_voro_from_dump_voro(self):
@@ -315,7 +315,7 @@ class TestSRO(AmLearnTest):
     # def test_boop(self):
     #     atom_coords = self.sc[['x', 'y', 'z']].values.astype(np.longdouble)
     #     nn = BOOP(atoms_df=self.sc_voro, atom_coords=atom_coords,
-    #               Bds=self.sc_Bds)
+    #               bds=self.sc_bds)
     #     result_df = nn.fit_transform(X=None)
     #     self.assertTrue('Coarse-grained w_4 voro' in result_df.columns)
     #     self.assertEqual(len(result_df), len(self.sc_voro))

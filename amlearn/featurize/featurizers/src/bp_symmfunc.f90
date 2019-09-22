@@ -13,7 +13,7 @@
 
 subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
     n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, &
-    pbc, Bds, &
+    pbc, bds, &
     cutoff_s, cutoff_r, delta_r, n_r, radial_funcs)
 
     implicit none
@@ -34,14 +34,14 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
     integer, dimension(n_atom_types):: atom_type_symbols
     REAL(8), dimension(n_atoms, 3):: atom_coords
     integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
+    REAL(8), dimension(3, 2) :: bds
     REAL(8) :: cutoff_s, cutoff_r, delta_r
     integer :: n_r
     REAL(8), dimension(n_center_atoms, n_r*n_atom_types):: radial_funcs
     ! dimension: bin_num, types of atom center
 
 !f2py   intent(in) n_center_atoms, center_atom_ids, center_atom_coords
-!f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, Bds
+!f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, bds
 !f2py   intent(in) cutoff_s, cutoff_r, delta_r, n_r
 !f2py   intent(in, out) radial_funcs
 
@@ -55,7 +55,7 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
         write(*, *) atom, center_atom_ids(atom)
         do i = 1, n_atoms
             if (atom_ids(i) /= center_atom_ids(atom)) then
-                call distance_info(center_atom_coords(atom, :), atom_coords(i, :), Bds, pbc, r, rij)
+                call distance_info(center_atom_coords(atom, :), atom_coords(i, :), bds, pbc, r, rij)
                 if(rij <= cutoff_s) then
                     do type = 1, n_atom_types
                         if (atom_types(i) == atom_type_symbols(type)) then
@@ -77,7 +77,7 @@ end subroutine bp_radial
 
 subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, &
-    pbc, Bds, &
+    pbc, bds, &
     ksaais, lambdas, zetas, n_params, cutoff_s, angular_funcs)
 
     implicit none
@@ -98,7 +98,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     integer, dimension(n_atom_types):: atom_type_symbols
     REAL(8), dimension(n_atoms, 3):: atom_coords
     integer, dimension(3) :: pbc
-    REAL(8), dimension(3, 2) :: Bds
+    REAL(8), dimension(3, 2) :: bds
     integer :: n_params
     REAL(8), dimension(n_params):: ksaais, lambdas, zetas
     REAL(8) :: cutoff_s
@@ -107,7 +107,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     ! dimension: bin_num, types of atom center
 
 !f2py   intent(in) n_center_atoms, center_atom_ids, center_atom_coords
-!f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, Bds
+!f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, bds
 !f2py   intent(in) ksaais, lambdas, zetas, n_params, cutoff_s
 !f2py   intent(in, out) angular_funcs
 
@@ -127,7 +127,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
         neigh_ids = 0
         do atom = 1, n_atoms
             if (atom_ids(atom) /= center_atom_ids(i)) then
-                call distance_info(center_atom_coords(i, :), atom_coords(atom, :), Bds, pbc, r, rij)
+                call distance_info(center_atom_coords(i, :), atom_coords(atom, :), bds, pbc, r, rij)
                 if(rij <= cutoff_s) then
                     do type = 1, n_atom_types
                         if (atom_types(atom) == atom_type_symbols(type)) then
@@ -150,7 +150,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
                                 rij = neigh_dists(type1, j, 4)
                                 rik = neigh_dists(type2, k, 4)
                                 call distance_info(atom_coords(neigh_ids(type1, j), :), &
-                                        atom_coords(neigh_ids(type2, k), :), Bds, pbc, r, rjk)
+                                        atom_coords(neigh_ids(type2, k), :), bds, pbc, r, rjk)
 !                                dot_product = neigh_dists(type1, j, 1) * neigh_dists(type2, k, 1) + &
 !                                        neigh_dists(type1, j, 2) * neigh_dists(type2, k, 2) + &
 !                                        neigh_dists(type1, j, 3) * neigh_dists(type2, k, 3)
@@ -167,7 +167,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
                                 rij = neigh_dists(type1, j, 4)
                                 rik = neigh_dists(type2, k, 4)
                                 call distance_info(atom_coords(neigh_ids(type1, j), :), &
-                                        atom_coords(neigh_ids(type2, k), :), Bds, pbc, r, rjk)
+                                        atom_coords(neigh_ids(type2, k), :), bds, pbc, r, rjk)
 !                                dot_product = neigh_dists(type1, j, 1) * neigh_dists(type2, k, 1) + &
 !                                        neigh_dists(type1, j, 2) * neigh_dists(type2, k, 2) + &
 !                                        neigh_dists(type1, j, 3) * neigh_dists(type2, k, 3)
@@ -187,18 +187,18 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
 end subroutine bp_angular
 
 
-subroutine distance_info(atom_coords_i, atom_coords_j, Bds, pbc, r, d)
+subroutine distance_info(atom_coords_i, atom_coords_j, bds, pbc, r, d)
 
 	REAL(8), dimension(3), intent(in) :: atom_coords_i, atom_coords_j
 	REAL(8), dimension(3), intent(out):: r
 	REAL(8), intent(out) :: d
-	REAL(8), dimension(3, 2) :: Bds
+	REAL(8), dimension(3, 2) :: bds
 	REAL(8), dimension(3) :: Lens
 	integer, dimension(3) :: pbc
 
-	Lens(1) = Bds(1, 2) - Bds(1, 1)
-	Lens(2) = Bds(2, 2) - Bds(2, 1)
-	Lens(3) = Bds(3, 2) - Bds(3, 1)
+	Lens(1) = bds(1, 2) - bds(1, 1)
+	Lens(2) = bds(2, 2) - bds(2, 1)
+	Lens(3) = bds(3, 2) - bds(3, 1)
 
 	do m = 1, 3
 	r(m) = atom_coords_i(m) - atom_coords_j(m)
