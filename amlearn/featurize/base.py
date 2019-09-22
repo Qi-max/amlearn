@@ -28,7 +28,7 @@ def load_radii():
             'miracle_radius'.
 
     """
-    with open(os.path.join(module_dir, '..', 'data',
+    with open(os.path.join(module_dir, '..', 'utils',
                            'PTE.json'), 'r') as rf:
         PTE_dict_ = json.load(rf)
     return PTE_dict_
