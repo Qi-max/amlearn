@@ -1,6 +1,6 @@
 import numpy as np
 from amlearn.utils.data import read_lammps_dump
-from amlearn.featurize.featurizers.symmetry_function import \
+from amlearn.featurize.symmetry_function import \
     BPRadialFunction, BPAngularFunction
 
 """

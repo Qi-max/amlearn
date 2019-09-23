@@ -1,9 +1,9 @@
 from amlearn.utils.data import read_lammps_dump
-from amlearn.featurize.featurizers.featurizer_pipeline import FeaturizerPipeline
-from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN
-from amlearn.featurize.featurizers.short_range_order import \
+from amlearn.featurize.pipeline import FeaturizePipeline
+from amlearn.featurize.nearest_neighbor import VoroNN, DistanceNN
+from amlearn.featurize.short_range_order import \
     DistanceInterstice, VolumeAreaInterstice
-from amlearn.featurize.featurizers.medium_range_order import MRO
+from amlearn.featurize.medium_range_order import MRO
 
 """
 This is an example script of deriving interstice distribution features for 
@@ -39,10 +39,10 @@ featurizers = [
     # from SRO to MRO
     MRO(output_path=output_path)]
 
-# defining a featurizer_pipeline
-featurizer_pipeline = FeaturizerPipeline(featurizers=featurizers,
+# defining a featurize_pipeline
+featurize_pipeline = FeaturizePipeline(featurizers=featurizers,
                                          output_path=output_path)
 
 # featurization
-feature_df = featurizer_pipeline.fit_transform(X=structure,
+feature_df = featurize_pipeline.fit_transform(X=structure,
                                                bds=bds, lammps_df=structure)

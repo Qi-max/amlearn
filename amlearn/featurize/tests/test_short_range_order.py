@@ -1,13 +1,10 @@
 import os
 import numpy as np
 import pandas as pd
-from amlearn.featurize.featurizers.short_range_order import CN, VoroIndex, \
-    CharacterMotif, IFoldSymmetry, AreaWtIFoldSymmetry, VolWtIFoldSymmetry, \
-    VoroAreaStats, BOOP, VoroAreaStatsSeparate, VoroVolStats, \
-    VoroVolStatsSeparate, DistStats, DistanceInterstice, VolumeAreaInterstice, \
+from amlearn.featurize.short_range_order import DistanceInterstice, VolumeAreaInterstice, \
     ClusterPackingEfficiency, AtomicPackingEfficiency
 from amlearn.utils.basetest import AmLearnTest
-from amlearn.featurize.featurizers.short_range_order import PackingOfSite
+from amlearn.featurize.short_range_order import PackingOfSite
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 

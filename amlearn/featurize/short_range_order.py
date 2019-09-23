@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import six
 from copy import copy
-from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN
+from amlearn.featurize.nearest_neighbor import VoroNN, DistanceNN
 
 from scipy.spatial.qhull import ConvexHull
 from amlearn.featurize.base import load_radii, BaseFeaturize
@@ -19,7 +19,7 @@ from amlearn.utils.verbose import VerboseReporter
 from amlearn.utils.data import calc_neighbor_coords
 
 try:
-    from amlearn.featurize.featurizers.src import voronoi_stats, boop
+    from amlearn.featurize.src import voronoi_stats, boop
 except Exception:
     print("import fortran file voronoi_stats/boop error!\n")
 

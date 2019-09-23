@@ -6,7 +6,7 @@ from amlearn.utils.data import get_isometric_lists
 from amlearn.utils.verbose import VerboseReporter
 
 try:
-    from amlearn.featurize.featurizers.src import mro_stats, voronoi_stats
+    from amlearn.featurize.src import mro_stats, voronoi_stats
 except Exception:
     print("import fortran file mro_stats/voronoi_stats error!\n")
 

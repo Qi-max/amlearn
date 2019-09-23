@@ -11,7 +11,7 @@ from abc import ABCMeta, abstractmethod
 
 
 try:
-    from amlearn.featurize.featurizers.src \
+    from amlearn.featurize.src \
         import voronoi_stats
 except Exception:
     print("import fortran file voronoi_stats error!\n")
