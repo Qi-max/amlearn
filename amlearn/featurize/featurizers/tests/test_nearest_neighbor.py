@@ -46,17 +46,17 @@ class TestNearestNeighbor(AmLearnTest):
         self.assertEqual(result_df['neighbor_num_voro'].iloc[1], 11.0)
         self.assertListEqual(list(result_df['neighbor_edges_voro'].iloc[1]),
                              [5, 6, 5, 6, 4, 6, 3, 6, 5, 4, 4])
-    #
-    # def test_bcc_voro(self):
-    #     nn = VoroNN(bds=self.bcc_bds, cutoff=5, allow_neighbor_limit=300,
-    #                 n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
-    #     result_df = nn.fit_transform(self.bcc_df)
-    #     self.assertEqual(len(result_df.columns), 6)
-    #     self.assertEqual(len(result_df), 13)
-    #     self.assertEqual(result_df['neighbor_num_voro'].iloc[0], 10.0)
-    #     self.assertEqual(result_df['neighbor_num_voro'].iloc[1], 11.0)
-    #     self.assertListEqual(list(result_df['neighbor_edges_voro'].iloc[1]),
-    #                          [5, 6, 5, 6, 4, 6, 3, 6, 5, 4, 4])
+
+    def test_bcc_voro(self):
+        nn = VoroNN(bds=self.bcc_bds, cutoff=5, allow_neighbor_limit=300,
+                    n_neighbor_limit=80, pbc=[1, 1, 1], save=True)
+        result_df = nn.fit_transform(self.bcc_df)
+        self.assertEqual(len(result_df.columns), 6)
+        self.assertEqual(len(result_df), 13)
+        self.assertEqual(result_df['neighbor_num_voro'].iloc[0], 10.0)
+        self.assertEqual(result_df['neighbor_num_voro'].iloc[1], 11.0)
+        self.assertListEqual(list(result_df['neighbor_edges_voro'].iloc[1]),
+                             [5, 6, 5, 6, 4, 6, 3, 6, 5, 4, 4])
 
     def test_dist(self):
         nn = DistanceNN(bds=self.sc_bds, cutoff=4, allow_neighbor_limit=300,

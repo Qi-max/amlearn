@@ -1,22 +1,20 @@
 import os
-from abc import ABCMeta
-from collections import defaultdict
-from functools import lru_cache
-from math import pi
+import six
 import numpy as np
 import pandas as pd
-import six
+from math import pi
 from copy import copy
-from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN
-
+from abc import ABCMeta
+from functools import lru_cache
+from collections import defaultdict
 from scipy.spatial.qhull import ConvexHull
 from amlearn.featurize.base import load_radii, BaseFeaturize
-from amlearn.utils.data import read_imd, read_lammps_dump, get_isometric_lists, list_like
+from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN, BaseNN
+from amlearn.utils.verbose import VerboseReporter
+from amlearn.utils.data import read_imd, read_lammps_dump, get_isometric_lists, \
+    list_like, calc_neighbor_coords
 from amlearn.utils.packing import solid_angle, \
     triangular_angle, calc_stats, triangle_area, tetra_volume
-from amlearn.utils.verbose import VerboseReporter
-
-from amlearn.utils.data import calc_neighbor_coords
 
 try:
     from amlearn.featurize.featurizers.src import voronoi_stats, boop
@@ -29,6 +27,13 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 class PackingOfSite(object):
     def __init__(self, pbc, bds, atom_type, coords, neighbors_type,
                  neighbors_coords, radii=None, radius_type="miracle_radius"):
+        """
+        Args:
+            radii: list or dict, default: None.
+                If list, index is type, value is radial,
+                If dict, key is type, value is radial.
+                If None, read type radial from '../radii.json'
+        """
         self.pbc = pbc
         self.bds = bds
         self.atom_type = atom_type
@@ -164,7 +169,6 @@ class PackingOfSite(object):
         if not hasattr(self, 'neighbors_solid_angle_'):
             self.calculate_hull_tetra_angles()
 
-            # init neighbors_solid_angle list
             neighbors_solid_angle = [0] * len(self.neighbors_type)
             # iter convex surface (neighbor indices)
             for convex_surface_indices, solid_angle_list in \
@@ -179,11 +183,6 @@ class PackingOfSite(object):
         Calculate the cluster volume that is packed with atoms, including the
         volume of center atoms plus the volume cones (from solid angle) of
         all the neighbors.
-        Args:
-            radii: list or dict, default: None.
-                If list, index is type, value is radial,
-                If dict, key is type, value is radial.
-                If None, read type radial from '../radii.json'
         Returns:
             packed_volume
         """
@@ -280,7 +279,7 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
         if dependent_class is None:
             self.dependent_class_ = None
             self.dependent_name_ = 'voro'
-        elif isinstance(dependent_class, type):
+        elif isinstance(dependent_class, BaseNN):
             self.dependent_class_ = dependent_class
             self.dependent_name_ = dependent_class.__class__.__name__.lower()[:4]
         elif isinstance(dependent_class, str):
@@ -324,15 +323,6 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
                  atomic_number_list=None, neighbor_num_limit=80,
                  save=True, radii=None, radius_type="miracle_radius",
                  verbose=1, output_path=None, **nn_kwargs):
-        """
-        Args:
-            lammps_df (DataFrame): Constructed from the output of lammps, which
-                common columns is ['type', 'x', 'y', 'z'...] columns.
-            bds (list like): X, y, z boundaries.
-            lammps_path (DataFrame): If lammps_df is None, then we automatically
-                construct the DataFrame from lammps output path.
-
-        """
         super(BaseInterstice, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
@@ -352,6 +342,11 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
+            lammps_df (DataFrame): Constructed from the output of lammps, which
+                common columns is ['type', 'x', 'y', 'z'...] columns.
+            bds (list like): X, y, z boundaries.
+            lammps_path (DataFrame): If lammps_df is None, then we automatically
+                construct the DataFrame from lammps output path.
 
         Returns:
             self (object): Interstice or Packing instance.
@@ -384,19 +379,16 @@ class DistanceInterstice(BaseInterstice):
                  verbose=1, output_path=None, output_file_prefix=None,
                  **nn_kwargs):
         super(DistanceInterstice, self).__init__(
-            save=save, backend=backend,
-            dependent_class=dependent_class, type_col=type_col,
-            atomic_number_list=atomic_number_list,
+            save=save, backend=backend, dependent_class=dependent_class,
+            type_col=type_col, atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit,
             radii=radii, radius_type = radius_type,
             verbose = verbose, output_path=output_path, **nn_kwargs)
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_{}_{}_distance_interstice'.format(self.category,
-                                                       self.dependent_name_,
-                                                       self.radius_type)
-        self.dependent_cols_ = [self.neighbor_num_col,
-                                self.neighbor_ids_col,
+            else 'feature_{}_{}_{}_distance_interstice'.format(
+            self.category, self.dependent_name_, self.radius_type)
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col,
                                 self.neighbor_dists_col]
 
     def transform(self, X):
@@ -487,9 +479,8 @@ class VolumeAreaInterstice(BaseInterstice):
         """
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VolumeAreaInterstice, self).__init__(
-            save=save, backend=backend,
-            dependent_class=dependent_class, type_col=type_col,
-            atomic_number_list=atomic_number_list,
+            save=save, backend=backend, dependent_class=dependent_class,
+            type_col=type_col, atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit,
             radii=radii, radius_type = radius_type,
             verbose = verbose, output_path=output_path, **nn_kwargs)
@@ -510,7 +501,8 @@ class VolumeAreaInterstice(BaseInterstice):
             area_types if isinstance(area_types, list_like()) \
                 else [area_types] if area_types is not None \
                 else ['fractional_area_interstice_triangle']
-        self.output_file_prefix = output_file_prefix if output_file_prefix is not None \
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
             else 'feature_{}_{}_{}_volume_area_interstice'.format(
                     self.category, self.dependent_name_, self.radius_type)
 
@@ -530,8 +522,8 @@ class VolumeAreaInterstice(BaseInterstice):
                 get_feature_names() method for column names.
         """
 
-        X = X.join(self.lammps_df) \
-            if self.calculated_X is None else self.calculated_X
+        X = X.join(self.lammps_df) if self.calculated_X is None \
+            else self.calculated_X
 
         # define print verbose
         if self.verbose > 0:
@@ -618,7 +610,8 @@ class VolumeAreaInterstice(BaseInterstice):
                         if area_type == "area_interstice":
                             feature_list.extend(
                                 calc_stats(area_interstice_original_array))
-                        # fractional area_interstices in relative to the entire area
+                        # fractional area_interstices in relative to the
+                        # entire area
                         if area_type == \
                                 "fractional_area_interstice_triangle_avg":
                             feature_list.extend(
@@ -680,9 +673,8 @@ class ClusterPackingEfficiency(BaseInterstice):
                  **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(ClusterPackingEfficiency, self).__init__(
-            save=save, backend=backend,
-            dependent_class=dependent_class, type_col=type_col,
-            atomic_number_list=atomic_number_list,
+            save=save, backend=backend, dependent_class=dependent_class,
+            type_col=type_col, atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit, radii=radii,
             radius_type = radius_type, verbose = verbose,
             output_path=output_path, **nn_kwargs)
@@ -773,9 +765,8 @@ class AtomicPackingEfficiency(BaseInterstice):
                  **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(AtomicPackingEfficiency, self).__init__(
-            save=save, backend=backend,
-            dependent_class=dependent_class, type_col=type_col,
-            atomic_number_list=atomic_number_list,
+            save=save, backend=backend, dependent_class=dependent_class,
+            type_col=type_col, atomic_number_list=atomic_number_list,
             neighbor_num_limit=neighbor_num_limit, radii=radii,
             radius_type = radius_type, verbose = verbose,
             output_path=output_path, **nn_kwargs)
@@ -856,11 +847,9 @@ class AtomicPackingEfficiency(BaseInterstice):
 class CN(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro", save=True,
                  output_path=None, output_file_prefix=None, **nn_kwargs):
-        super(CN, self).__init__(save=save,
-                                 backend=backend,
+        super(CN, self).__init__(save=save, backend=backend,
                                  dependent_class=dependent_class,
-                                 output_path=output_path,
-                                 **nn_kwargs)
+                                 output_path=output_path, **nn_kwargs)
         self.dependent_cols_ = [self.neighbor_num_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
@@ -878,7 +867,7 @@ class CN(BaseSRO):
         return cn_df
 
     def get_feature_names(self):
-        feature_names = ['CN {}'.format(self.dependent_name_)]
+        feature_names = ['cn_{}'.format(self.dependent_name_)]
         return feature_names
 
 
@@ -887,20 +876,20 @@ class VoroIndex(BaseSRO):
                  neighbor_num_limit=80, include_beyond_edge_max=True,
                  save=True, edge_min=3, edge_max=7, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
-        assert dependent_class == "voro" or dependent_class == "voronoi"
-        super(VoroIndex, self).__init__(save=save,
-                                        backend=backend,
+        assert dependent_class == "voro" or dependent_class == "voronoi" or \
+               isinstance(dependent_class, VoroNN)
+        super(VoroIndex, self).__init__(save=save, backend=backend,
                                         dependent_class=dependent_class,
-                                        output_path=output_path,
-                                        **nn_kwargs)
-        self.neighbor_num_limit = neighbor_num_limit
-        self.include_beyond_edge_max = include_beyond_edge_max
+                                        output_path=output_path, **nn_kwargs)
         self.edge_min = edge_min
         self.edge_max = edge_max
+        self.neighbor_num_limit = neighbor_num_limit
+        self.include_beyond_edge_max = include_beyond_edge_max
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_voronoi_index'.format(self.category)
+            else 'feature_{}_{}_voronoi_index'.format(self.category,
+                                                      self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -908,9 +897,9 @@ class VoroIndex(BaseSRO):
         edge_lists = get_isometric_lists(X[self.neighbor_edges_col].values,
                                          limit_width=self.neighbor_num_limit)
 
-        voronoi_index_list = np.zeros((len(X), edge_num))
+        voro_index_list = np.zeros((len(X), edge_num))
         voro_index_list = voronoi_stats.voronoi_index(
-            voronoi_index_list, X[self.neighbor_num_col].values, edge_lists,
+            voro_index_list, X[self.neighbor_num_col].values, edge_lists,
             self.edge_min, self.edge_max, self.include_beyond_edge_max,
             n_atoms=len(X), neighbor_num_limit=self.neighbor_num_limit)
 
@@ -923,7 +912,8 @@ class VoroIndex(BaseSRO):
         return voro_index_df
 
     def get_feature_names(self):
-        return ['Voronoi_indices_voro']
+        return ['voronoi_idx_{}_{}'.format(idx, self.dependent_name_)
+                for idx in range(self.edge_min, self.edge_max + 1)]
 
 
 class CharacterMotif(BaseSRO):
@@ -946,16 +936,17 @@ class CharacterMotif(BaseSRO):
                                             dtype=np.longdouble)
         self.frank_kasper = frank_kasper
         self.edge_min = edge_min
-        self.dependent_cols_ = ['Voronoi_indices_voro']
+        self.dependent_cols_ = ['voronoi_idx_{}_voro'.format(idx)
+                                for idx in range(3,8)]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_character_motif'.format(self.category)
+            else 'feature_{}_voro_character_motif'.format(self.category)
 
     def fit(self, X=None):
         self.dependent_class_ = self.check_dependency(X)
         # This class is only dependent on 'Voronoi_indices_voro' col, so if
         # X don't have this col, this method will calculate it automatically.
-        if self.dependent_class_ is None:
+        if self.dependent_class_ is not None:
             voro_index = \
                 VoroIndex(neighbor_num_limit=self.neighbor_num_limit,
                           include_beyond_edge_max=self.include_beyond_edge_max,
@@ -999,17 +990,22 @@ class CharacterMotif(BaseSRO):
 class IFoldSymmetry(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, include_beyond_edge_max=True,
-                 edge_min=3, edge_max=7, save=True, **nn_kwargs):
+                 edge_min=3, edge_max=7, save=True, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(IFoldSymmetry, self).__init__(save=save,
                                             backend=backend,
                                             dependent_class=dependent_class,
+                                            output_path=output_path,
                                             **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
         self.edge_max = edge_max
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_voro_i_fold_symmetry'.format(self.category)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1027,8 +1023,7 @@ class IFoldSymmetry(BaseSRO):
                                  columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=i_symm_df,
-                name='{}_i_fold_symmetry'.format(self.category))
+                output_df=i_symm_df, name=self.output_file_prefix)
 
         return i_symm_df
 
@@ -1041,11 +1036,12 @@ class IFoldSymmetry(BaseSRO):
 class AreaWtIFoldSymmetry(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, include_beyond_edge_max=True,
-                 edge_min=3, edge_max=7, save=True, **nn_kwargs):
+                 edge_min=3, edge_max=7, save=True, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(AreaWtIFoldSymmetry, self).__init__(
-            save=save, backend=backend,
-            dependent_class=dependent_class, **nn_kwargs)
+            save=save, backend=backend, dependent_class=dependent_class,
+            output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
@@ -1053,6 +1049,10 @@ class AreaWtIFoldSymmetry(BaseSRO):
         self.dependent_cols_ = [self.neighbor_num_col,
                                 self.neighbor_edges_col,
                                 self.neighbor_areas_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else '{}_{}_area_wt_i_fold_symmetry'.format(self.category,
+                                                        self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1075,8 +1075,7 @@ class AreaWtIFoldSymmetry(BaseSRO):
                          columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=area_wt_i_symm_df,
-                name='{}_area_wt_i_fold_symmetry'.format(self.category))
+                output_df=area_wt_i_symm_df, name=self.output_file_prefix)
         return area_wt_i_symm_df
 
     def get_feature_names(self):
@@ -1088,11 +1087,12 @@ class AreaWtIFoldSymmetry(BaseSRO):
 class VolWtIFoldSymmetry(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, include_beyond_edge_max=True,
-                 edge_min=3, edge_max=7, save=True, **nn_kwargs):
+                 edge_min=3, edge_max=7, save=True, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VolWtIFoldSymmetry, self).__init__(
-            save=save, backend=backend,
-            dependent_class=dependent_class, **nn_kwargs)
+            save=save, backend=backend, dependent_class=dependent_class,
+            output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.include_beyond_edge_max = include_beyond_edge_max
         self.edge_min = edge_min
@@ -1100,6 +1100,10 @@ class VolWtIFoldSymmetry(BaseSRO):
         self.dependent_cols_ = [self.neighbor_num_col,
                                 self.neighbor_edges_col,
                                 self.neighbor_vols_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_vol_wt_i_fold_symmetry'.format(
+            self.category, self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1122,8 +1126,7 @@ class VolWtIFoldSymmetry(BaseSRO):
                                         columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=vol_wt_i_symm_df,
-                name='{}_vol_wt_i_fold_symmetry'.format(self.category))
+                output_df=vol_wt_i_symm_df, name=self.output_file_prefix)
 
         return vol_wt_i_symm_df
 
@@ -1135,16 +1138,23 @@ class VolWtIFoldSymmetry(BaseSRO):
 
 class VoroAreaStats(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
-                 neighbor_num_limit=80, save=True, **nn_kwargs):
+                 neighbor_num_limit=80, save=True, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
         super(VoroAreaStats, self).__init__(save=save,
                                             backend=backend,
                                             dependent_class=dependent_class,
+                                            output_path=output_path,
                                             **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.voro_depend_cols = ['neighbor_num_voro'] + \
                                 ['neighbor_area_5_voro']
         self.stats = ['mean', 'std', 'min', 'max']
         self.dist_depend_cols = None
+        self.dependent_cols_ = [self.neighbor_num_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_area_stats'.format(self.category,
+                                                   self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1167,7 +1177,7 @@ class VoroAreaStats(BaseSRO):
                                      columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=area_stats_df, name='{}_voronoi_area_stats'.format(self.category))
+                output_df=area_stats_df, name=self.output_file_prefix)
 
         return area_stats_df
 
@@ -1181,13 +1191,11 @@ class VoroAreaStats(BaseSRO):
 class VoroAreaStatsSeparate(BaseSRO):
     def __init__(self, neighbor_num_limit=80, include_beyond_edge_max=True,
                  atoms_df=None, dependent_class="voro", edge_min=3, edge_max=7,
-                 save=True, backend=None, remain_stat=False, **nn_kwargs):
-        super(VoroAreaStatsSeparate, self).__init__(save=save,
-                                                    backend=backend,
-                                                    dependent_class=dependent_class,
-                                                    atoms_df=atoms_df,
-                                                    remain_stat=remain_stat,
-                                                    **nn_kwargs)
+                 save=True, backend=None, remain_stat=False, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
+        super(VoroAreaStatsSeparate, self).__init__(
+            save=save, backend=backend, dependent_class=dependent_class,
+            output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.voro_depend_cols = ['neighbor_num_voro'] + \
                                 ['neighbor_edge_{}_voro'.format(edge)
@@ -1201,6 +1209,11 @@ class VoroAreaStatsSeparate(BaseSRO):
         self.include_beyond_edge_max = include_beyond_edge_max
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
         self.dist_depend_cols = None
+        self.dependent_cols_ = [self.neighbor_num_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_area_stats_separate'.format(
+            self.category, self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1227,8 +1240,7 @@ class VoroAreaStatsSeparate(BaseSRO):
                                      columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=area_stats_separate_df,
-                name='{}_voro_area_stats_separate'.format(self.category))
+                output_df=area_stats_separate_df, name=self.output_file_prefix)
 
         return area_stats_separate_df
 
@@ -1240,20 +1252,23 @@ class VoroAreaStatsSeparate(BaseSRO):
 
 
 class VoroVolStats(BaseSRO):
-    def __init__(self, neighbor_num_limit=80,
-                 atoms_df=None, dependent_class="voro",
-                 save=True, backend=None, remain_stat=False, **nn_kwargs):
-        super(VoroVolStats, self).__init__(save=save,
-                                            backend=backend,
-                                            dependent_class=dependent_class,
-                                            atoms_df=atoms_df,
-                                            remain_stat=remain_stat,
-                                            **nn_kwargs)
+    def __init__(self, neighbor_num_limit=80, atoms_df=None,
+                 dependent_class="voro", save=True, backend=None,
+                 remain_stat=False, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
+        super(VoroVolStats, self).__init__(
+            save=save, backend=backend, dependent_class=dependent_class,
+            output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.voro_depend_cols = ['neighbor_num_voro'] + \
                                 ['neighbor_vol_5_voro']
         self.stats = ['mean', 'std', 'min', 'max']
         self.dist_depend_cols = None
+        self.dependent_cols_ = [self.neighbor_num_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_vol_stats'.format(self.category,
+                                                  self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1276,7 +1291,7 @@ class VoroVolStats(BaseSRO):
                                     columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=vol_stats_df, name='{}_voronoi_vol_stats'.format(self.category))
+                output_df=vol_stats_df, name=self.output_file_prefix)
 
         return vol_stats_df
 
@@ -1290,13 +1305,11 @@ class VoroVolStats(BaseSRO):
 class VoroVolStatsSeparate(BaseSRO):
     def __init__(self, neighbor_num_limit=80, include_beyond_edge_max=True,
                  atoms_df=None, dependent_class="voro", edge_min=3, edge_max=7,
-                 save=True, backend=None, remain_stat=False, **nn_kwargs):
-        super(VoroVolStatsSeparate, self).__init__(save=save,
-                                            backend=backend,
-                                            dependent_class=dependent_class,
-                                            atoms_df=atoms_df,
-                                            remain_stat=remain_stat,
-                                            **nn_kwargs)
+                 save=True, backend=None, remain_stat=False, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
+        super(VoroVolStatsSeparate, self).__init__(
+            save=save, backend=backend, dependent_class=dependent_class,
+            output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
         self.voro_depend_cols = ['neighbor_num_voro'] + \
                                 ['neighbor_edge_{}_voro'.format(edge)
@@ -1310,6 +1323,11 @@ class VoroVolStatsSeparate(BaseSRO):
         self.include_beyond_edge_max = include_beyond_edge_max
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
         self.dist_depend_cols = None
+        self.dependent_cols_ = [self.neighbor_num_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_vol_stats_separate'.format(self.category,
+                                                           self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1335,7 +1353,7 @@ class VoroVolStatsSeparate(BaseSRO):
                                              columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=vol_stats_separate_df, name='{}_voro_vol_stats_separate'.format(self.category))
+                output_df=vol_stats_separate_df, name=self.output_file_prefix)
 
         return vol_stats_separate_df
 
@@ -1349,12 +1367,12 @@ class VoroVolStatsSeparate(BaseSRO):
 class DistStats(BaseSRO):
     def __init__(self, dist_type='distance', neighbor_num_limit=80,
                  atoms_df=None, dependent_class="voro",
-                 save=True, backend=None, remain_stat=False, **nn_kwargs):
+                 save=True, backend=None, remain_stat=False, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
         super(DistStats, self).__init__(save=save,
                                         backend=backend,
                                         dependent_class=dependent_class,
-                                        atoms_df=atoms_df,
-                                        remain_stat=remain_stat,
+                                        output_path=output_path,
                                         **nn_kwargs)
         self.dist_type = dist_type
         self.neighbor_num_limit = neighbor_num_limit
@@ -1363,6 +1381,11 @@ class DistStats(BaseSRO):
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
         self.dist_depend_cols = ['n_neighbors_dist'] + \
                                  ['neighbor_{}_5_dist'.format(dist_type)]
+        self.dependent_cols_ = [self.neighbor_num_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_{}_stats'.format(
+            self.category, self.dependent_name_, self.dist_type)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1384,8 +1407,7 @@ class DistStats(BaseSRO):
                                      columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=dist_stats_df,
-                name='{}_{}_{}_stats'.format(self.category, self.dependent_name_, self.dist_type))
+                output_df=dist_stats_df, name=self.output_file_prefix)
 
         return dist_stats_df
 
@@ -1405,12 +1427,12 @@ class BOOP(BaseSRO):
                  low_order=1, higher_order=1, coarse_lower_order=1,
                  coarse_higher_order=1, neighbor_num_limit=80, atoms_df=None,
                  dependent_class="voro", save=True, backend=None,
-                 remain_stat=False, **nn_kwargs):
+                 remain_stat=False, output_path=None,
+                 output_file_prefix=None, **nn_kwargs):
         super(BOOP, self).__init__(save=save,
                                    backend=backend,
                                    dependent_class=dependent_class,
-                                   atoms_df=atoms_df,
-                                   remain_stat=remain_stat,
+                                   output_path=output_path,
                                    **nn_kwargs)
         self.low_order = low_order
         self.higher_order = higher_order
@@ -1433,6 +1455,11 @@ class BOOP(BaseSRO):
                                  ['neighbor_id_{}_dist'.format(idx)
                                   for idx in range(neighbor_num_limit)]
         self.bq_tags = ['4', '6', '8', '10']
+        self.dependent_cols_ = [self.neighbor_num_col]
+        self.output_file_prefix = output_file_prefix \
+            if output_file_prefix is not None \
+            else 'feature_{}_{}_boop'.format(self.category,
+                                             self.dependent_name_)
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
@@ -1462,7 +1489,7 @@ class BOOP(BaseSRO):
                                columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
-                output_df=boop_df, name='{}_boop_{}'.format(self.category, self.dependent_name_))
+                output_df=boop_df, name=self.output_file_prefix)
 
         return boop_df
 
@@ -1478,8 +1505,3 @@ class BOOP(BaseSRO):
                                                          self.dependent_name_)
                          for num in self.bq_tags]
         return feature_names
-
-    @property
-    def double_dependency(self):
-        return False
-
