@@ -15,9 +15,7 @@ import time
 from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import cross_validate
 from amlearn.learn.sklearn_patch import calc_scores
-from amlearn.preprocess.preprocess import ImblearnPreprocess
-from amlearn.utils.backend import BackendContext, MLBackend, \
-    check_path_while_saving
+from amlearn.utils.backend import check_path_while_saving
 from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
 from amlearn.utils.directory import write_file, create_path
@@ -27,6 +25,8 @@ from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.utils.testing import all_estimators
 from sklearn.utils.validation import check_is_fitted
+
+from amlearn.learn.preprocessor import ImblearnPreprocessor
 
 
 class AmClassifier(AmBaseLearn):
@@ -312,7 +312,7 @@ class AmClassifier(AmBaseLearn):
                       prediction_types='dataframe', **fit_params):
         self.backend.logger.info('Start Imblearn.')
         imblearn_start_time = time.time()
-        imblearn = ImblearnPreprocess()
+        imblearn = ImblearnPreprocessor()
         if imblearn_method is None:
             imblearn_method = 'EasyEnsemble'
         if imblearn_params is None:

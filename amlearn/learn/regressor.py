@@ -186,7 +186,7 @@ class AmRegressor(AmBaseLearn):
             results, scorers = \
                 cross_validate(estimator=self.regressor, scoring=scoring,
                                fit_params=fit_params, X=X, y=y, cv=cv_num,
-                               **cv_params)
+                               return_train_score=True, **cv_params)
         else:
             results, scorers = self._fit(
                 X, y, self.regressor,
@@ -212,6 +212,17 @@ class AmRegressor(AmBaseLearn):
                 time.time() - cv_start_time,
                 self.score_name, self.best_score_))
 
+        write_file(
+            os.path.join(self.backend.output_path, 'mean_scores.txt'),
+            '{}\n{}\n{}'.format(','.join(list(scorers.keys())),
+                                ','.join([str(np.mean(results['test_{}'.format(
+                                    score_name)]))
+                                          for score_name in scorers.keys()]),
+                                ','.join([str(np.mean(results['train_{}'.format(
+                                    score_name)]))
+                                          for score_name in scorers.keys()])
+                                ))
+
         for cv_idx in range(cv_num):
             cv_tag = "cv_{}".format(cv_idx)
             cv_output_path = os.path.join(self.backend.output_path, cv_tag)
@@ -219,10 +230,14 @@ class AmRegressor(AmBaseLearn):
 
             write_file(
                 os.path.join(cv_output_path, 'scores.txt'),
-                '{}\n{}'.format(','.join(list(scorers.keys())),
+                '{}\n{}\n{}'.format(','.join(list(scorers.keys())),
                                 ','.join([str(results['test_{}'.format(
                                     score_name)][cv_idx])
-                                        for score_name in scorers.keys()])))
+                                        for score_name in scorers.keys()]),
+                                ','.join([str(results['train_{}'.format(
+                                    score_name)][cv_idx])
+                                          for score_name in scorers.keys()])
+                                ))
 
             score_model = results['estimators'][cv_idx]
             if save_model:
