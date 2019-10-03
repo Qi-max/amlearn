@@ -1,12 +1,12 @@
 import pandas as pd
-from amlearn.featurize.featurizers.medium_range_order import MRO
-from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN
-from amlearn.featurize.featurizers.short_range_order import \
+from amlearn.featurize.medium_range_order import MRO
+from amlearn.featurize.nearest_neighbor import VoroNN, DistanceNN
+from amlearn.featurize.short_range_order import \
     VolumeAreaInterstice, ClusterPackingEfficiency, AtomicPackingEfficiency, \
     BaseInterstice
 from amlearn.utils.basetest import AmLearnTest
-from amlearn.featurize.featurizers.featurizer_pipeline import all_featurizers, \
-    FeaturizerPipeline
+from amlearn.featurize.pipeline import all_featurizers, \
+    FeaturizePipeline
 
 
 class TestSro(AmLearnTest):
@@ -38,7 +38,7 @@ class TestSro(AmLearnTest):
         self.assertTrue(issubclass(featurizers['VolumeAreaInterstice'],
                                    BaseInterstice))
 
-    def test_featurizer_pipeline(self):
+    def test_featurize_pipeline(self):
         featurizers = [
             VoroNN(bds=self.sc_bds, cutoff=5, allow_neighbor_limit=300,
                    n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
@@ -55,7 +55,7 @@ class TestSro(AmLearnTest):
                 radii=None, radius_type="miracle_radius", verbose=1),
             MRO(output_file_prefix='pipeline_mro')
         ]
-        multi_featurizer = FeaturizerPipeline(featurizers=featurizers)
+        multi_featurizer = FeaturizePipeline(featurizers=featurizers)
         result_df = multi_featurizer.fit_transform(X=self.sc_df,
                                                    bds=self.sc_bds,
                                                    lammps_df=self.sc_df)
@@ -63,6 +63,6 @@ class TestSro(AmLearnTest):
 
 
     # def test_all_featurizes_pipeline(self):
-    #     featurizer_pipeline = FeaturizerPipeline()
-    #     result_df = featurizer_pipeline.fit_transform(X=self.sc_df)
+    #     featurize_pipeline = FeaturizePipeline()
+    #     result_df = featurize_pipeline.fit_transform(X=self.sc_df)
     #     print(result_df)

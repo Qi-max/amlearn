@@ -9,15 +9,16 @@ from functools import lru_cache
 from collections import defaultdict
 from scipy.spatial.qhull import ConvexHull
 from amlearn.featurize.base import load_radii, BaseFeaturize
-from amlearn.featurize.featurizers.nearest_neighbor import VoroNN, DistanceNN, BaseNN
+from amlearn.featurize.featurizers.nearest_neighbor \
+    import VoroNN, DistanceNN, BaseNN
 from amlearn.utils.verbose import VerboseReporter
-from amlearn.utils.data import read_imd, read_lammps_dump, get_isometric_lists, \
-    list_like, calc_neighbor_coords
+from amlearn.utils.data import read_imd, read_lammps_dump, \
+    get_isometric_lists, list_like, calc_neighbor_coords
 from amlearn.utils.packing import solid_angle, \
     triangular_angle, calc_stats, triangle_area, tetra_volume
 
 try:
-    from amlearn.featurize.featurizers.src import voronoi_stats, boop
+    from amlearn.featurize.src import voronoi_stats, boop
 except Exception:
     print("import fortran file voronoi_stats/boop error!\n")
 

@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from amlearn.featurize.featurizers.medium_range_order import MRO
+from amlearn.featurize.medium_range_order import MRO
 from amlearn.utils.basetest import AmLearnTest
 
 module_dir = os.path.dirname(os.path.abspath(__file__))

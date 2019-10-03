@@ -4,7 +4,7 @@ from amlearn.featurize.base import create_featurizer_backend, load_radii
 from sklearn.base import BaseEstimator, TransformerMixin
 
 try:
-    from amlearn.featurize.featurizers.src import bp_symmfunc
+    from amlearn.featurize.src import bp_symmfunc
 except Exception:
     print("import fortran file bp_symmfunc error!\n")
 

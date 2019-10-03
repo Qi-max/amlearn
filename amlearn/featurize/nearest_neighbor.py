@@ -7,7 +7,7 @@ from amlearn.utils.data import get_valid_lists
 from sklearn.base import BaseEstimator, TransformerMixin
 
 try:
-    from amlearn.featurize.featurizers.src import voronoi_nn, distance_nn
+    from amlearn.featurize.src import voronoi_nn, distance_nn
 except ImportError:
     print("import fortran file voronoi_nn, distance_nn error!\n")
 

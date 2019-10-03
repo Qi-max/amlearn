@@ -4,7 +4,7 @@ import pkgutil
 import pandas as pd
 from operator import itemgetter
 from amlearn.featurize.base import BaseFeaturize
-from amlearn.featurize.featurizers.nearest_neighbor import BaseNN
+from amlearn.featurize.nearest_neighbor import BaseNN
 from amlearn.utils.check import is_abstract
 from sklearn.base import BaseEstimator
 from sklearn.pipeline import FeatureUnion, Pipeline
@@ -34,10 +34,10 @@ def all_featurizers():
     return sorted(set(estimators), key=itemgetter(0))
 
 
-class FeaturizerPipeline(BaseFeaturize):
+class FeaturizePipeline(BaseFeaturize):
     def __init__(self, featurizers="all", save=True, backend=None,
                  output_path=None):
-        super(FeaturizerPipeline, self).__init__(
+        super(FeaturizePipeline, self).__init__(
             save=save, backend=backend, output_path=output_path)
         self.featurizers = featurizers
 
