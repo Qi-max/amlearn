@@ -9,7 +9,7 @@ from functools import lru_cache
 from collections import defaultdict
 from scipy.spatial.qhull import ConvexHull
 from amlearn.featurize.base import load_radii, BaseFeaturize
-from amlearn.featurize.featurizers.nearest_neighbor \
+from amlearn.featurize.nearest_neighbor \
     import VoroNN, DistanceNN, BaseNN
 from amlearn.utils.verbose import VerboseReporter
 from amlearn.utils.data import read_imd, read_lammps_dump, \
@@ -981,10 +981,10 @@ class CharacterMotif(BaseSRO):
         return character_motif_df
 
     def get_feature_names(self):
-        feature_names = ['is <0,0,12,0,0> voro', 'is <0,0,12,4,0> voro'] + \
-                        ["_".join(map(str, v)) + " voro"
+        feature_names = ['is_<0,0,12,0,0>_voro', 'is_<0,0,12,4,0>_voro'] + \
+                        ["_".join(map(str, v)) + "_voro"
                          for v in self.target_voro_idx[2:]] + \
-                        ['is polytetrahedral voro', 'is <0,0,12,0/4,0> voro']
+                        ['is_polytetrahedral_voro', 'is_<0,0,12,0/4,0>_voro']
         return feature_names
 
 
@@ -1029,7 +1029,7 @@ class IFoldSymmetry(BaseSRO):
         return i_symm_df
 
     def get_feature_names(self):
-        feature_names = ['{}-fold symm idx voro'.format(edge)
+        feature_names = ['{}_fold_symm_idx_voro'.format(edge)
                          for edge in range(self.edge_min, self.edge_max+1)]
         return feature_names
 
@@ -1080,7 +1080,7 @@ class AreaWtIFoldSymmetry(BaseSRO):
         return area_wt_i_symm_df
 
     def get_feature_names(self):
-        feature_names = ['Area_wt {}-fold symm idx voro'.format(edge)
+        feature_names = ['area_wt_{}_fold_symm_idx_voro'.format(edge)
                          for edge in range(self.edge_min, self.edge_max + 1)]
         return feature_names
 
@@ -1132,7 +1132,7 @@ class VolWtIFoldSymmetry(BaseSRO):
         return vol_wt_i_symm_df
 
     def get_feature_names(self):
-        feature_names = ['Vol_wt {}-fold symm idx voro'.format(edge)
+        feature_names = ['vol_wt_{}_fold_symm_idx_voro'.format(edge)
                          for edge in range(self.edge_min, self.edge_max + 1)]
         return feature_names
 
@@ -1147,11 +1147,8 @@ class VoroAreaStats(BaseSRO):
                                             output_path=output_path,
                                             **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
-        self.voro_depend_cols = ['neighbor_num_voro'] + \
-                                ['neighbor_area_5_voro']
         self.stats = ['mean', 'std', 'min', 'max']
-        self.dist_depend_cols = None
-        self.dependent_cols_ = [self.neighbor_num_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_areas_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_area_stats'.format(self.category,
@@ -1159,18 +1156,15 @@ class VoroAreaStats(BaseSRO):
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        n_atoms = len(X)
-        columns = X.columns
-        area_cols = [col for col in columns if
-                     col.startswith('neighbor_area_')]
-        area_stats = np.zeros((n_atoms, len(self.stats) + 1))
+        area_lists = get_isometric_lists(
+            X[self.neighbor_areas_col].values,
+            limit_width=self.neighbor_num_limit).astype(np.longdouble)
 
+        area_stats = np.zeros((len(X), len(self.stats) + 1))
         area_stats = \
             voronoi_stats.voronoi_area_stats(area_stats,
-                                             X['neighbor_num_voro'].values,
-                                             X[area_cols].values.astype(
-                                                 np.longdouble),
-                                             n_atoms=n_atoms,
+                                             X[self.neighbor_num_col].values,
+                                             area_lists, n_atoms=len(X),
                                              neighbor_num_limit=
                                              self.neighbor_num_limit)
 
@@ -1183,34 +1177,28 @@ class VoroAreaStats(BaseSRO):
         return area_stats_df
 
     def get_feature_names(self):
-        feature_names = ['Voronoi area voro'] + \
-                        ['Facet area {} voro'.format(stat)
+        feature_names = ['voronoi_area_voro'] + \
+                        ['facet_area_{}_voro'.format(stat)
                          for stat in self.stats]
         return feature_names
 
 
 class VoroAreaStatsSeparate(BaseSRO):
-    def __init__(self, neighbor_num_limit=80, include_beyond_edge_max=True,
-                 atoms_df=None, dependent_class="voro", edge_min=3, edge_max=7,
-                 save=True, backend=None, remain_stat=False, output_path=None,
+    def __init__(self, backend=None, dependent_class="voro",
+                 neighbor_num_limit=80, include_beyond_edge_max=True,
+                 edge_min=3, edge_max=7, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
         super(VoroAreaStatsSeparate, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
-        self.voro_depend_cols = ['neighbor_num_voro'] + \
-                                ['neighbor_edge_{}_voro'.format(edge)
-                                 for edge in range(edge_min, edge_max + 1)] + \
-                                ['neighbor_area_{}_voro'.format(edge)
-                                 for edge in range(edge_min, edge_max + 1)]
-
         self.edge_min = edge_min
         self.edge_max = edge_max
         self.edge_num = edge_max - edge_min + 1
         self.include_beyond_edge_max = include_beyond_edge_max
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
-        self.dist_depend_cols = None
-        self.dependent_cols_ = [self.neighbor_num_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col,
+                                self.neighbor_areas_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_area_stats_separate'.format(
@@ -1218,27 +1206,25 @@ class VoroAreaStatsSeparate(BaseSRO):
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        n_atoms = len(X)
-        columns = X.columns
-        edge_cols = [col for col in columns if
-                     col.startswith('neighbor_edge_')]
-        area_cols = [col for col in columns if
-                     col.startswith('neighbor_area_')]
-        area_stats_separate = np.zeros((n_atoms,
-                                        self.edge_num * len(self.stats)))
+        edge_lists = get_isometric_lists(
+            X[self.neighbor_edges_col].values,
+            limit_width=self.neighbor_num_limit)
+        area_lists = get_isometric_lists(
+            X[self.neighbor_areas_col].values,
+            limit_width=self.neighbor_num_limit).astype(np.longdouble)
 
         area_stats_separate = \
+            np.zeros((len(X), self.edge_num * len(self.stats)))
+        area_stats_separate = \
             voronoi_stats.voronoi_area_stats_separate(
-                area_stats_separate, X['neighbor_num_voro'].values,
-                X[edge_cols].values,
-                X[area_cols].values.astype(np.longdouble),
-                self.edge_min, self.edge_max,
-                self.include_beyond_edge_max,
-                n_atoms=n_atoms,
+                area_stats_separate, X[self.neighbor_num_col].values,
+                edge_lists, area_lists, self.edge_min, self.edge_max,
+                self.include_beyond_edge_max, n_atoms=len(X),
                 neighbor_num_limit=self.neighbor_num_limit)
 
-        area_stats_separate_df = pd.DataFrame(area_stats_separate, index=X.index,
-                                     columns=self.get_feature_names())
+        area_stats_separate_df = pd.DataFrame(area_stats_separate,
+                                              index=X.index,
+                                              columns=self.get_feature_names())
         if self.save:
             self.backend.save_featurizer_as_dataframe(
                 output_df=area_stats_separate_df, name=self.output_file_prefix)
@@ -1246,26 +1232,22 @@ class VoroAreaStatsSeparate(BaseSRO):
         return area_stats_separate_df
 
     def get_feature_names(self):
-        feature_names = ['{}-edged area {} voro'.format(edge, stat)
+        feature_names = ['{}_edged_area_{}_voro'.format(edge, stat)
                          for edge in range(self.edge_min, self.edge_max + 1)
                          for stat in self.stats]
         return feature_names
 
 
 class VoroVolStats(BaseSRO):
-    def __init__(self, neighbor_num_limit=80, atoms_df=None,
-                 dependent_class="voro", save=True, backend=None,
-                 remain_stat=False, output_path=None,
+    def __init__(self, backend=None, dependent_class="voro",
+                 neighbor_num_limit=80, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
         super(VoroVolStats, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
         self.neighbor_num_limit = neighbor_num_limit
-        self.voro_depend_cols = ['neighbor_num_voro'] + \
-                                ['neighbor_vol_5_voro']
         self.stats = ['mean', 'std', 'min', 'max']
-        self.dist_depend_cols = None
-        self.dependent_cols_ = [self.neighbor_num_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_vols_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_vol_stats'.format(self.category,
@@ -1273,18 +1255,15 @@ class VoroVolStats(BaseSRO):
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        n_atoms = len(X)
-        columns = X.columns
-        vol_cols = [col for col in columns if
-                     col.startswith('neighbor_vol_')]
-        vol_stats = np.zeros((n_atoms, len(self.stats) + 1))
+        vol_lists = get_isometric_lists(
+            X[self.neighbor_vols_col].values,
+            limit_width=self.neighbor_num_limit).astype(np.longdouble)
 
+        vol_stats = np.zeros((len(X), len(self.stats) + 1))
         vol_stats = \
             voronoi_stats.voronoi_vol_stats(vol_stats,
-                                            X['neighbor_num_voro'].values,
-                                            X[vol_cols].values.astype(
-                                                np.longdouble),
-                                            n_atoms=n_atoms,
+                                            X[self.neighbor_num_col].values,
+                                            vol_lists, n_atoms=len(X),
                                             neighbor_num_limit=
                                             self.neighbor_num_limit)
 
@@ -1297,34 +1276,28 @@ class VoroVolStats(BaseSRO):
         return vol_stats_df
 
     def get_feature_names(self):
-        feature_names = ['Voronoi vol voro'] + \
-                        ['Sub-polyhedra vol {} voro'.format(stat)
+        feature_names = ['voronoi_vol_voro'] + \
+                        ['sub_polyhedra_vol_{}_voro'.format(stat)
                          for stat in self.stats]
         return feature_names
 
 
 class VoroVolStatsSeparate(BaseSRO):
-    def __init__(self, neighbor_num_limit=80, include_beyond_edge_max=True,
-                 atoms_df=None, dependent_class="voro", edge_min=3, edge_max=7,
-                 save=True, backend=None, remain_stat=False, output_path=None,
+    def __init__(self, backend=None, dependent_class="voro",
+                 neighbor_num_limit=80, include_beyond_edge_max=True,
+                 edge_min=3, edge_max=7, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
         super(VoroVolStatsSeparate, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
-        self.neighbor_num_limit = neighbor_num_limit
-        self.voro_depend_cols = ['neighbor_num_voro'] + \
-                                ['neighbor_edge_{}_voro'.format(edge)
-                                 for edge in range(edge_min, edge_max + 1)] + \
-                                ['neighbor_vol_{}_voro'.format(edge)
-                                 for edge in range(edge_min, edge_max + 1)]
-
         self.edge_min = edge_min
         self.edge_max = edge_max
         self.edge_num = edge_max - edge_min + 1
+        self.neighbor_num_limit = neighbor_num_limit
         self.include_beyond_edge_max = include_beyond_edge_max
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
-        self.dist_depend_cols = None
-        self.dependent_cols_ = [self.neighbor_num_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_edges_col,
+                                self.neighbor_vols_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_vol_stats_separate'.format(self.category,
@@ -1332,21 +1305,20 @@ class VoroVolStatsSeparate(BaseSRO):
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        n_atoms = len(X)
-        columns = X.columns
-        edge_cols = [col for col in columns if col.startswith('neighbor_edge_')]
-        vol_cols = [col for col in columns if col.startswith('neighbor_vol_')]
-        vol_stats_separate = np.zeros((n_atoms,
-                                       self.edge_num * len(self.stats)))
+        edge_lists = get_isometric_lists(
+            X[self.neighbor_edges_col].values,
+            limit_width=self.neighbor_num_limit)
+        vol_lists = get_isometric_lists(
+            X[self.neighbor_vols_col].values,
+            limit_width=self.neighbor_num_limit).astype(np.longdouble)
 
+        vol_stats_separate = np.zeros((len(X),
+                                       self.edge_num * len(self.stats)))
         vol_stats_separate = \
             voronoi_stats.voronoi_vol_stats_separate(
-                vol_stats_separate, X['neighbor_num_voro'].values,
-                X[edge_cols].values,
-                X[vol_cols].values.astype(np.longdouble),
-                self.edge_min, self.edge_max,
-                self.include_beyond_edge_max,
-                n_atoms=n_atoms,
+                vol_stats_separate, X[self.neighbor_num_col].values,
+                edge_lists, vol_lists, self.edge_min, self.edge_max,
+                self.include_beyond_edge_max, n_atoms=len(X),
                 neighbor_num_limit=self.neighbor_num_limit)
 
         vol_stats_separate_df = pd.DataFrame(vol_stats_separate,
@@ -1359,30 +1331,24 @@ class VoroVolStatsSeparate(BaseSRO):
         return vol_stats_separate_df
 
     def get_feature_names(self):
-        feature_names = ['{}-edged vol {} voro'.format(edge, stat)
+        feature_names = ['{}_edged_vol_{}_voro'.format(edge, stat)
                          for edge in range(self.edge_min, self.edge_max + 1)
                          for stat in self.stats]
         return feature_names
 
 
 class DistStats(BaseSRO):
-    def __init__(self, dist_type='distance', neighbor_num_limit=80,
-                 atoms_df=None, dependent_class="voro",
-                 save=True, backend=None, remain_stat=False, output_path=None,
-                 output_file_prefix=None, **nn_kwargs):
-        super(DistStats, self).__init__(save=save,
-                                        backend=backend,
+    def __init__(self, backend=None, dependent_class="voro",
+                 dist_type='distance', neighbor_num_limit=80, save=True,
+                 output_path=None, output_file_prefix=None, **nn_kwargs):
+        super(DistStats, self).__init__(save=save, backend=backend,
                                         dependent_class=dependent_class,
                                         output_path=output_path,
                                         **nn_kwargs)
         self.dist_type = dist_type
         self.neighbor_num_limit = neighbor_num_limit
-        self.voro_depend_cols = ['neighbor_num_voro'] + \
-                                ['neighbor_{}_5_voro'.format(dist_type)]
         self.stats = ['sum', 'mean', 'std', 'min', 'max']
-        self.dist_depend_cols = ['n_neighbors_dist'] + \
-                                 ['neighbor_{}_5_dist'.format(dist_type)]
-        self.dependent_cols_ = [self.neighbor_num_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_dists_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_stats'.format(
@@ -1390,20 +1356,15 @@ class DistStats(BaseSRO):
 
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
-        n_atoms = len(X)
-        columns = X.columns
-        dist_cols = [col for col in columns if
-                     col.startswith('neighbor_{}_'.format(self.dist_type))]
-        dist_stats = np.zeros((n_atoms, len(self.stats)))
+        dist_lists = get_isometric_lists(
+            X[self.neighbor_dists_col].values,
+            limit_width=self.neighbor_num_limit)
 
+        dist_stats = np.zeros((len(X), len(self.stats)))
         dist_stats = \
-            voronoi_stats.voronoi_distance_stats(dist_stats,
-                                             X['n_neighbors_{}'.format(
-                                                 self.dependent_name_)].values,
-                                             X[dist_cols].values,
-                                             n_atoms=n_atoms,
-                                             neighbor_num_limit=
-                                             self.neighbor_num_limit)
+            voronoi_stats.voronoi_distance_stats(
+                dist_stats, X[self.neighbor_num_col].values, dist_lists,
+                n_atoms=len(X), neighbor_num_limit=self.neighbor_num_limit)
         dist_stats_df = pd.DataFrame(dist_stats, index=X.index,
                                      columns=self.get_feature_names())
         if self.save:
@@ -1413,7 +1374,7 @@ class DistStats(BaseSRO):
         return dist_stats_df
 
     def get_feature_names(self):
-        feature_names = ['{} {} {}'.format(self.dist_type, stat,
+        feature_names = ['{}_{}_{}'.format(self.dist_type, stat,
                                            self.dependent_name_)
                          for stat in self.stats]
         return feature_names
@@ -1424,14 +1385,12 @@ class DistStats(BaseSRO):
 
 
 class BOOP(BaseSRO):
-    def __init__(self, coords_path=None, atom_coords=None, bds=None, pbc=None,
-                 low_order=1, higher_order=1, coarse_lower_order=1,
-                 coarse_higher_order=1, neighbor_num_limit=80, atoms_df=None,
-                 dependent_class="voro", save=True, backend=None,
-                 remain_stat=False, output_path=None,
+    def __init__(self, backend=None, dependent_class="voro", coords_path=None,
+                 atom_coords=None, bds=None, pbc=None, low_order=1,
+                 higher_order=1, coarse_lower_order=1, coarse_higher_order=1,
+                 neighbor_num_limit=80, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
-        super(BOOP, self).__init__(save=save,
-                                   backend=backend,
+        super(BOOP, self).__init__(save=save, backend=backend,
                                    dependent_class=dependent_class,
                                    output_path=output_path,
                                    **nn_kwargs)
@@ -1449,14 +1408,8 @@ class BOOP(BaseSRO):
                              " or coords_path is not None")
         self.pbc = pbc if pbc else [1, 1, 1]
         self.neighbor_num_limit = neighbor_num_limit
-        self.voro_depend_cols = ['neighbor_num_voro'] + \
-                                ['neighbor_id_{}_voro'.format(idx)
-                                 for idx in range(neighbor_num_limit)]
-        self.dist_depend_cols = ['n_neighbors_dist'] + \
-                                 ['neighbor_id_{}_dist'.format(idx)
-                                  for idx in range(neighbor_num_limit)]
         self.bq_tags = ['4', '6', '8', '10']
-        self.dependent_cols_ = [self.neighbor_num_col]
+        self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_boop'.format(self.category,
@@ -1465,9 +1418,9 @@ class BOOP(BaseSRO):
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
         n_atoms = len(X)
-        neighbor_col = ['n_neighbors_{}'.format(self.dependent_name_)]
-        id_cols = ['neighbor_id_{}_{}'.format(idx, self.dependent_name_)
-                   for idx in range(self.neighbor_num_limit)]
+        dist_lists = get_isometric_lists(
+            X[self.neighbor_ids_col].values,
+            limit_width=self.neighbor_num_limit)
 
         Ql = np.zeros((n_atoms, 4), dtype=np.longdouble)
         Wlbar = np.zeros((n_atoms, 4), dtype=np.longdouble)
@@ -1477,11 +1430,10 @@ class BOOP(BaseSRO):
             boop.calculate_boop(
                 self.atom_coords.astype(np.longdouble),
                 self.pbc, np.array(self.bds, dtype=np.longdouble),
-                X[neighbor_col].values,
-                X[id_cols].values,
+                X[self.neighbor_num_col].values, dist_lists,
                 self.low_order, self.higher_order, self.coarse_lower_order,
                 self.coarse_higher_order, Ql, Wlbar, coarse_Ql, coarse_Wlbar,
-                n_atoms=n_atoms, neighbor_num_limit=self.neighbor_num_limit)
+                n_atoms=n_atoms, n_neighbor_limit=self.neighbor_num_limit)
         concat_array = np.append(Ql, Wlbar, axis=1)
         concat_array = np.append(concat_array, coarse_Ql, axis=1)
         concat_array = np.append(concat_array, coarse_Wlbar, axis=1)
@@ -1495,14 +1447,14 @@ class BOOP(BaseSRO):
         return boop_df
 
     def get_feature_names(self):
-        feature_names = ['q_{} {}'.format(num, self.dependent_name_)
+        feature_names = ['q_{}_{}'.format(num, self.dependent_name_)
                          for num in self.bq_tags] + \
-                        ['w_{} {}'.format(num, self.dependent_name_)
+                        ['w_{}_{}'.format(num, self.dependent_name_)
                          for num in self.bq_tags] + \
-                        ['Coarse-grained q_{} {}'.format(num,
+                        ['coarse_grained_q_{}_{}'.format(num,
                                                          self.dependent_name_)
                          for num in self.bq_tags] + \
-                        ['Coarse-grained w_{} {}'.format(num,
+                        ['coarse_grained_w_{}_{}'.format(num,
                                                          self.dependent_name_)
                          for num in self.bq_tags]
         return feature_names
