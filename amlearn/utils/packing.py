@@ -64,8 +64,6 @@ def solid_angle(center, va, vb, vc):
     divisor = len_a * len_b * len_c + np.dot(a, b) * len_c + \
               np.dot(a, c) * len_b + np.dot(b, c) * len_a
     solid_angle_ = 2 * atan2(triple_product, divisor)
-    if divisor <= 0:
-        solid_angle_ += pi
     return solid_angle_
 
 

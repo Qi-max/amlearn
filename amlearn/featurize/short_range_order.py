@@ -1,4 +1,6 @@
 import os
+import warnings
+
 import six
 import numpy as np
 import pandas as pd
@@ -65,7 +67,6 @@ class PackingOfSite(object):
         nn_coords = self.nn_coords()
         # set leaf node indices for find leaf site coords
         leaf_indices_list = [(1, 2), (0, 2), (0, 1)]
-
         for convex_surface_indices in convex_surfaces_indices:
             triangular_angle_list_ = list()
             for idx, leaf_indices in zip(convex_surface_indices,
@@ -87,7 +88,6 @@ class PackingOfSite(object):
         nn_coords = self.nn_coords()
         # set leaf node indices for find leaf site coords
         leaf_indices_list = [(1, 2), (0, 2), (0, 1)]
-
         for convex_surface_indices in convex_surfaces_indices:
             solid_angle_list_ = list()
             for idx, leaf_indices in zip(convex_surface_indices,
@@ -124,9 +124,13 @@ class PackingOfSite(object):
 
             area = triangle_area(*surface_coords)
             area_list.append(area)
+
+            area_interstice = 1 - packed_area/area
+
             ################################################################
             # Please note that this is percent, not interstice area!!!!!!
-            area_interstice_list.append(1 - packed_area/area)
+            area_interstice_list.append(area_interstice if area_interstice > 0
+                                        else 0)
 
         self.area_list_ = area_list
         self.area_interstice_list_ = area_interstice_list
@@ -161,7 +165,10 @@ class PackingOfSite(object):
 
             volume = tetra_volume(self.coords, *surface_coords)
             volume_list.append(volume)
-            volume_interstice_list.append(1 - packed_volume/volume)
+
+            volume_interstice = 1 - packed_volume/volume
+            volume_interstice_list.append(volume_interstice
+                                          if volume_interstice > 0 else 0)
 
         self.volume_list_ = volume_list
         self.volume_interstice_list_ = volume_interstice_list
@@ -286,7 +293,7 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
         elif isinstance(dependent_class, str):
             self.dependent_name_ = dependent_class[:4]
             self.dependent_class_ = get_nn_instance(self.dependent_name_,
-                                                    backend, **nn_kwargs)
+                                                    self.backend, **nn_kwargs)
         else:
             raise ValueError(
                 'dependent_class {} is unknown, Possible values are {} or '
@@ -430,7 +437,7 @@ class DistanceInterstice(BaseInterstice):
                                 self.radius_type] +
                             self.radii[
                                 str(int(X.loc[neighbor_id][self.type_col]))][
-                                self.radius_type]))
+                                self.radius_type]) - 1)
                 else:
                     continue
             feature_lists.append(calc_stats(neighbor_dist_interstice_list))
@@ -447,7 +454,7 @@ class DistanceInterstice(BaseInterstice):
 
     def get_feature_names(self):
         stats = ['sum', 'mean', 'std', 'min', 'max']
-        return ['neighbor_dists_interstice_{}_{}'.format(
+        return ['dist_interstice_{}_{}'.format(
             stat, self.dependent_name_) for stat in stats]
 
 
@@ -460,7 +467,7 @@ class VolumeAreaInterstice(BaseInterstice):
                  calc_volume_area='all', verbose=1,
                  volume_types=None, area_types=None,
                  output_path=None, output_file_prefix=None,
-                 **nn_kwargs):
+                 calc_indices=None, **nn_kwargs):
         """
         Args:
             volume_types (list like): Can be one or several of the arrays
@@ -493,6 +500,7 @@ class VolumeAreaInterstice(BaseInterstice):
         self.area_interstice_list = list()
         self.volume_list = list()
         self.volume_interstice_list = list()
+        self.calc_indices = calc_indices
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
         self.volume_types = \
             volume_types if isinstance(volume_types, list_like()) \
@@ -534,8 +542,12 @@ class VolumeAreaInterstice(BaseInterstice):
                     init_msg='Calculating VolumeAreaInterstice features.',
                     epoch_name='Atoms', stage=1)
 
+        if self.calc_indices is None:
+            self.calc_indices = list(X.index)
         feature_lists = list()
         for idx, row in X.iterrows():
+            if idx not in self.calc_indices:
+                continue
             neighbor_type = list()
             neighbor_coords = list()
             for neighbor_id in row[self.neighbor_ids_col]:
@@ -631,7 +643,8 @@ class VolumeAreaInterstice(BaseInterstice):
                 vr.update(idx - 1)
 
         volume_area_interstice_df = pd.DataFrame(
-            feature_lists, index=X.index, columns=self.get_feature_names())
+            feature_lists, index=self.calc_indices,
+            columns=self.get_feature_names())
 
         if self.save:
             self.backend.save_featurizer_as_dataframe(
@@ -646,9 +659,13 @@ class VolumeAreaInterstice(BaseInterstice):
 
         stats = ['sum', 'mean', 'std', 'min', 'max']
         if self.calc_volume_area == 'volume' or self.calc_volume_area == 'all':
-            feature_prefixs += self.volume_types
+            volume_type_names = ['volume_interstice'] \
+                if len(self.volume_types) == 1 else self.volume_types
+            feature_prefixs += volume_type_names
         if self.calc_volume_area == 'area' or self.calc_volume_area == 'all':
-            feature_prefixs += self.area_types
+            volume_type_names = ['area_interstice'] \
+                if len(self.area_types) == 1 else self.area_types
+            feature_prefixs += volume_type_names
         feature_names += ['{}_{}_{}'.format(feature_prefix, stat,
                                             self.dependent_name_)
                           for feature_prefix in feature_prefixs
@@ -1052,7 +1069,7 @@ class AreaWtIFoldSymmetry(BaseSRO):
                                 self.neighbor_areas_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else '{}_{}_area_wt_i_fold_symmetry'.format(self.category,
+            else 'feature_{}_{}_area_wt_i_fold_symmetry'.format(self.category,
                                                         self.dependent_name_)
 
     def transform(self, X=None):
@@ -1141,6 +1158,7 @@ class VoroAreaStats(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
+        assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VoroAreaStats, self).__init__(save=save,
                                             backend=backend,
                                             dependent_class=dependent_class,
@@ -1188,6 +1206,7 @@ class VoroAreaStatsSeparate(BaseSRO):
                  neighbor_num_limit=80, include_beyond_edge_max=True,
                  edge_min=3, edge_max=7, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
+        assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VoroAreaStatsSeparate, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
@@ -1242,6 +1261,7 @@ class VoroVolStats(BaseSRO):
     def __init__(self, backend=None, dependent_class="voro",
                  neighbor_num_limit=80, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
+        assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VoroVolStats, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
@@ -1287,6 +1307,7 @@ class VoroVolStatsSeparate(BaseSRO):
                  neighbor_num_limit=80, include_beyond_edge_max=True,
                  edge_min=3, edge_max=7, save=True, output_path=None,
                  output_file_prefix=None, **nn_kwargs):
+        assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VoroVolStatsSeparate, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             output_path=output_path, **nn_kwargs)
