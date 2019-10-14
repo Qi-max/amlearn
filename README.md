@@ -1,4 +1,4 @@
-# <img alt="amlearn" src="docs_rst/_static/amlearn_logo.png" width="300">
+# amlearn
 Machine Learning Package for Amorphous Materials.
 
 To featurize the heterogeneous atom site environments in amorphous materials,
