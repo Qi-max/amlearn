@@ -18,7 +18,8 @@ except ImportError:
 
 def calculate_version():
     initpy = open('amlearn/_version.py').read().split('\n')
-    version = list(filter(lambda x: '__version__' in x, initpy))[0].split('\'')[1]
+    version = list(filter(lambda x: '__version__' in x,
+                          initpy))[0].split('\'')[1]
     return version
 
 
@@ -32,7 +33,7 @@ author_email = 'qwang.mse@gmail.com'
 packages = find_packages()
 package_data = {'amlearn.utils': ['*.yaml']}
 url = 'https://github.com/Qi-max/amlearn'
-download_url = 'https://github.com/Qi-max/amlearn/archive/0.0.1.tar.gz'
+download_url = 'https://github.com/Qi-max/amlearn/archive/0.1.0.tar.gz'
 license = 'modified BSD'
 description = 'Machine Learning package for amorphous materials.'
 long_description = open(os.path.join(module_dir, 'README.md')).read()
@@ -44,15 +45,15 @@ install_requires = ['numpy>=1.7.0',
                     'pandas>=0.20.2',
                     'six>=1.10.0']
 ext_modules = [Extension(name='amlearn.fmodules',
-                         sources=['amlearn/featurize/featurizers/src/utils.f90',
-                                  'amlearn/featurize/featurizers/src/voronoi_nn.f90',
-                                  'amlearn/featurize/featurizers/src/voronoi_stats.f90',
-                                  'amlearn/featurize/featurizers/src/boop.f90',
-                                  'amlearn/featurize/featurizers/src/mro_stats.f90',
-                                  'amlearn/featurize/featurizers/src/neighbor_data.f90',
-                                  'amlearn/featurize/featurizers/src/distance_stats.f90',
-                                  'amlearn/featurize/featurizers/src/featurize.f90',
-                                  'amlearn/featurize/featurizers/src/distance_nn.f90'])]
+                         sources=['amlearn/featurize/src/utils.f90',
+                                  'amlearn/featurize/src/voronoi_nn.f90',
+                                  'amlearn/featurize/src/voronoi_stats.f90',
+                                  'amlearn/featurize/src/boop.f90',
+                                  'amlearn/featurize/src/mro_stats.f90',
+                                  'amlearn/featurize/src/neighbor_data.f90',
+                                  'amlearn/featurize/src/distance_stats.f90',
+                                  'amlearn/featurize/src/featurize.f90',
+                                  'amlearn/featurize/src/distance_nn.f90'])]
 classifiers = [
     'Intended Audience :: Science/Research',
     'Intended Audience :: Developers',
