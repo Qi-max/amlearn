@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 from amlearn.utils.data import read_lammps_dump
 from amlearn.utils.check import check_output_path
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 """
 This is an example script of fractal analysis, based on the Fortran source 
 codes in ./fractal.f90. Please make sure to compile the Fortran code using f2py

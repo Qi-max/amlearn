@@ -3,6 +3,9 @@ import yaml
 import logging
 import logging.config
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 def setup_logger(logger_file=None):
     with open(os.path.join(os.path.dirname(__file__),

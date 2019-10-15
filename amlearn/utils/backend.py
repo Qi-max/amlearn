@@ -17,6 +17,9 @@ All Amlearn naming conventions:
     
 """
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class BackendContext(object):
     """Utility class to prepare amlearn needed paths.

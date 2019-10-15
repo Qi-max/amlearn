@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
 
 def column_hist(data, bins=None, density=True, fraction=True,
                 save_figure_to_dir=None, save_data_to_dir=None, fmt=None,

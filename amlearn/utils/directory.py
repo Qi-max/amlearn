@@ -2,6 +2,9 @@ import os
 import lockfile
 import shutil
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 def copy_path(source_path, sink_path):
     shutil.copytree(source_path, sink_path)

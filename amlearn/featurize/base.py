@@ -18,6 +18,9 @@ except Exception:
 
 module_dir = os.path.dirname(os.path.abspath( __file__))
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 def load_radii():
     """Get Periodic Table of Elements dict.

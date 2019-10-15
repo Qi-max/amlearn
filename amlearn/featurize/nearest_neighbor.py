@@ -11,6 +11,9 @@ try:
 except ImportError:
     print("import fortran file voronoi_nn, distance_nn error!\n")
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
     """Base Nearest Neighbor class.

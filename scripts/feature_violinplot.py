@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib import rcParams
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
 
 def violin_features_pairs(prepared_df, class_col, save_to_dir=None,
                           hue_order=None, order=None,

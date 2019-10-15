@@ -31,6 +31,10 @@ from sklearn.externals.six.moves import zip
 from sklearn.utils.fixes import signature, comb
 from sklearn.base import _pprint
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
+
 __all__ = ['BaseCrossValidator',
            'KFold',
            'GroupKFold',

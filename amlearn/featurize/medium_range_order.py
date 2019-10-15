@@ -10,6 +10,9 @@ try:
 except Exception:
     print("import fortran file mro_stats/voronoi_stats error!\n")
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class MRO(BaseFeaturize):
     def __init__(self, backend=None, neighbor_num_limit=80,
