@@ -44,10 +44,6 @@ install_requires = ['numpy>=1.7.0',
                     'tqdm>=4.11.2',
                     'pandas>=0.20.2',
                     'six>=1.10.0']
-ext1 = Extension(name = 'scalar',
-                 sources = ['scalar.f'])
-ext2 = Extension(name = 'fib2',
-                 sources = ['fib2.pyf', 'fib1.f'])
 
 ext_modules = [Extension(name = 'amlearn.featurize.src.utils',
                          sources = ['amlearn/featurize/src/utils.f90']),
