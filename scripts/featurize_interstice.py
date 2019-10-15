@@ -14,7 +14,9 @@ features to MRO.
 """
 
 system = ["Cu65Zr35", "qr_5plus10^10"]
+
 atomic_number_list = [29, 40]
+stat_ops = ['mean', 'std', 'min', 'max']
 
 lammps_file = "xxx/dump.lmp"
 structure, bds = read_lammps_dump(lammps_file)
@@ -28,16 +30,18 @@ featurizers = [
 
     # distance interstice
     DistanceInterstice(atomic_number_list=atomic_number_list,
-                       dependent_class='voro', output_path=output_path),
+                       dependent_class='voro', stat_ops=stat_ops,
+                       output_path=output_path),
     DistanceInterstice(atomic_number_list=atomic_number_list,
-                       dependent_class='dist', output_path=output_path),
+                       dependent_class='dist', stat_ops=stat_ops,
+                       output_path=output_path),
 
     # area and volume interstice
     VolumeAreaInterstice(atomic_number_list=atomic_number_list,
-                         output_path=output_path),
+                         stat_ops=stat_ops, output_path=output_path),
 
     # from SRO to MRO
-    MRO(output_path=output_path)]
+    MRO(stats_types=[0, 1, 1, 1, 1, 0], output_path=output_path)]
 
 # defining a featurize_pipeline
 featurize_pipeline = FeaturizePipeline(featurizers=featurizers,

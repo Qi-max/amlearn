@@ -385,7 +385,7 @@ class DistanceInterstice(BaseInterstice):
                  atomic_number_list=None, neighbor_num_limit=80,
                  save=True, radii=None, radius_type="miracle_radius", 
                  verbose=1, output_path=None, output_file_prefix=None,
-                 **nn_kwargs):
+                 stat_ops='all', **nn_kwargs):
         super(DistanceInterstice, self).__init__(
             save=save, backend=backend, dependent_class=dependent_class,
             type_col=type_col, atomic_number_list=atomic_number_list,
@@ -396,6 +396,8 @@ class DistanceInterstice(BaseInterstice):
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_distance_interstice'.format(
             self.category, self.dependent_name_, self.radius_type)
+        self.stat_ops = stat_ops if stat_ops != 'all' \
+            else ['sum', 'mean', 'std', 'min', 'max']
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col,
                                 self.neighbor_dists_col]
 
@@ -440,7 +442,8 @@ class DistanceInterstice(BaseInterstice):
                                 self.radius_type]) - 1)
                 else:
                     continue
-            feature_lists.append(calc_stats(neighbor_dist_interstice_list))
+            feature_lists.append(calc_stats(neighbor_dist_interstice_list,
+                                            self.stat_ops))
             if self.verbose > 0:
                 vr.update(idx - 1)
 
@@ -453,9 +456,8 @@ class DistanceInterstice(BaseInterstice):
         return dist_interstice_df
 
     def get_feature_names(self):
-        stats = ['sum', 'mean', 'std', 'min', 'max']
         return ['dist_interstice_{}_{}'.format(
-            stat, self.dependent_name_) for stat in stats]
+            stat, self.dependent_name_) for stat in self.stat_ops]
 
 
 class VolumeAreaInterstice(BaseInterstice):
@@ -467,7 +469,7 @@ class VolumeAreaInterstice(BaseInterstice):
                  calc_volume_area='all', verbose=1,
                  volume_types=None, area_types=None,
                  output_path=None, output_file_prefix=None,
-                 calc_indices=None, **nn_kwargs):
+                 calc_indices='all', stat_ops='all', **nn_kwargs):
         """
         Args:
             volume_types (list like): Can be one or several of the arrays
@@ -501,6 +503,8 @@ class VolumeAreaInterstice(BaseInterstice):
         self.volume_list = list()
         self.volume_interstice_list = list()
         self.calc_indices = calc_indices
+        self.stat_ops = stat_ops if stat_ops != 'all' \
+            else ['sum', 'mean', 'std', 'min', 'max']
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
         self.volume_types = \
             volume_types if isinstance(volume_types, list_like()) \
@@ -542,7 +546,7 @@ class VolumeAreaInterstice(BaseInterstice):
                     init_msg='Calculating VolumeAreaInterstice features.',
                     epoch_name='Atoms', stage=1)
 
-        if self.calc_indices is None:
+        if self.calc_indices == 'all':
             self.calc_indices = list(X.index)
         feature_lists = list()
         for idx, row in X.iterrows():
@@ -582,25 +586,28 @@ class VolumeAreaInterstice(BaseInterstice):
                         if volume_type == \
                                 "fractional_volume_interstice_tetrahedra":
                             feature_list.extend(
-                                calc_stats(volume_interstice_list))
+                                calc_stats(volume_interstice_list,
+                                           self.stat_ops))
                         # original volume_interstices (in the units of volume)
                         elif volume_type == "volume_interstice":
                             feature_list.extend(
-                                calc_stats(volume_interstice_original_array))
+                                calc_stats(volume_interstice_original_array,
+                                           self.stat_ops))
                         # fractional volume_interstices in relative to the
                         # entire volume
                         elif volume_type == \
                                 "fractional_volume_interstice_tetrahedra_avg":
                             feature_list.extend(
                                 calc_stats(volume_interstice_original_array /
-                                           volume_total * len(volume_list)))
+                                           volume_total * len(volume_list),
+                                           self.stat_ops))
                         # fractional volume_interstices in relative to the
                         # center atom volume
                         elif volume_type == \
                                 "fractional_volume_interstice_center_v":
                             feature_list.extend(
                                 calc_stats(volume_interstice_original_array /
-                                           center_volume))
+                                           center_volume, self.stat_ops))
 
                 if self.calc_volume_area == 'area' or \
                         self.calc_volume_area == 'all':
@@ -618,25 +625,27 @@ class VolumeAreaInterstice(BaseInterstice):
                         # tetrahedra area
                         if area_type == "fractional_area_interstice_triangle":
                             feature_list.extend(
-                                calc_stats(area_interstice_list))
+                                calc_stats(area_interstice_list, self.stat_ops))
                         # original area_interstices (in the units of area)
                         if area_type == "area_interstice":
                             feature_list.extend(
-                                calc_stats(area_interstice_original_array))
+                                calc_stats(area_interstice_original_array,
+                                           self.stat_ops))
                         # fractional area_interstices in relative to the
                         # entire area
                         if area_type == \
                                 "fractional_area_interstice_triangle_avg":
                             feature_list.extend(
                                 calc_stats(area_interstice_original_array /
-                                           area_total * len(area_list)))
+                                           area_total * len(area_list),
+                                           self.stat_ops))
                         # fractional area_interstices in relative to the center
                         # atom volume
                         if area_type == \
                                 "fractional_area_interstice_center_slice_a":
                             feature_list.extend(
                                 calc_stats(area_interstice_original_array /
-                                           center_slice_area))
+                                           center_slice_area, self.stat_ops))
                 feature_lists.append(feature_list)
 
             if self.verbose > 0:
@@ -657,7 +666,6 @@ class VolumeAreaInterstice(BaseInterstice):
         feature_names = list()
         feature_prefixs = list()
 
-        stats = ['sum', 'mean', 'std', 'min', 'max']
         if self.calc_volume_area == 'volume' or self.calc_volume_area == 'all':
             volume_type_names = ['volume_interstice'] \
                 if len(self.volume_types) == 1 else self.volume_types
@@ -669,7 +677,7 @@ class VolumeAreaInterstice(BaseInterstice):
         feature_names += ['{}_{}_{}'.format(feature_prefix, stat,
                                             self.dependent_name_)
                           for feature_prefix in feature_prefixs
-                          for stat in stats]
+                          for stat in self.stat_ops]
         return feature_names
 
 

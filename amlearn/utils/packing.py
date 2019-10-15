@@ -80,13 +80,26 @@ def tetra_volume(va, vb, vc, vd):
                          np.cross((vb - vd), (vc - vd))))/6
 
 
-def calc_stats(prop_list):
+def calc_stats(prop_list, stat_ops=None):
     prop_array = np.array(prop_list)
-    prop_sum = sum(prop_array)
-    prop_mean = np.mean(prop_array)
-    prop_std = np.std(prop_array)
-    prop_min = min(prop_array)
-    prop_max = max(prop_array)
-    stats_list = [prop_sum, prop_mean, prop_std, prop_min, prop_max]
+    stats_list = list()
+    stat_ops = ['sum', 'mean', 'std', 'min', 'max'] if stat_ops is None \
+        else stat_ops
+    for stat_op in stat_ops:
+
+        if stat_op == 'sum':
+            prop_stat = sum(prop_array)
+        elif stat_op == 'mean':
+            prop_stat = np.mean(prop_array)
+        elif stat_op == 'std':
+            prop_stat = np.std(prop_array)
+        elif stat_op == 'min':
+            prop_stat = min(prop_array)
+        elif stat_op == 'max':
+            prop_stat = max(prop_array)
+        else:
+            raise ValueError('Now statistical operators only support: sum, '
+                             'mean, std, min, max.')
+        stats_list.append(prop_stat)
     return stats_list
 
