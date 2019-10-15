@@ -31,7 +31,7 @@ version = package_version
 author = 'Qi Wang'
 author_email = 'qwang.mse@gmail.com'
 packages = find_packages()
-package_data = {'amlearn.utils': ['*.yaml']}
+package_data = {'amlearn.utils': ['*.yaml', '*.json']}
 url = 'https://github.com/Qi-max/amlearn'
 download_url = 'https://github.com/Qi-max/amlearn/archive/0.1.0.tar.gz'
 license = 'modified BSD'
@@ -44,16 +44,34 @@ install_requires = ['numpy>=1.7.0',
                     'tqdm>=4.11.2',
                     'pandas>=0.20.2',
                     'six>=1.10.0']
-ext_modules = [Extension(name='amlearn.fmodules',
-                         sources=['amlearn/featurize/src/utils.f90',
-                                  'amlearn/featurize/src/voronoi_nn.f90',
-                                  'amlearn/featurize/src/voronoi_stats.f90',
-                                  'amlearn/featurize/src/boop.f90',
-                                  'amlearn/featurize/src/mro_stats.f90',
-                                  'amlearn/featurize/src/neighbor_data.f90',
-                                  'amlearn/featurize/src/distance_stats.f90',
-                                  'amlearn/featurize/src/featurize.f90',
-                                  'amlearn/featurize/src/distance_nn.f90'])]
+ext1 = Extension(name = 'scalar',
+                 sources = ['scalar.f'])
+ext2 = Extension(name = 'fib2',
+                 sources = ['fib2.pyf', 'fib1.f'])
+
+ext_modules = [Extension(name = 'amlearn.featurize.src.utils',
+                         sources = ['amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.voronoi_nn',
+                         sources = ['amlearn/featurize/src/voronoi_nn.f90',
+                                    'amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.voronoi_stats',
+                         sources = ['amlearn/featurize/src/voronoi_stats.f90',
+                                    'amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.boop',
+                         sources = ['amlearn/featurize/src/boop.f90',
+                                    'amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.mro_stats',
+                         sources = ['amlearn/featurize/src/mro_stats.f90',
+                                    'amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.neighbor_data',
+                         sources = ['amlearn/featurize/src/neighbor_data.f90',
+                                    'amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.distance_stats',
+                         sources = ['amlearn/featurize/src/distance_stats.f90',
+                                    'amlearn/featurize/src/utils.f90']),
+               Extension(name = 'amlearn.featurize.src.distance_nn',
+                         sources = ['amlearn/featurize/src/distance_nn.f90',
+                                    'amlearn/featurize/src/utils.f90'])]
 classifiers = [
     'Intended Audience :: Science/Research',
     'Intended Audience :: Developers',

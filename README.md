@@ -59,8 +59,8 @@ git clone https://github.com/Qi-max/amlearn
 ```
 
  Then, `cd` to the amlearn folder and run the `setup.py`:
+
 ```sh
 cd amlearn
 sudo python setup.py install
 ```
-
