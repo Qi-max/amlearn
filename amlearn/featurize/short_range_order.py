@@ -394,8 +394,9 @@ class DistanceInterstice(BaseInterstice):
             verbose = verbose, output_path=output_path, **nn_kwargs)
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_{}_{}_distance_interstice'.format(
-            self.category, self.dependent_name_, self.radius_type)
+            else 'feature_{}_{}_{}_distance'.format(
+            self.category, self.dependent_name_,
+            self.radius_type.replace('_radius', ''))
         self.stat_ops = stat_ops if stat_ops != 'all' \
             else ['sum', 'mean', 'std', 'min', 'max']
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col,
@@ -456,7 +457,7 @@ class DistanceInterstice(BaseInterstice):
         return dist_interstice_df
 
     def get_feature_names(self):
-        return ['dist_interstice_{}_{}'.format(
+        return ['Dist_interstice_{}_{}'.format(
             stat, self.dependent_name_) for stat in self.stat_ops]
 
 
@@ -516,8 +517,9 @@ class VolumeAreaInterstice(BaseInterstice):
                 else ['fractional_area_interstice_triangle']
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_{}_{}_volume_area_interstice'.format(
-                    self.category, self.dependent_name_, self.radius_type)
+            else 'feature_{}_{}_{}_volume_area'.format(
+                    self.category, self.dependent_name_,
+            self.radius_type.replace('_radius', ''))
 
     def transform(self, X):
         """
@@ -667,11 +669,11 @@ class VolumeAreaInterstice(BaseInterstice):
         feature_prefixs = list()
 
         if self.calc_volume_area == 'volume' or self.calc_volume_area == 'all':
-            volume_type_names = ['volume_interstice'] \
+            volume_type_names = ['Volume_interstice'] \
                 if len(self.volume_types) == 1 else self.volume_types
             feature_prefixs += volume_type_names
         if self.calc_volume_area == 'area' or self.calc_volume_area == 'all':
-            volume_type_names = ['area_interstice'] \
+            volume_type_names = ['Area_interstice'] \
                 if len(self.area_types) == 1 else self.area_types
             feature_prefixs += volume_type_names
         feature_names += ['{}_{}_{}'.format(feature_prefix, stat,
@@ -710,8 +712,9 @@ class ClusterPackingEfficiency(BaseInterstice):
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_{}_{}_cluster_packing_efficiency'.format(
-                    self.category, self.dependent_name_, self.radius_type)
+            else 'feature_{}_{}_{}_cpe'.format(
+            self.category, self.dependent_name_,
+            self.radius_type.replace('_radius', ''))
 
     def transform(self, X):
         """
@@ -772,7 +775,7 @@ class ClusterPackingEfficiency(BaseInterstice):
         return cluster_packing_efficiency_df
 
     def get_feature_names(self):
-        feature_names = ['{}_cluster_packing_efficiency_{}'.format(
+        feature_names = ['Cluster_packing_efficiency_{}_{}'.format(
             self.radius_type.replace("_radius", ""), self.dependent_name_)]
         return feature_names
 
@@ -802,8 +805,9 @@ class AtomicPackingEfficiency(BaseInterstice):
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_{}_{}_atomic_packing_efficiency'.format(
-                    self.category, self.dependent_name_, self.radius_type)
+            else 'feature_{}_{}_{}_ape'.format(
+            self.category, self.dependent_name_,
+            self.radius_type.replace('_radius', ''))
 
     def transform(self, X):
         """
@@ -865,7 +869,7 @@ class AtomicPackingEfficiency(BaseInterstice):
         return atomic_packing_efficiency_df
 
     def get_feature_names(self):
-        feature_names = ['{}_atomic_packing_efficiency_{}'.format(
+        feature_names = ['Atomic_packing_efficiency_{}_{}'.format(
             self.radius_type.replace("_radius", ""), self.dependent_name_)]
         return feature_names
 
@@ -893,7 +897,7 @@ class CN(BaseSRO):
         return cn_df
 
     def get_feature_names(self):
-        feature_names = ['cn_{}'.format(self.dependent_name_)]
+        feature_names = ['CN_{}'.format(self.dependent_name_)]
         return feature_names
 
 
@@ -938,7 +942,7 @@ class VoroIndex(BaseSRO):
         return voro_index_df
 
     def get_feature_names(self):
-        return ['voronoi_idx_{}_{}'.format(idx, self.dependent_name_)
+        return ['Voronoi_idx_{}_{}'.format(idx, self.dependent_name_)
                 for idx in range(self.edge_min, self.edge_max + 1)]
 
 
@@ -1105,7 +1109,7 @@ class AreaWtIFoldSymmetry(BaseSRO):
         return area_wt_i_symm_df
 
     def get_feature_names(self):
-        feature_names = ['area_wt_{}_fold_symm_idx_voro'.format(edge)
+        feature_names = ['Area_wt_{}_fold_symm_idx_voro'.format(edge)
                          for edge in range(self.edge_min, self.edge_max + 1)]
         return feature_names
 
@@ -1157,7 +1161,7 @@ class VolWtIFoldSymmetry(BaseSRO):
         return vol_wt_i_symm_df
 
     def get_feature_names(self):
-        feature_names = ['vol_wt_{}_fold_symm_idx_voro'.format(edge)
+        feature_names = ['Vol_wt_{}_fold_symm_idx_voro'.format(edge)
                          for edge in range(self.edge_min, self.edge_max + 1)]
         return feature_names
 
@@ -1203,8 +1207,8 @@ class VoroAreaStats(BaseSRO):
         return area_stats_df
 
     def get_feature_names(self):
-        feature_names = ['voronoi_area_voro'] + \
-                        ['facet_area_{}_voro'.format(stat)
+        feature_names = ['Facet_area_sum_voro'] + \
+                        ['Facet_area_{}_voro'.format(stat)
                          for stat in self.stats]
         return feature_names
 
@@ -1304,8 +1308,8 @@ class VoroVolStats(BaseSRO):
         return vol_stats_df
 
     def get_feature_names(self):
-        feature_names = ['voronoi_vol_voro'] + \
-                        ['sub_polyhedra_vol_{}_voro'.format(stat)
+        feature_names = ['Subpolyhedra_vol_sum_voro'] + \
+                        ['Subpolyhedra_vol_{}_voro'.format(stat)
                          for stat in self.stats]
         return feature_names
 
@@ -1480,10 +1484,10 @@ class BOOP(BaseSRO):
                          for num in self.bq_tags] + \
                         ['w_{}_{}'.format(num, self.dependent_name_)
                          for num in self.bq_tags] + \
-                        ['coarse_grained_q_{}_{}'.format(num,
+                        ['Coarse_grained_q_{}_{}'.format(num,
                                                          self.dependent_name_)
                          for num in self.bq_tags] + \
-                        ['coarse_grained_w_{}_{}'.format(num,
+                        ['Coarse_grained_w_{}_{}'.format(num,
                                                          self.dependent_name_)
                          for num in self.bq_tags]
         return feature_names

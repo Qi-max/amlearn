@@ -15,7 +15,7 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 def all_featurizers():
     all_classes = []
     for importer, modname, ispkg in pkgutil.walk_packages(
-            path=[module_dir], prefix='amlearn.featurize.featurizers.',
+            path=[module_dir], prefix='amlearn.featurize.',
             onerror=lambda x: None):
         if ".tests." in modname or ".src." in modname:
             continue

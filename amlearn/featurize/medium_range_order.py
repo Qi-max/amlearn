@@ -25,7 +25,7 @@ class MRO(BaseFeaturize):
         self.neighbor_cols = check_neighbor_col(neighbor_cols)
         self.calc_features = calc_features
         self.stats_names = stats_names if stats_names is not None else \
-            ['sum_NN', 'mean_NN', 'std_NN', 'min_NN', 'max_NN', 'diff_NN']
+            ['MRO_sum', 'MRO_mean', 'MRO_std', 'MRO_min', 'MRO_max', 'MRO_diff']
         self.output_file_prefix = output_file_prefix
         self.neighbor_ids_col = 'neighbor_ids_{}'
 
@@ -105,8 +105,7 @@ class MRO(BaseFeaturize):
                                  columns=self.get_common_names())
 
         voro_mean_cols = [col for col in result_df.columns
-                          if col.startswith('Voronoi idx_')
-                          and col.endswith(' mean_NN')]
+                          if col.startswith('MRO_mean_Voronoi_idx_')]
 
         if voro_mean_cols:
             self.calced_sysmm_percent = True
@@ -129,7 +128,7 @@ class MRO(BaseFeaturize):
         for neighbor_col in self.calced_neighbor_cols:
             neighbor_tag = neighbor_col.split('_')[-1]
             feature_names += \
-                ["{}_{}".format(feature, stats_name)
+                ["{}_{}".format(stats_name, feature)
                  for feature in self.calc_features if feature.endswith(neighbor_tag)
                  for stats_name, stats_type in zip(self.stats_names,
                                                    self.stats_types)
@@ -137,7 +136,7 @@ class MRO(BaseFeaturize):
         return feature_names
 
     def get_symm_percent_names(self):
-        feature_names = ['Avg_{}_fold_symm_idx'.format(edge)
+        feature_names = ['MRO_Avg_{}_fold_symm_idx'.format(edge)
                          for edge in self.idx_list]
         return feature_names
 
