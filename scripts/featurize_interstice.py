@@ -5,12 +5,15 @@ from amlearn.featurize.short_range_order import \
     DistanceInterstice, VolumeAreaInterstice
 from amlearn.featurize.medium_range_order import MRO
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 """
 This is an example script of deriving interstice distribution features for 
 each atom, based on relevant distance/area/volume interstice classes in 
-amlearn.featurize.featurizers.short_range_order as well as classes in 
-amlearn.featurize.featurizers.medium_range_order to further coarse SRO 
-features to MRO. 
+amlearn.featurize.short_range_order,
+as well as classes in amlearn.featurize.medium_range_order to further 
+coarse-grain SRO features to MRO. 
 """
 
 system = ["Cu65Zr35", "qr_5plus10^10"]

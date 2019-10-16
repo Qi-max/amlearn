@@ -11,6 +11,9 @@ from sklearn.pipeline import FeatureUnion, Pipeline
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 def all_featurizers():
     all_classes = []

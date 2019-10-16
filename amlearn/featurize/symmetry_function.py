@@ -8,6 +8,9 @@ try:
 except Exception:
     print("import fortran file bp_symmfunc error!\n")
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class BPRadialFunction(BaseEstimator, TransformerMixin):
     def __init__(self, ref_atom_number, atom_type_symbols, bds,

@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, classification_report, \
     confusion_matrix
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
 
 def classifier_predict_unit(classifier, y, y_predict,
                             feature_list, log, dataset_tag, probability,

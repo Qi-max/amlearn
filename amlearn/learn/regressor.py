@@ -20,6 +20,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.testing import all_estimators
 from sklearn.utils.validation import check_is_fitted
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class AmRegressor(AmBaseLearn):
     """Base regressor class of amlearn.

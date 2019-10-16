@@ -31,7 +31,6 @@ from sklearn.metrics.scorer import check_scoring, _check_multimetric_scoring
 from sklearn.exceptions import FitFailedWarning
 from sklearn.preprocessing import LabelEncoder
 
-
 __all__ = ['cross_validate', 'cross_val_score', 'cross_val_predict',
            'permutation_test_score', 'learning_curve', 'validation_curve']
 

@@ -7,6 +7,10 @@ from amlearn.utils.backend import BackendContext, MLBackend
 from sklearn.externals import six
 from sklearn.base import BaseEstimator, TransformerMixin
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
+
 @lru_cache(maxsize=5)
 def create_ml_backend(output_path='tmp'):
     """Create default ml backend.

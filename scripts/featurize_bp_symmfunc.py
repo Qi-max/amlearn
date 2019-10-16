@@ -3,11 +3,14 @@ from amlearn.utils.data import read_lammps_dump
 from amlearn.featurize.symmetry_function import \
     BPRadialFunction, BPAngularFunction
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 """
 This is an example script of deriving B-P symmetry functinos for each atom, 
-based on the Fortran source codes in amlearn/featurize/featurizers/src/
-bp_symmfunc.f90. Please make sure to compile the Fortran code using
-f2py before running this script. 
+based on the Fortran source codes in amlearn/featurize/src/bp_symmfunc.f90. 
+Please make sure to compile the Fortran code using f2py before running this 
+script. 
 """
 
 system = ["Cu65Zr35", "qr_5plus10^10"]

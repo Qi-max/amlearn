@@ -11,6 +11,9 @@ import pandas as pd
 # featurizer check
 from amlearn.utils.data import list_like
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 def check_featurizer_X(X, atoms_df):
     X = atoms_df if X is None else X

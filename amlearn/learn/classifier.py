@@ -28,6 +28,9 @@ from sklearn.utils.validation import check_is_fitted
 
 from amlearn.learn.preprocessor import ImblearnPreprocessor
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class AmClassifier(AmBaseLearn):
     """Base Classifier class of amlearn.

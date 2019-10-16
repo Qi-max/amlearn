@@ -7,6 +7,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn.ensemble.partial_dependence import partial_dependence, \
     plot_partial_dependence
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
 
 class PDPPlot:
     def __init__(self, model, feature_df, feature_list,

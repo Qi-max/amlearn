@@ -26,6 +26,9 @@ except Exception:
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 class PackingOfSite(object):
     def __init__(self, pbc, bds, atom_type, coords, neighbors_type,

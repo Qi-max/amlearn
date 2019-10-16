@@ -1,6 +1,9 @@
 from math import atan2, pi
 import numpy as np
 
+__author__ = "Qi Wang"
+__email__ = "qiwang.mse@gmail.com"
+
 
 def pbc_image_nn_coords(center_coords, neighbor_coords, bds, pbc):
     if list(pbc) == [0, 0, 0]:
