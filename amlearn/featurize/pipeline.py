@@ -18,7 +18,7 @@ __email__ = "qiwang.mse@gmail.com"
 def all_featurizers():
     all_classes = []
     for importer, modname, ispkg in pkgutil.walk_packages(
-            path=[module_dir], prefix='amlearn.featurize.featurizers.',
+            path=[module_dir], prefix='amlearn.featurize.',
             onerror=lambda x: None):
         if ".tests." in modname or ".src." in modname:
             continue
