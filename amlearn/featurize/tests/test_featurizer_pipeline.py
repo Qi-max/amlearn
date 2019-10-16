@@ -41,25 +41,45 @@ class TestSro(AmLearnTest):
     def test_featurize_pipeline(self):
         featurizers = [
             VoroNN(bds=self.sc_bds, cutoff=5, allow_neighbor_limit=300,
-                   n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
+                   n_neighbor_limit=80, pbc=[1, 1, 1], save=False),
             DistanceNN(bds=self.sc_bds, cutoff=4, allow_neighbor_limit=300,
-                       n_neighbor_limit=80, pbc=[1, 1, 1], save=True),
+                       n_neighbor_limit=80, pbc=[1, 1, 1], save=False),
             VolumeAreaInterstice(
-                atomic_number_list=[29, 40], save=True,
+                atomic_number_list=[29, 40], save=False,
                 radii=None, radius_type="miracle_radius", verbose=1),
             ClusterPackingEfficiency(
-                atomic_number_list=[29, 40], save=True,
+                atomic_number_list=[29, 40], save=False,
                 radii=None, radius_type="miracle_radius", verbose=1),
             AtomicPackingEfficiency(
-                atomic_number_list=[29, 40], save=True,
+                atomic_number_list=[29, 40], save=False,
                 radii=None, radius_type="miracle_radius", verbose=1),
-            MRO(output_file_prefix='pipeline_mro')
+            MRO(output_file_prefix='pipeline_mro', save=False)
         ]
-        multi_featurizer = FeaturizePipeline(featurizers=featurizers)
+        multi_featurizer = FeaturizePipeline(featurizers=featurizers,
+                                             save=False)
         result_df = multi_featurizer.fit_transform(X=self.sc_df,
                                                    bds=self.sc_bds,
                                                    lammps_df=self.sc_df)
-        print(result_df)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['Volume_interstice_mean_voro'], 0.144229, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['Volume_interstice_std_voro'], 0.196815, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['Volume_interstice_min_voro'], 0.000000, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['Volume_interstice_max_voro'], 0.539218, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['MRO_mean_Atomic_packing_efficiency_'
+                              'miracle_voro'], 0.158738, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['MRO_std_Atomic_packing_efficiency_'
+                              'miracle_voro'], 0.164291, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['MRO_min_Atomic_packing_efficiency_'
+                              'miracle_voro'], 0.038186, 6)
+        self.assertAlmostEqual(
+            result_df.iloc[4]['MRO_max_Atomic_packing_efficiency_'
+                              'miracle_voro'], 0.509640, 6)
 
 
     # def test_all_featurizes_pipeline(self):

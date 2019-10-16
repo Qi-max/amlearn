@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from amlearn.featurize.base import BaseFeaturize
@@ -15,15 +17,26 @@ __email__ = "qiwang.mse@gmail.com"
 
 
 class MRO(BaseFeaturize):
-    def __init__(self, backend=None, neighbor_num_limit=80,
-                 stats_types="all", stats_names=None, neighbor_cols="all",
+    def __init__(self, backend=None, neighbor_num_limit=80, stat_ops="all",
+                 stats_types=None, stats_names=None, neighbor_cols="all",
                  calc_features="all", save=True, output_path=None,
                  output_file_prefix='feature_mro'):
         super(MRO, self).__init__(save=save,
                                   backend=backend,
                                   output_path=output_path)
-        self.stats_types = stats_types if stats_types != "all" \
-            else [1, 1, 1, 1, 1, 1]
+        if stats_types is None:
+            self.stat_ops = stat_ops if stat_ops != 'all' \
+                else ['sum', 'mean', 'std', 'min', 'max', 'diff']
+            self.stats_types = [1 if 'sum' in self.stat_ops else 0,
+                                1 if 'mean' in self.stat_ops else 0,
+                                1 if 'std' in self.stat_ops else 0,
+                                1 if 'min' in self.stat_ops else 0,
+                                1 if 'max' in self.stat_ops else 0,
+                                1 if 'diff' in self.stat_ops else 0]
+        else:
+            self.stats_types = stats_types if stats_types != "all" \
+                else [1, 1, 1, 1, 1, 1]
+
         self.neighbor_num_limit = neighbor_num_limit
         self.neighbor_cols = check_neighbor_col(neighbor_cols)
         self.calc_features = calc_features
@@ -51,10 +64,17 @@ class MRO(BaseFeaturize):
 
         for neighbor_col in self.neighbor_cols:
             if neighbor_col not in list(self.dependent_df.columns):
-                self.backend.logger.warning(
-                    "neighbor_col {} is not in dependent DataFrame. So ignore "
-                    "this neighbor type calculation and continue to calculate "
-                    "next neighbor type.".format(neighbor_col))
+                if self.save:
+                    self.backend.logger.warning(
+                        "neighbor column {} is not in dependent DataFrame. So "
+                        "ignore this neighbor type calculation and continue "
+                        "to calculate next neighbor type.".format(neighbor_col))
+                else:
+                    warnings.warn(
+                        "neighbor column {} is not in dependent DataFrame. So "
+                        "ignore this neighbor type calculation and continue "
+                        "to calculate next neighbor type.".format(neighbor_col))
+
                 continue
             self.calced_neighbor_cols.append(neighbor_col)
         if not self.calced_neighbor_cols:
@@ -66,8 +86,9 @@ class MRO(BaseFeaturize):
     def transform(self, X):
         feature_lists = None
         n_atoms = len(X)
+
         # define print verbose
-        if self.verbose > 0:
+        if self.verbose > 0 and self.save:
             vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=self.verbose, max_verbose_mod=10000)
             vr.init(total_epoch=len(self.calced_neighbor_cols) *
@@ -100,7 +121,7 @@ class MRO(BaseFeaturize):
                     sum_stats_types=sum(self.stats_types))
                 feature_lists = np.append(feature_lists, mro_feature, axis=1) \
                     if feature_lists is not None else mro_feature
-                if self.verbose > 0:
+                if self.verbose > 0 and self.save:
                     vr_idx += 1
                     vr.update(vr_idx)
 
@@ -112,8 +133,7 @@ class MRO(BaseFeaturize):
 
         if voro_mean_cols:
             self.calced_sysmm_percent = True
-            self.idx_list = [col.split('_')[-1].split(' ')[0]
-                             for col in voro_mean_cols]
+            self.idx_list = [col.split('_')[4] for col in voro_mean_cols]
             percent_list = \
                 line_percent(value_list=result_df[voro_mean_cols].values)
             percent_df = pd.DataFrame(percent_list, index=X.index,

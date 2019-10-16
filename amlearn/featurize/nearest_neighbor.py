@@ -44,8 +44,9 @@ class BaseNN(six.with_metaclass(ABCMeta, BaseEstimator, TransformerMixin)):
         self.pbc = pbc if pbc else [1, 1, 1]
         self.bds = bds if bds else [[-36, 36], [-36, 36], [-36, 36]]
         self.save = save
-        self.backend = backend if backend is not None \
-            else create_featurizer_backend(output_path=output_path)
+        if self.save:
+            self.backend = backend if backend is not None \
+                else create_featurizer_backend(output_path=output_path)
         self.output_file_prefix = output_file_prefix
 
     def fit_transform(self, X=None, y=None, **fit_params):

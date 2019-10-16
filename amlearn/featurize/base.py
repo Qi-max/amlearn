@@ -76,8 +76,9 @@ class BaseFeaturize(six.with_metaclass(ABCMeta,
     def __init__(self, save=True, verbose=1, backend=None, output_path=None):
         self.save = save
         self.verbose = verbose
-        self.backend = backend if backend is not None \
-            else create_featurizer_backend(output_path=output_path)
+        if self.save:
+            self.backend = backend if backend is not None \
+                else create_featurizer_backend(output_path=output_path)
         self.dependent_class_ = None
         self.dependent_cols_ = None
 
