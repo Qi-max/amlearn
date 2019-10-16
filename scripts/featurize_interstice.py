@@ -16,7 +16,7 @@ as well as classes in amlearn.featurize.medium_range_order to further
 coarse-grain SRO features to MRO. 
 """
 
-system = ["Cu65Zr35", "qr_5plus10^10"]
+# system = ["Cu65Zr35", "qr_5plus10^10"]
 
 atomic_number_list = [29, 40]
 stat_ops = ['mean', 'std', 'min', 'max']
@@ -28,8 +28,8 @@ output_path = "xxx/xxx"
 
 featurizers = [
     # neighboring analysis
-    VoroNN(bds=bds, cutoff=5, output_path=output_path),
-    DistanceNN(bds=bds, cutoff=4, output_path=output_path),
+    VoroNN(bds=bds, cutoff=5.0, output_path=output_path),
+    DistanceNN(bds=bds, cutoff=4.0, output_path=output_path),
 
     # distance interstice
     DistanceInterstice(atomic_number_list=atomic_number_list,
