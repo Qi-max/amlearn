@@ -45,24 +45,24 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
 !f2py   intent(in) cutoff, delta_r, n_r
 !f2py   intent(in, out) radial_funcs
 
-    integer :: atom, i, j, range, type
+    integer :: i, j, n, range, type
     REAL(8) :: rij, r_ref
     REAL(8), dimension(3) :: r
 
     radial_funcs = 0
 
-    do atom = 1, n_center_atoms
-        write(*, *) atom, center_atom_ids(atom)
-        do i = 1, n_atoms
-            if (atom_ids(i) /= center_atom_ids(atom)) then
-                call distance_info(center_atom_coords(atom, :), atom_coords(i, :), bds, pbc, r, rij)
+    do i = 1, n_center_atoms
+        write(*, *) i, center_atom_ids(i)
+        do j = 1, n_atoms
+            if (atom_ids(j) /= center_atom_ids(i)) then
+                call distance_info(center_atom_coords(i, :), atom_coords(j, :), bds, pbc, r, rij)
                 if(rij <= cutoff) then
                     do type = 1, n_atom_types
-                        if (atom_types(i) == atom_type_symbols(type)) then
-                            do j = 1, n_r
-                                r_ref = (j - 1) * delta_r
-                                radial_funcs(atom, j + (type-1) * n_r) = &
-                                    radial_funcs(atom, j + (type-1) * n_r) + &
+                        if (atom_types(j) == atom_type_symbols(type)) then
+                            do n = 1, n_r
+                                r_ref = (n - 1) * delta_r
+                                radial_funcs(i, n + (type-1) * n_r) = &
+                                    radial_funcs(i, n + (type-1) * n_r) + &
                                     exp(-1 / (2* delta_r ** 2) * (rij - r_ref) ** 2)
                             end do
                         end if
@@ -111,7 +111,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
 !f2py   intent(in) ksaais, lambdas, zetas, n_params, cutoff
 !f2py   intent(in, out) angular_funcs
 
-    integer :: atom, i, j, k, range, type, type1, type2, n_neigh, p
+    integer :: atom, i, j, n, k, range, type, type1, type2, n_neigh, p
     REAL(8) :: rij, rjk, rik, r_ref, cosijk, func
     REAL(8), dimension(3) :: r
     REAL(8), dimension(n_atom_types, 60, 4):: neigh_dists
@@ -125,16 +125,16 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
         neigh_nums = 0
         neigh_dists = 0
         neigh_ids = 0
-        do atom = 1, n_atoms
-            if (atom_ids(atom) /= center_atom_ids(i)) then
-                call distance_info(center_atom_coords(i, :), atom_coords(atom, :), bds, pbc, r, rij)
+        do j = 1, n_atoms
+            if (atom_ids(j) /= center_atom_ids(i)) then
+                call distance_info(center_atom_coords(i, :), atom_coords(j, :), bds, pbc, r, rij)
                 if(rij <= cutoff) then
                     do type = 1, n_atom_types
-                        if (atom_types(atom) == atom_type_symbols(type)) then
+                        if (atom_types(j) == atom_type_symbols(type)) then
                             neigh_nums(type) = neigh_nums(type) + 1
                             neigh_dists(type, neigh_nums(type), 1:3) = r
                             neigh_dists(type, neigh_nums(type), 4) = rij
-                            neigh_ids(type, neigh_nums(type)) = atom
+                            neigh_ids(type, neigh_nums(type)) = j
                         end if
                     end do
                 end if
