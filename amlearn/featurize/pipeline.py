@@ -150,8 +150,9 @@ class FeaturizePipeline(BaseFeaturize):
         else:
             mro_df = None
         if sro_df is not X and mro_df is not None:
-            self.backend.save_featurizer_as_dataframe(sro_df.join(mro_df),
-                                                      name='features_all')
+            if self.save:
+                self.backend.save_featurizer_as_dataframe(sro_df.join(mro_df),
+                                                          name='features_all')
             return sro_df.join(mro_df)
         return mro_df if mro_df is not None else sro_df
 

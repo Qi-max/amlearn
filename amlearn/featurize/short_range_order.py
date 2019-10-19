@@ -295,8 +295,9 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
             self.dependent_name_ = dependent_class.__class__.__name__.lower()[:4]
         elif isinstance(dependent_class, str):
             self.dependent_name_ = dependent_class[:4]
-            self.dependent_class_ = get_nn_instance(self.dependent_name_,
-                                                    self.backend, **nn_kwargs)
+            self.dependent_class_ = get_nn_instance(
+                self.dependent_name_, getattr(self, 'backend', None),
+                save=self.save, **nn_kwargs)
         else:
             raise ValueError(
                 'dependent_class {} is unknown, Possible values are {} or '
@@ -318,9 +319,14 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
     def fit(self, X=None):
         self.dependent_class_ = self.check_dependency(X)
         if self.dependent_class_:
-            self.backend.context.logger_.info(
-                "Input X don't have it's dependent columns, "
-                "now calculate it automatically")
+            if self.save:
+                self.backend.context.logger_.info(
+                    "Input X don't have it's dependent columns, "
+                    "now calculate it automatically")
+            else:
+                print("Input X don't have it's dependent columns, "
+                      "now calculate it automatically")
+
             self.calculated_X = self.dependent_class_.fit_transform(X)
         return self
 
@@ -425,7 +431,7 @@ class DistanceInterstice(BaseInterstice):
             if self.calculated_X is None else self.calculated_X
 
         # define print verbose
-        if self.verbose > 0:
+        if self.verbose > 0 and self.save:
             vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=self.verbose, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
@@ -448,7 +454,7 @@ class DistanceInterstice(BaseInterstice):
                     continue
             feature_lists.append(calc_stats(neighbor_dist_interstice_list,
                                             self.stat_ops))
-            if self.verbose > 0:
+            if self.verbose > 0 and self.save:
                 vr.update(idx - 1)
 
         dist_interstice_df = \
@@ -544,7 +550,7 @@ class VolumeAreaInterstice(BaseInterstice):
             else self.calculated_X
 
         # define print verbose
-        if self.verbose > 0:
+        if self.verbose > 0 and self.save:
             vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=self.verbose, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
@@ -653,7 +659,7 @@ class VolumeAreaInterstice(BaseInterstice):
                                            center_slice_area, self.stat_ops))
                 feature_lists.append(feature_list)
 
-            if self.verbose > 0:
+            if self.verbose > 0 and self.save:
                 vr.update(idx - 1)
 
         volume_area_interstice_df = pd.DataFrame(
@@ -716,7 +722,7 @@ class ClusterPackingEfficiency(BaseInterstice):
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_cpe'.format(
-            self.category, self.dependent_name_,
+            self.category.replace('interstice_', ''), self.dependent_name_,
             self.radius_type.replace('_radius', ''))
 
     def transform(self, X):
@@ -738,7 +744,7 @@ class ClusterPackingEfficiency(BaseInterstice):
             if self.calculated_X is None else self.calculated_X
 
         # define print verbose
-        if self.verbose > 0:
+        if self.verbose > 0 and self.save:
             vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=self.verbose, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
@@ -764,7 +770,7 @@ class ClusterPackingEfficiency(BaseInterstice):
             else:
                 feature_lists.append([pos_.cluster_packing_efficiency()])
 
-            if self.verbose > 0:
+            if self.verbose > 0 and self.save:
                 vr.update(idx - 1)
 
         cluster_packing_efficiency_df = pd.DataFrame(
@@ -809,7 +815,7 @@ class AtomicPackingEfficiency(BaseInterstice):
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_ape'.format(
-            self.category, self.dependent_name_,
+            self.category.replace('interstice_', ''), self.dependent_name_,
             self.radius_type.replace('_radius', ''))
 
     def transform(self, X):
@@ -832,7 +838,7 @@ class AtomicPackingEfficiency(BaseInterstice):
             if self.calculated_X is None else self.calculated_X
 
         # define print verbose
-        if self.verbose > 0:
+        if self.verbose > 0 and self.save:
             vr = VerboseReporter(self.backend, total_stage=1,
                                  verbose=self.verbose, max_verbose_mod=10000)
             vr.init(total_epoch=len(X), start_epoch=0,
@@ -858,7 +864,7 @@ class AtomicPackingEfficiency(BaseInterstice):
             else:
                 feature_lists.append([pos_.atomic_packing_efficiency()])
 
-            if self.verbose > 0:
+            if self.verbose > 0 and self.save:
                 vr.update(idx - 1)
 
         atomic_packing_efficiency_df = pd.DataFrame(
@@ -969,7 +975,7 @@ class CharacterMotif(BaseSRO):
                                             dtype=np.longdouble)
         self.frank_kasper = frank_kasper
         self.edge_min = edge_min
-        self.dependent_cols_ = ['voronoi_idx_{}_voro'.format(idx)
+        self.dependent_cols_ = ['Voronoi_idx_{}_voro'.format(idx)
                                 for idx in range(3,8)]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
@@ -984,7 +990,7 @@ class CharacterMotif(BaseSRO):
                 VoroIndex(neighbor_num_limit=self.neighbor_num_limit,
                           include_beyond_edge_max=self.include_beyond_edge_max,
                           dependent_class=self.dependent_class, save=False,
-                          backend=self.backend)
+                          backend=getattr(self, 'backend', None))
             self.calculated_X = voro_index.fit_transform(X)
         return self
 
