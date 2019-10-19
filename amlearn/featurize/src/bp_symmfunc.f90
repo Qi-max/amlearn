@@ -66,8 +66,8 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
                         if (atom_types(j) == atom_type_symbols(type)) then
                             do n = 1, n_r
                                 r_ref = (n - 1) * delta_r
-                                radial_funcs(i, n + (type-1) * n_r) = &
-                                    radial_funcs(i, n + (type-1) * n_r) + &
+                                radial_funcs(i, n + (type - 1) * n_r) = &
+                                    radial_funcs(i, n + (type - 1) * n_r) + &
                                     exp(-1 / (2* delta_r ** 2) * (rij - r_ref) ** 2)
                             end do
                         end if
