@@ -38,7 +38,7 @@ class TestSro(AmLearnTest):
         self.assertTrue(issubclass(featurizers['VolumeAreaInterstice'],
                                    BaseInterstice))
 
-    def test_featurize_pipeline(self):
+    def test_interstice_pipeline(self):
         featurizers = [
             VoroNN(bds=self.sc_bds, cutoff=5, allow_neighbor_limit=300,
                    n_neighbor_limit=80, pbc=[1, 1, 1], save=False),

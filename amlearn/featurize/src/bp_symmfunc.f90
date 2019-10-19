@@ -14,7 +14,7 @@
 subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
     n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, &
     pbc, bds, &
-    cutoff, delta_r, n_r, radial_funcs)
+    cutoff, delta_r, n_r, radial_funcs, print_freq)
 
     implicit none
     interface
@@ -36,13 +36,13 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
     integer, dimension(3) :: pbc
     REAL(8), dimension(3, 2) :: bds
     REAL(8) :: cutoff, delta_r
-    integer :: n_r
+    integer :: n_r, print_freq
     REAL(8), dimension(n_center_atoms, n_r*n_atom_types):: radial_funcs
     ! dimension: bin_num, types of atom center
 
 !f2py   intent(in) n_center_atoms, center_atom_ids, center_atom_coords
 !f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, bds
-!f2py   intent(in) cutoff, delta_r, n_r
+!f2py   intent(in) cutoff, delta_r, n_r, print_freq
 !f2py   intent(in, out) radial_funcs
 
     integer :: i, j, n, range, type
@@ -52,7 +52,12 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
     radial_funcs = 0
 
     do i = 1, n_center_atoms
-        write(*, *) i, center_atom_ids(i)
+        if (i == 0) then
+            write(*, *) "start radial symmfunc"
+        else if (mod(i, print_freq) == 0) then
+            write(*, *) "radial symmfunc: atom", i
+        end if
+
         do j = 1, n_atoms
             if (atom_ids(j) /= center_atom_ids(i)) then
                 call distance_info(center_atom_coords(i, :), atom_coords(j, :), bds, pbc, r, rij)
@@ -71,14 +76,14 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
             end if
         end do
     end do
-
+    write(*, *) "finish radial symmfunc for atoms: ", n_atoms
 end subroutine bp_radial
 
 
 subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, &
     pbc, bds, &
-    ksaais, lambdas, zetas, n_params, cutoff, angular_funcs)
+    ksaais, lambdas, zetas, n_params, cutoff, angular_funcs, print_freq)
 
     implicit none
     interface
@@ -99,7 +104,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     REAL(8), dimension(n_atoms, 3):: atom_coords
     integer, dimension(3) :: pbc
     REAL(8), dimension(3, 2) :: bds
-    integer :: n_params
+    integer :: n_params, print_freq
     REAL(8), dimension(n_params):: ksaais, lambdas, zetas
     REAL(8) :: cutoff
     REAL(8), dimension(n_center_atoms, n_atom_types*(n_atom_types+1) / 2 *n_params):: angular_funcs
@@ -108,7 +113,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
 
 !f2py   intent(in) n_center_atoms, center_atom_ids, center_atom_coords
 !f2py   intent(in) n_atoms, atom_ids, atom_types, atom_type_symbols, n_atom_types, atom_coords, pbc, bds
-!f2py   intent(in) ksaais, lambdas, zetas, n_params, cutoff
+!f2py   intent(in) ksaais, lambdas, zetas, n_params, cutoff, print_freq
 !f2py   intent(in, out) angular_funcs
 
     integer :: atom, i, j, n, k, range, type, type1, type2, n_neigh, p
@@ -121,7 +126,12 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
     angular_funcs = 0
 
     do i = 1, n_center_atoms
-        write(*, *) i, center_atom_ids(i)
+        if (i == 0) then
+            write(*, *) "start angular symmfunc"
+        else if (mod(i, print_freq) == 0) then
+            write(*, *) "angular symmfunc: atom", i
+        end if
+
         neigh_nums = 0
         neigh_dists = 0
         neigh_ids = 0
@@ -183,7 +193,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
             end do
         end do
     end do
-
+    write(*, *) "finish angular symmfunc for atoms: ", n_atoms
 end subroutine bp_angular
 
 

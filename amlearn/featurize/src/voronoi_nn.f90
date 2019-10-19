@@ -16,17 +16,7 @@
 ! neighbor_vol_lists:         real(n_atoms, n_neighbor_limit)
 ! neighbor_distance_lists:    real(n_atoms, n_neighbor_limit)
 ! neighbor_edge_lists:        int (n_atoms, n_neighbor_limit)
-! n_neighbor_max:             int
-! n_edge_max:                 int
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
-!module voronoi_nn
-!!
-!!!  use :: distance
-!!
-!contains
 
 subroutine determinant(face, deter_value)
     REAL(16), dimension(3, 3), intent(in) :: face
@@ -43,11 +33,11 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     n_neighbor_limit, small_face_thres, pbc, bds, &
     n_neighbor_list, neighbor_lists, &
     neighbor_area_lists, neighbor_vol_lists, neighbor_distance_lists, neighbor_edge_lists, &
-    n_neighbor_max, n_edge_max)
+    print_freq)
 
     use :: distance
 
-    integer :: n_atoms, allow_neighbor_limit, n_neighbor_limit, n_neighbor_max, n_edge_max
+    integer :: n_atoms, allow_neighbor_limit, n_neighbor_limit
     REAL(8) :: cutoff, small_face_thres
     integer, dimension(3) :: pbc
     REAL(8), dimension(3, 2) :: bds
@@ -57,17 +47,18 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     REAL(8), dimension(n_atoms, n_neighbor_limit):: neighbor_area_lists
     REAL(8), dimension(n_atoms, n_neighbor_limit):: neighbor_vol_lists
     REAL(8), dimension(n_atoms, n_neighbor_limit):: neighbor_distance_lists
+    integer :: print_freq
 
 !f2py   intent(in) n_atoms, atom_type, atom_coords, cutoff, small_face_thres
-!f2py   intent(in) allow_neighbor_limit, n_neighbor_limit, pbc, bds
+!f2py   intent(in) allow_neighbor_limit, n_neighbor_limit, pbc, bds, print_freq
 !f2py   intent(in, out) n_neighbor_list
 !f2py   intent(in, out) neighbor_lists, neighbor_edge_lists
 !f2py   intent(in, out) neighbor_area_lists, neighbor_vol_lists, neighbor_distance_lists
-!f2py   intent(in, out) n_neighbor_max, n_edge_max
+!f2py   intent(in) print_freq
 
     integer :: atom, i, j, l, k, s, possible_n_neighbor, CN_test
     integer, dimension(allow_neighbor_limit) :: bool, possible_neighbor_list, vertex_face
-    integer, dimension(allow_neighbor_limit, allow_neighbor_limit) :: mianvoro
+    integer, dimension(allow_neighbor_limit, allow_neighbor_limit) :: facetvoro
     REAL(8) :: d, d_temp, vertex(allow_neighbor_limit, 3)
     REAL(16) :: deter_value1, deter_value2, deter_value
     REAL(8) :: area_sum
@@ -79,20 +70,16 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     integer, dimension(n_atoms) :: n_vertex_list
     integer, dimension(n_neighbor_limit, 3) :: vertex_info
 
-!    write(*,*) "call fortran"
-
-    n_neighbor_max = 0
-    n_edge_max = 0
-
     do atom = 1, n_atoms
-!      if (atom > 5) then
-!              exit
-!      end if
-      write(*,*) "atom is : ", atom
-
+      if (i == 0) then
+        write(*, *) "start voronoi nn"
+      else if (mod(i, print_freq) == 0) then
+        write(*, *) "voronoi nn: atom", i
+      end if
+      
       vertex = 0
       vertex_info = 0
-      mianvoro = 0
+      facetvoro = 0
       bool = 0
       possible_n_neighbor=0
       possible_neighbor_list = 0
@@ -202,9 +189,6 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
           end do
         end do
       end do
-!      write(*, *) n_vertex_list(atom)
-!      write(*, *) vertex_info(n_vertex_list(atom),:)
-!        write(*, *) mianvoro
       ! calculate the area and vol of each part of the Voronoi polyhedra(cluster)
       !! start of i-iteration
       j=0
@@ -215,17 +199,15 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
       CN_test = 0
 
       do i = 1, possible_n_neighbor
-        if (bool(i).eq.1) then
+        if (bool(i) == 1) then
           CN_test = CN_test + 1
 !          write(*,*) CN_test
           k = 0
           do l = 1, n_vertex_list(atom)
-            if ((vertex_info(l, 1).eq.i) .or. (vertex_info(l, 2).eq.i) .or. (vertex_info(l, 3).eq.i)) then
+            if ((vertex_info(l, 1) == i) .or. (vertex_info(l, 2) == i) .or. (vertex_info(l, 3) == i)) then
               k = k + 1
-              mianvoro(i, k) = l        ! the edge number of atom-i is k
+              facetvoro(i, k) = l        ! the edge number of atom-i is k
 
-!              write(*,*) 'k', k
-!              write(*,*) 'mianvoro', mianvoro(i, k)
               exit
             end if
           end do
@@ -237,38 +219,38 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
 !            write(*,*) 'vertex_info is ', vertex_info
           do while(l <= n_vertex_list(atom))
 
-            if (((vertex_info(l,1).eq.i &
-              .and.((vertex_info(l,2).eq.vertex_info(j,1)) &
-              .or.(vertex_info(l,2).eq.vertex_info(j,2)) &
-              .or.(vertex_info(l,2).eq.vertex_info(j,3)) &
-              .or.(vertex_info(l,3).eq.vertex_info(j,1)) &
-              .or.(vertex_info(l,3).eq.vertex_info(j,2)) &
-              .or.(vertex_info(l,3).eq.vertex_info(j,3)))) &
-             .or.(vertex_info(l,2).eq.i &
-              .and.((vertex_info(l,1).eq.vertex_info(j,1)) &
-              .or.(vertex_info(l,1).eq.vertex_info(j,2)) &
-              .or.(vertex_info(l,1).eq.vertex_info(j,3)) &
-              .or.(vertex_info(l,3).eq.vertex_info(j,1)) &
-              .or.(vertex_info(l,3).eq.vertex_info(j,2)) &
-              .or.(vertex_info(l,3).eq.vertex_info(j,3)))) &
-             .or.(vertex_info(l,3).eq.i &
-              .and.((vertex_info(l,1).eq.vertex_info(j,1)) &
-              .or.(vertex_info(l,1).eq.vertex_info(j,2)) &
-              .or.(vertex_info(l,1).eq.vertex_info(j,3)) &
-              .or.(vertex_info(l,2).eq.vertex_info(j,1)) &
-              .or.(vertex_info(l,2).eq.vertex_info(j,2)) &
-              .or.(vertex_info(l,2).eq.vertex_info(j,3))))) &
-             .and.(l.ne.mianvoro(i, 1)) &
-             .and.(l.ne.mianvoro(i, k + 1*merge(-1, 0, k.ne.1))) &
-             .and.(l.ne.j)) then
+            if (((vertex_info(l,1) == i &
+              .and.((vertex_info(l,2) == vertex_info(j,1)) &
+              .or.(vertex_info(l,2) == vertex_info(j,2)) &
+              .or.(vertex_info(l,2) == vertex_info(j,3)) &
+              .or.(vertex_info(l,3) == vertex_info(j,1)) &
+              .or.(vertex_info(l,3) == vertex_info(j,2)) &
+              .or.(vertex_info(l,3) == vertex_info(j,3)))) &
+             .or.(vertex_info(l,2) == i &
+              .and.((vertex_info(l,1) == vertex_info(j,1)) &
+              .or.(vertex_info(l,1) == vertex_info(j,2)) &
+              .or.(vertex_info(l,1) == vertex_info(j,3)) &
+              .or.(vertex_info(l,3) == vertex_info(j,1)) &
+              .or.(vertex_info(l,3) == vertex_info(j,2)) &
+              .or.(vertex_info(l,3) == vertex_info(j,3)))) &
+             .or.(vertex_info(l,3) == i &
+              .and.((vertex_info(l,1) == vertex_info(j,1)) &
+              .or.(vertex_info(l,1) == vertex_info(j,2)) &
+              .or.(vertex_info(l,1) == vertex_info(j,3)) &
+              .or.(vertex_info(l,2) == vertex_info(j,1)) &
+              .or.(vertex_info(l,2) == vertex_info(j,2)) &
+              .or.(vertex_info(l,2) == vertex_info(j,3))))) &
+             .and.(l /= facetvoro(i, 1)) &
+             .and.(l /= facetvoro(i, k + 1*merge(-1, 0, k /= 1))) &
+             .and.(l /= j)) then
 !                write(*, *) 'l', l
               k = k + 1
-!              if(k.gt.(n_atoms)) then
-              if(k.gt.(allow_neighbor_limit)) then
+!              if(k > (n_atoms)) then
+              if(k > (allow_neighbor_limit)) then
 
                 exit
               end if
-              mianvoro(i, k) = l
+              facetvoro(i, k) = l
 !              write(*, *) 'goto 200'
               j = l
               l = 0
@@ -279,32 +261,28 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
 
           neighbor_vol_list_with_small(i) = 0
           do l = 2, k - 1
-            face_2(1, :) = vertex(mianvoro(i, 1), :)
+            face_2(1, :) = vertex(facetvoro(i, 1), :)
             do m = 2, 3
-              face_2(m, :)=vertex(mianvoro(i, l + m-2), :)
+              face_2(m, :)=vertex(facetvoro(i, l + m-2), :)
             end do
 
             call determinant(face_2(1:3, 1:3), deter_value)
 !            deter_value = determinant(face_2(1:3, 1:3))
             neighbor_vol_list_with_small(i) = neighbor_vol_list_with_small(i) + abs(deter_value/6.0)
 !            write(*, *) 'neighbor_vol_list_with_small', neighbor_vol_list_with_small(i)
-
           end do
-!          write(*, *) 'here 24'
 
           call distance_info(atom_coords(atom, :), atom_coords(possible_neighbor_list(i), :), bds, pbc, r, d)
           neighbor_area_list_with_small(i) = 6.0 * neighbor_vol_list_with_small(i)/d
           area_sum = area_sum + neighbor_area_list_with_small(i)
         end if
-      !!! missing one end if???????
       end do
-!      write(*, *) 'here 3'
 
       if (small_face_thres > 0.0) then
         s = 0
         do i = 1, possible_n_neighbor
-          if (bool(i).eq.1) then
-            if (neighbor_area_list_with_small(i) .lt. small_face_thres * area_sum / CN_test) then  !5% percent
+          if (bool(i) == 1) then
+            if (neighbor_area_list_with_small(i) < small_face_thres * area_sum / CN_test) then  !5% percent
               bool(i) = 0
               CN_test = CN_test - 1
             else
@@ -336,21 +314,17 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
 !        write(*,*) "__________________________"
       end if
 
-!      write(*, *) 'here 4'
-
-      if (n_neighbor_list(atom) > n_neighbor_max) then
-        n_neighbor_max = n_neighbor_list(atom)
-      end if
-
-      do m = 1, n_neighbor_list(atom)
-        if (neighbor_edge_lists(atom, m) > n_neighbor_max) then
-          n_edge_max = neighbor_edge_lists(atom, m)
-        end if
-      end do
-!      write(*, *) 'here 5'
+!      if (n_neighbor_list(atom) > n_neighbor_max) then
+!        n_neighbor_max = n_neighbor_list(atom)
+!      end if
+!
+!      do m = 1, n_neighbor_list(atom)
+!        if (neighbor_edge_lists(atom, m) > n_neighbor_max) then
+!          n_edge_max = neighbor_edge_lists(atom, m)
+!        end if
+!      end do
 
     end do
+    write(*, *) "finish voronoi nn for atoms: ", n_atoms
 end subroutine voronoi
 
-
-!end module voronoi_nn

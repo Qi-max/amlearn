@@ -43,281 +43,278 @@
         comp=(0.,1.)
 
         do atom = 1, n_atoms
-!            if(atom > 10) then
-!                exit
-!            end if
           do i = 1, n_neighbor_list(atom)
             j = neighbor_lists(atom, i)
             call angle_info(atom_coords(atom, :), atom_coords(j, :), bds, pbc, ksai, theta)
             do l = 4, 10, 2
               do m = -l, l
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!Q4!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                  if((l.eq.4).and.(m.eq.(-4))) then
+                  if((l == 4).and.(m == (-4))) then
                     qtemp = 3.0/16.0 * sqrt(35.0/(2.0*3.1415926)) * exp(-4*comp*ksai) * &
                             (sin(theta))**4
 
-                  else if((l.eq.4).and.(m.eq.(-3))) then
+                  else if((l == 4).and.(m == (-3))) then
                     qtemp = 3.0/8.0 * sqrt(35.0/(3.1415926)) * exp(-3*comp*ksai) * &
                             (sin(theta))**3 * cos(theta)
 
-                  else if((l.eq.4).and.(m.eq.(-2))) then
+                  else if((l == 4).and.(m == (-2))) then
                     qtemp = 3.0/8.0 * sqrt(5.0/(2.0*3.1415926)) * exp(-2*comp*ksai) * &
                             (sin(theta))**2 * (7.0*(cos(theta))**2 - 1.0)
 
-                  else if((l.eq.4).and.(m.eq.(-1))) then
+                  else if((l == 4).and.(m == (-1))) then
                     qtemp = 3.0/8.0 * sqrt(5.0/(3.1415926))* exp(-1*comp*ksai) * &
                             (sin(theta)) * (7.0*(cos(theta))**3-3.0*cos(theta))
 
-                  else if((l.eq.4).and.(m.eq.(0))) then
+                  else if((l == 4).and.(m == (0))) then
                     qtemp = 3.0/16.0 * sqrt(1.0/(3.1415926))* &
                             (35.0*(cos(theta))**4 - 30.0*(cos(theta))**2+3)
 
 
-                  else if((l.eq.4).and.(m.eq.1)) then
+                  else if((l == 4).and.(m == 1)) then
                     qtemp = -3.0/8.0 * sqrt(5.0/(3.1415926))* exp(1*comp*ksai) * &
                             (sin(theta)) * (7.0*(cos(theta))**3-3.0*cos(theta))
 
-                  else if((l.eq.4).and.(m.eq.2)) then
+                  else if((l == 4).and.(m == 2)) then
                     qtemp = 3.0/8.0 * sqrt(5.0/(2.0*3.1415926)) * exp(2*comp*ksai)* &
                             (sin(theta))**2* (7.0*(cos(theta))**2-1.0)
 
-                  else if((l.eq.4).and.(m.eq.3)) then
+                  else if((l == 4).and.(m == 3)) then
                     qtemp = -3.0/8.0 * sqrt(35.0/(3.1415926)) * exp(3*comp*ksai)* &
                             (sin(theta))**3*cos(theta)
 
-                  else if((l.eq.4).and.(m.eq.4)) then
+                  else if((l == 4).and.(m == 4)) then
                     qtemp = 3.0/16.0 * sqrt(35.0/(2.0*3.1415926)) * exp(4*comp*ksai)* &
                             (sin(theta))**4
 
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!Q6!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-                  else if((l.eq.6).and.(m.eq.(-6))) then
+                  else if((l == 6).and.(m == (-6))) then
                     qtemp = 1.0/64.0 * sqrt(3003.0/(3.1415926)) * exp(-6*comp*ksai)* &
                             (sin(theta))**6
 
-                  else if((l.eq.6).and.(m.eq.(-5))) then
+                  else if((l == 6).and.(m == (-5))) then
                     qtemp = 3.0/32.0 * sqrt(1001.0/(3.1415926)) * exp(-5*comp*ksai)* &
                             (sin(theta))**5*cos(theta)
 
-                  else if((l.eq.6).and.(m.eq.(-4))) then
+                  else if((l == 6).and.(m == (-4))) then
                     qtemp = 3.0/32.0 * sqrt(91.0/(2.0*3.1415926)) * exp(-4*comp*ksai)* &
                             (sin(theta))**4* (11.0*(cos(theta))**2-1)
 
-                  else if((l.eq.6).and.(m.eq.(-3))) then
+                  else if((l == 6).and.(m == (-3))) then
                     qtemp = 1.0/32.0 * sqrt(1365.0/(3.1415926)) * exp(-3*comp*ksai)* &
                             (sin(theta))**3* (11.0*(cos(theta))**3-3.0*cos(theta))
 
-                  else if((l.eq.6).and.(m.eq.(-2))) then
+                  else if((l == 6).and.(m == (-2))) then
                     qtemp = 1.0/64.0 * sqrt(1365.0/(3.1415926)) * exp(-2*comp*ksai)* &
                             (sin(theta))**2 * (33.0*(cos(theta))**4 - 18.0*(cos(theta))**2 + 1)
 
-                  else if((l.eq.6).and.(m.eq.(-1))) then
+                  else if((l == 6).and.(m == (-1))) then
                     qtemp = 1.0/16.0 * sqrt(273.0/(2*3.1415926)) * exp(-1*comp*ksai)* &
                             (sin(theta))* (33.0*(cos(theta))**5 - 30.0*(cos(theta))**3 + &
                             5.0*cos(theta))
 
                   !! no exp(-1*comp*ksai)?
-                  else if((l.eq.6).and.(m.eq.(0))) then
+                  else if((l == 6).and.(m == (0))) then
                     qtemp = 1.0/32.0 * sqrt(13.0/(3.1415926))* (231.0*(cos(theta))**6 - &
                             315.0*(cos(theta))**4 + 105.0*(cos(theta))**2 - 5)
 
-                  else if((l.eq.6).and.(m.eq.(1))) then
+                  else if((l == 6).and.(m == (1))) then
                     qtemp = -1.0/16.0 * sqrt(273.0/(2*3.1415926)) * exp(1*comp*ksai)* &
                             (sin(theta)) * (33.0*(cos(theta))**5-30.0*(cos(theta))**3 + &
                             5.0*cos(theta))
 
-                  else if((l.eq.6).and.(m.eq.(2))) then
+                  else if((l == 6).and.(m == (2))) then
                     qtemp = 1.0/64.0 * sqrt(1365.0/(3.1415926))* exp(2*comp*ksai)* &
                             (sin(theta))**2 * (33.0*(cos(theta))**4 - 18.0*(cos(theta))**2 + 1)
 
-                  else if((l.eq.6).and.(m.eq.(3))) then
+                  else if((l == 6).and.(m == (3))) then
                     qtemp = -1.0/32.0 * sqrt(1365.0/(3.1415926)) * exp(3*comp*ksai)* &
                             (sin(theta))**3 * (11.0*(cos(theta))**3 - 3.0*cos(theta))
 
-                  else if((l.eq.6).and.(m.eq.(4))) then
+                  else if((l == 6).and.(m == (4))) then
                     qtemp = 3.0/32.0 * sqrt(91.0/(2.0*3.1415926)) * exp(4*comp*ksai)* &
                             (sin(theta))**4 * (11.0*(cos(theta))**2-1)
 
-                  else if((l.eq.6).and.(m.eq.(5))) then
+                  else if((l == 6).and.(m == (5))) then
                     qtemp = -3.0/32.0 * sqrt(1001.0/(3.1415926)) * exp(5*comp*ksai)* &
                             (sin(theta))**5 * cos(theta)
 
 
-                  else if((l.eq.6).and.(m.eq.(6))) then
+                  else if((l == 6).and.(m == (6))) then
                     qtemp = 1.0/64.0 * sqrt(3003.0/(3.1415926)) * exp(6*comp*ksai)* &
                             (sin(theta))**6
 
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!Q8!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-                  else if((l.eq.8).and.(m.eq.(-8))) then
+                  else if((l == 8).and.(m == (-8))) then
                     qtemp = 3.0/256.0 * sqrt(12155.0/(2*3.1415926)) * exp(-8*comp*ksai)* &
                             (sin(theta))**8
 
-                  else if((l.eq.8).and.(m.eq.(-7))) then
+                  else if((l == 8).and.(m == (-7))) then
                     qtemp = 3.0/64.0 * sqrt(12155.0/(2*3.1415926)) * exp(-7*comp*ksai)* &
                             (sin(theta))**7 * cos(theta)
 
-                  else if((l.eq.8).and.(m.eq.(-6))) then
+                  else if((l == 8).and.(m == (-6))) then
                     qtemp = 1.0/128.0 * sqrt(7293.0/(3.1415926)) * exp(-6.0*comp*ksai)* &
                             (sin(theta))**6 * (15.0*(cos(theta))**2 - 1)
 
-                  else if((l.eq.8).and.(m.eq.(-5))) then
+                  else if((l == 8).and.(m == (-5))) then
                     qtemp = 3.0/64.0 * sqrt(17017.0/(2*3.1415926)) * exp(-5.0*comp*ksai)* &
                             (sin(theta))**5 * (5.0*(cos(theta))**3 - 1.0*cos(theta))
 
-                  else if((l.eq.8).and.(m.eq.(-4))) then
+                  else if((l == 8).and.(m == (-4))) then
                     qtemp = 3.0/128.0 * sqrt(1309.0/(2*3.1415926)) * exp(-4.0*comp*ksai)* &
                             (sin(theta))**4 * (65.0*(cos(theta))**4 - 26.0*(cos(theta))**2 + 1)
 
-                  else if((l.eq.8).and.(m.eq.(-3))) then
+                  else if((l == 8).and.(m == (-3))) then
                     qtemp = 1.0/64.0 * sqrt(19635.0/(2*3.1415926)) * exp(-3.0*comp*ksai)* &
                             (sin(theta))**3 * (39.0*(cos(theta))**5 - 26.0*(cos(theta))**3 + &
                             3.0*cos(theta))
 
-                  else if((l.eq.8).and.(m.eq.(-2))) then
+                  else if((l == 8).and.(m == (-2))) then
                     qtemp = 3.0/128.0 * sqrt(595.0/(3.1415926)) * exp(-2.0*comp*ksai)* &
                             (sin(theta))**2 * (143.0*(cos(theta))**6 - 143.0*(cos(theta))**4 + &
                             33.0*(cos(theta))**2 - 1)
 
-                  else if((l.eq.8).and.(m.eq.(-1))) then
+                  else if((l == 8).and.(m == (-1))) then
                     qtemp = 3.0/64.0 * sqrt(17.0/(2.0*3.1415926)) * exp(-1.0*comp*ksai)* &
                             (sin(theta))**1 * (715.0*(cos(theta))**7-1001.0*(cos(theta))**5 + &
                             385.0*(cos(theta))**3 - 35.0*cos(theta))
 
-                  else if((l.eq.8).and.(m.eq.(0))) then
+                  else if((l == 8).and.(m == (0))) then
                     qtemp = 1.0/256.0 * sqrt(17.0/(3.1415926)) * (6435.0*(cos(theta))**8 - &
                             12012.0*(cos(theta))**6 + 6930.0*(cos(theta))**4 - &
                             1260.0*(cos(theta))**2 + 35.0)
 
-                  else if((l.eq.8).and.(m.eq.(1))) then
+                  else if((l == 8).and.(m == (1))) then
                     qtemp = -3.0/64.0 * sqrt(17.0/(2.0*3.1415926)) * exp(1.0*comp*ksai)* &
                             (sin(theta))**1 * (715.0*(cos(theta))**7 - 1001.0*(cos(theta))**5 + &
                             385.0*(cos(theta))**3 - 35.0*cos(theta))
 
-                  else if((l.eq.8).and.(m.eq.(2))) then
+                  else if((l == 8).and.(m == (2))) then
                     qtemp = 3.0/128.0 * sqrt(595.0/(3.1415926)) * exp(2.0*comp*ksai)* &
                             (sin(theta))**2 * (143.0*(cos(theta))**6 - 143.0*(cos(theta))**4 + &
                             33.0*(cos(theta))**2-1)
 
-                  else if((l.eq.8).and.(m.eq.(3))) then
+                  else if((l == 8).and.(m == (3))) then
                     qtemp = -1.0/64.0 * sqrt(19635.0/(2.0*3.1415926)) * exp(3.0*comp*ksai)* &
                             (sin(theta))**3 * (39.0*(cos(theta))**5-26.0*(cos(theta))**3 + &
                             3.0*cos(theta))
 
-                  else if((l.eq.8).and.(m.eq.(4))) then
+                  else if((l == 8).and.(m == (4))) then
                     qtemp = 3.0/128.0 * sqrt(1309.0/(2.0*3.1415926)) * exp(4.0*comp*ksai)* &
                             (sin(theta))**4* (65.0*(cos(theta))**4 - 26.0*(cos(theta))**2 + 1)
 
-                  else if((l.eq.8).and.(m.eq.(5))) then
+                  else if((l == 8).and.(m == (5))) then
                     qtemp = -3.0/64.0 * sqrt(17017.0/(2.0*3.1415926)) * exp(5.0*comp*ksai)* &
                             (sin(theta))**5* (5.0*(cos(theta))**3 - 1.0*cos(theta))
 
-                  else if((l.eq.8).and.(m.eq.(6))) then
+                  else if((l == 8).and.(m == (6))) then
                     qtemp = 1.0/128.0 * sqrt(7293.0/(3.1415926)) * exp(6.0*comp*ksai)* &
                             (sin(theta))**6 * (15.0*(cos(theta))**2-1)
 
-                  else if((l.eq.8).and.(m.eq.(7))) then
+                  else if((l == 8).and.(m == (7))) then
                     qtemp = -3.0/64.0 * sqrt(12155.0/(2.0*3.1415926)) * exp(7.0*comp*ksai)* &
                             (sin(theta))**7 * cos(theta)
 
-                  else if((l.eq.8).and.(m.eq.(8))) then
+                  else if((l == 8).and.(m == (8))) then
                     qtemp = 3.0/256.0 * sqrt(12155.0/(2.0*3.1415926)) * exp(8.0*comp*ksai)* &
                             (sin(theta))**8
 
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!Q10!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-                  else if((l.eq.10).and.(m.eq.(-10))) then
+                  else if((l == 10).and.(m == (-10))) then
                     qtemp = 1.0/1024.0 * sqrt(969969.0/(3.1415926)) * exp(-10.0*comp*ksai)* &
                             (sin(theta))**10
 
-                  else if((l.eq.10).and.(m.eq.(-9))) then
+                  else if((l == 10).and.(m == (-9))) then
                     qtemp = 1.0/512.0 * sqrt(4849845.0/(3.1415926)) * exp(-9.0*comp*ksai)* &
                             (sin(theta))**9 * cos(theta)
 
-                  else if((l.eq.10).and.(m.eq.(-8))) then
+                  else if((l == 10).and.(m == (-8))) then
                     qtemp = 1.0/512.0 * sqrt(255255.0/(2.0*3.1415926)) * exp(-8.0*comp*ksai)* &
                             (sin(theta))**8 * (19.0*(cos(theta))**2-1)
 
-                  else if((l.eq.10).and.(m.eq.(-7))) then
+                  else if((l == 10).and.(m == (-7))) then
                     qtemp = 3.0/512.0 * sqrt(85085.0/(3.1415926)) * exp(-7.0*comp*ksai)* &
                             (sin(theta))**7 * (19.0*(cos(theta))**3-3.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(-6))) then
+                  else if((l == 10).and.(m == (-6))) then
                     qtemp = 3.0/1024.0 * sqrt(5005.0/(3.1415926)) * exp(-6.0*comp*ksai)* &
                             (sin(theta))**6 * (323.0*(cos(theta))**4-102.0*(cos(theta))**2 + 3)
 
-                  else if((l.eq.10).and.(m.eq.(-5))) then
+                  else if((l == 10).and.(m == (-5))) then
                     qtemp = 3.0/256.0 * sqrt(1001.0/(3.1415926)) * exp(-5.0*comp*ksai)* &
                             (sin(theta))**5 * (323.0*(cos(theta))**5 - 170.0*(cos(theta))**3 + &
                             15.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(-4))) then
+                  else if((l == 10).and.(m == (-4))) then
                     qtemp = 3.0/256.0 * sqrt(5005.0/(2.0*3.1415926)) * exp(-4.0*comp*ksai)* &
                             (sin(theta))**4 * (323.0*(cos(theta))**6 - 255.0*(cos(theta))**4 + &
                             45.0*(cos(theta))**2-1)
 
-                  else if((l.eq.10).and.(m.eq.(-3))) then
+                  else if((l == 10).and.(m == (-3))) then
                     qtemp = 3.0/256.0 * sqrt(5005.0/(3.1415926)) * exp(-3.0*comp*ksai)* &
                             (sin(theta))**3 * (323.0*(cos(theta))**7 - 357.0*(cos(theta))**5 + &
                             105.0*(cos(theta))**3-7.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(-2))) then
+                  else if((l == 10).and.(m == (-2))) then
                     qtemp = 3.0/512.0 * sqrt(385.0/(2.0*3.1415926)) * exp(-2.0*comp*ksai)* &
                             (sin(theta))**2 * (4199.0*(cos(theta))**8 - 6188.0*(cos(theta))**6 + &
                             2730.0*(cos(theta))**4 - 364.0*(cos(theta))**2 + 7)
 
-                  else if((l.eq.10).and.(m.eq.(-1))) then
+                  else if((l == 10).and.(m == (-1))) then
                     qtemp = 1.0/256.0 * sqrt(1155.0/(2.0*3.1415926)) * exp(-1.0*comp*ksai)* &
                             (sin(theta))**1 * (4199.0*(cos(theta))**9 - 7956.0*(cos(theta))**7 + &
                             4914.0*(cos(theta))**5 - 1092.0*(cos(theta))**3 + 63.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(0))) then
+                  else if((l == 10).and.(m == (0))) then
                     qtemp = 1.0/512.0 * sqrt(21.0/(3.1415926)) * (46189.0*(cos(theta))**10 - &
                             109395.0*(cos(theta))**8 + 90090.0*(cos(theta))**6 - 30030.0*(cos(theta))**4 + &
                             3465.0*(cos(theta))**2-63)
 
-                  else if((l.eq.10).and.(m.eq.(1))) then
+                  else if((l == 10).and.(m == (1))) then
                     qtemp = -1.0/256.0 * sqrt(1155.0/(2.0*3.1415926)) * exp(1.0*comp*ksai)* &
                             (sin(theta))**1 * (4199.0*(cos(theta))**9 - 7956.0*(cos(theta))**7 + &
                             4914.0*(cos(theta))**5 - 1092.0*(cos(theta))**3 + 63.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(2))) then
+                  else if((l == 10).and.(m == (2))) then
                     qtemp = 3.0/512.0 * sqrt(385.0/(2.0*3.1415926)) * exp(2.0*comp*ksai)* &
                             (sin(theta))**2 * (4199.0*(cos(theta))**8 - 6188.0*(cos(theta))**6 + &
                             2730.0*(cos(theta))**4 - 364.0*(cos(theta))**2 + 7)
 
-                  else if((l.eq.10).and.(m.eq.(3))) then
+                  else if((l == 10).and.(m == (3))) then
                     qtemp = -3.0/256.0 * sqrt(5005.0/(3.1415926)) * exp(3.0*comp*ksai)* &
                             (sin(theta))**3 * (323.0*(cos(theta))**7 - 357.0*(cos(theta))**5 + &
                             105.0*(cos(theta))**3 - 7.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(4))) then
+                  else if((l == 10).and.(m == (4))) then
                     qtemp = 3.0/256.0 * sqrt(5005.0/(2.0*3.1415926)) * exp(4.0*comp*ksai)* &
                             (sin(theta))**4 * (323.0*(cos(theta))**6 - 255.0*(cos(theta))**4 + &
                             45.0*(cos(theta))**2 - 1)
 
-                  else if((l.eq.10).and.(m.eq.(5))) then
+                  else if((l == 10).and.(m == (5))) then
                     qtemp = -3.0/256.0 * sqrt(1001.0/(3.1415926)) * exp(5.0*comp*ksai)* &
                             (sin(theta))**5 * (323.0*(cos(theta))**5 - 170.0*(cos(theta))**3 + &
                             15.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(6))) then
+                  else if((l == 10).and.(m == (6))) then
                     qtemp = 3.0/1024.0 * sqrt(5005.0/(3.1415926)) * exp(6.0*comp*ksai)* &
                             (sin(theta))**6 * (323.0*(cos(theta))**4 - 102.0*(cos(theta))**2 + 3)
 
-                  else if((l.eq.10).and.(m.eq.(7))) then
+                  else if((l == 10).and.(m == (7))) then
                     qtemp = -3.0/512.0 * sqrt(85085.0/(3.1415926)) * exp(7.0*comp*ksai)* &
                             (sin(theta))**7 * (19.0*(cos(theta))**3 - 3.0*cos(theta))
 
-                  else if((l.eq.10).and.(m.eq.(8))) then
+                  else if((l == 10).and.(m == (8))) then
                     qtemp = 1.0/512.0 * sqrt(255255.0/(2.0*3.1415926)) * exp(8.0*comp*ksai)* &
                             (sin(theta))**8 * (19.0*(cos(theta))**2-1)
 
-                  else if((l.eq.10).and.(m.eq.(9))) then
+                  else if((l == 10).and.(m == (9))) then
                     qtemp = -1.0/512.0 * sqrt(4849845.0/(3.1415926)) * exp(9.0*comp*ksai)* &
                             (sin(theta))**9 * cos(theta)
 
-                  else if((l.eq.10).and.(m.eq.(10))) then
+                  else if((l == 10).and.(m == (10))) then
                     qtemp = 1.0/1024.0 * sqrt(969969.0/(3.1415926)) * exp(10.0*comp*ksai)* &
                             (sin(theta))**10
 
@@ -372,7 +369,7 @@
             do v = max(0, -m1, m2), min(l, l-m1, l+m2)
               s = s + 1
               v1 = fac(v) + fac(l-v) + fac(l-m1-v) + fac(l+m2-v) + fac(-m2+v) + fac(m1+v)
-              if(s.eq.1) then
+              if(s == 1) then
                 v0 = v1
               end if
               v2 = v2 + (-1)**(-v) * 10**(1.0*(v0-v1))
@@ -469,7 +466,7 @@
             do v = max(0, -m1, m2), min(l, l-m1, l+m2)
               s = s + 1
               v1 = fac(v) + fac(l-v) + fac(l-m1-v) + fac(l+m2-v) + fac(-m2+v) + fac(m1+v)
-              if(s.eq.1) then
+              if(s == 1) then
                 v0 = v1
               end if
               v2 = v2 + (-1)**(-v) * 10**(1.0*(v0-v1))
@@ -537,7 +534,7 @@
 !        do v = max(0, -m1, m2), min(l, l-m1, l+m2)
 !          s = s + 1
 !          v1 = fac(v) + fac(l-v) + fac(l-m1-v) + fac(l+m2-v) + fac(-m2+v) + fac(m1+v)
-!          if(s.eq.1) then
+!          if(s == 1) then
 !            v0 = v1
 !          end if
 !          v2 = v2 + (-1)**(-v) * 10**(1.0*(v0-v1))

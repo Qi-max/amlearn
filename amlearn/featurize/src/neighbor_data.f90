@@ -33,14 +33,14 @@ REAL(8), dimension(n_atoms, n_features):: features_new
 
 
 do atom = 1, n_atoms
-    if (neigh_voro(atom, 1) .ne. 0) then
+    if (neigh_voro(atom, 1) /= 0) then
          mean_nn = 0
          sum_nn = 0
          std_nn = 0
          min_nn = pred_last(neigh_voro(atom, 1))
          max_nn = min_nn
          i = 1
-         do while ((i <= n_neighs).and.(neigh_voro(atom, i).ne.0))
+         do while ((i <= n_neighs).and.(neigh_voro(atom, i) /= 0))
              pred_neigh = pred_last(neigh_voro(atom, i))
              sum_nn = sum_nn + pred_neigh
              if (pred_neigh > max_nn) then

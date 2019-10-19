@@ -18,7 +18,8 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
                  sigma_AA=None, radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
-                 output_file_prefix='feature_bp_radial_function'):
+                 output_file_prefix='feature_bp_radial_function',
+                 print_freq=1000):
         self.ref_atom_number = ref_atom_number
         self.atom_type_symbols = atom_type_symbols
         self.bds = bds
@@ -36,6 +37,7 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
         self.backend = backend if backend is not None \
             else create_featurizer_backend(output_path=output_path)
         self.output_file_prefix = output_file_prefix
+        self.print_freq = print_freq
 
         # general setting
         if sigma_AA is None:
@@ -59,7 +61,7 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
             atom_type_symbols=self.atom_type_symbols,
             atom_coords=atom_coords, pbc=self.pbc, bds=self.bds,
             cutoff=self.cutoff, delta_r=self.delta_r, n_r=self.n_r,
-            radial_funcs=radial_funcs)
+            radial_funcs=radial_funcs, print_freq=self.print_freq)
 
         radial_funcs_df = pd.DataFrame(radial_funcs,
                                        index=atom_ids.transpose().tolist()[0],
@@ -73,9 +75,9 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
         return ["A_{:.3f}".format(i)
-                for i in np.arange(0, self.cutoff_r, self.delta_r)] + \
+                for i in np.arange(0, self.n_r) * self.delta_r] + \
                ["B_{:.3f}".format(i)
-                for i in np.arange(0, self.cutoff_r, self.delta_r)]
+                for i in np.arange(0, self.n_r) * self.delta_r]
 
 
 class BPAngularFunction(BaseEstimator, TransformerMixin):
@@ -84,7 +86,8 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
                  radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
-                 output_file_prefix='feature_bp_angular_function'):
+                 output_file_prefix='feature_bp_angular_function',
+                 print_freq=1000):
         self.ref_atom_number = ref_atom_number
         self.atom_type_symbols = atom_type_symbols
         self.radii = load_radii() if radii is None else radii
@@ -105,6 +108,8 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
         self.backend = backend if backend is not None \
             else create_featurizer_backend(output_path=output_path)
         self.output_file_prefix = output_file_prefix
+        self.print_freq = print_freq
+
         self.cutoff = (2.5 * self.sigma_AA) if cutoff is None else cutoff
 
 
@@ -126,7 +131,8 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
             atom_type_symbols=self.atom_type_symbols,
             atom_coords=atom_coords, pbc=self.pbc, bds=self.bds,
             ksaais=self.ksaais, lambdas=self.lambdas, zetas=self.zetas,
-            cutoff=self.cutoff, angular_funcs=angular_funcs)
+            cutoff=self.cutoff, angular_funcs=angular_funcs,
+            print_freq=self.print_freq)
 
         angular_funcs_df = pd.DataFrame(angular_funcs,
                                         index=atom_ids.transpose().tolist()[0],
