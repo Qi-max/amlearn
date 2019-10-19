@@ -71,7 +71,7 @@ subroutine voronoi(n_atoms, atom_type, atom_coords, cutoff, allow_neighbor_limit
     integer, dimension(n_neighbor_limit, 3) :: vertex_info
 
     do atom = 1, n_atoms
-      if (atom == 0) then
+      if (atom == 1) then
         write(*, *) "start voronoi nn"
       else if (mod(atom, print_freq) == 0) then
         write(*, *) "voronoi nn: atom", atom

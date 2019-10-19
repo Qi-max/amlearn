@@ -45,7 +45,7 @@ subroutine distance_neighbor(n_atoms, atom_type, atom_coords, distance_cutoff, &
     REAL(8), dimension(3) :: r
 
     do atom = 1, n_atoms
-      if (atom == 0) then
+      if (atom == 1) then
         write(*, *) "start distance nn"
       else if (mod(atom, print_freq) == 0) then
         write(*, *) "distance nn: atom", atom
