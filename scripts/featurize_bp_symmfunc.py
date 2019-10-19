@@ -21,7 +21,7 @@ structure, bds = read_lammps_dump(lammps_file)
 output_path = "xxx/xxx"
 
 # Calculating B-P radial symmetry function
-ref_atom_number = "29" # Cu
+ref_atom_number = "29"  # Cu
 atom_type_symbols = np.array([1, 2])
 delta_r=0.1
 n_r=50

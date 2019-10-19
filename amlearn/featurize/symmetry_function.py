@@ -14,7 +14,7 @@ __email__ = "qiwang.mse@gmail.com"
 
 class BPRadialFunction(BaseEstimator, TransformerMixin):
     def __init__(self, ref_atom_number, atom_type_symbols, bds,
-                 delta_r=0.1, n_r=50, cutoff_s=None, pbc=None,
+                 delta_r=0.1, n_r=50, cutoff=None, pbc=None,
                  sigma_AA=None, radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
@@ -42,8 +42,7 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
             sigma_AA = \
                 self.radii[str(self.ref_atom_number)][self.radius_type] * 2
         self.delta_r = sigma_AA * self.delta_r
-        self.cutoff_r = self.delta_r * self.n_r
-        self.cutoff_s = (2.5 * sigma_AA) if cutoff_s is None else cutoff_s
+        self.cutoff = (2.5 * sigma_AA) if cutoff is None else cutoff
 
     def transform(self, X):
         n_atoms = len(X)
@@ -59,8 +58,8 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
             atom_ids=atom_ids, atom_types=atom_types,
             atom_type_symbols=self.atom_type_symbols,
             atom_coords=atom_coords, pbc=self.pbc, bds=self.bds,
-            cutoff_s=self.cutoff_s, cutoff_r=self.cutoff_r,
-            delta_r=self.delta_r, n_r=self.n_r, radial_funcs=radial_funcs)
+            cutoff=self.cutoff, delta_r=self.delta_r, n_r=self.n_r,
+            radial_funcs=radial_funcs)
 
         radial_funcs_df = pd.DataFrame(radial_funcs,
                                        index=atom_ids.transpose().tolist()[0],
@@ -81,7 +80,7 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
 
 class BPAngularFunction(BaseEstimator, TransformerMixin):
     def __init__(self, ref_atom_number, atom_type_symbols, ksaais, lambdas,
-                 zetas, bds, cutoff_s=None, pbc=None, sigma_AA=None,
+                 zetas, bds, cutoff=None, pbc=None, sigma_AA=None,
                  radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
@@ -106,7 +105,7 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
         self.backend = backend if backend is not None \
             else create_featurizer_backend(output_path=output_path)
         self.output_file_prefix = output_file_prefix
-        self.cutoff_s = (2.5 * self.sigma_AA) if cutoff_s is None else cutoff_s
+        self.cutoff = (2.5 * self.sigma_AA) if cutoff is None else cutoff
 
 
     def transform(self, X):
@@ -127,7 +126,7 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
             atom_type_symbols=self.atom_type_symbols,
             atom_coords=atom_coords, pbc=self.pbc, bds=self.bds,
             ksaais=self.ksaais, lambdas=self.lambdas, zetas=self.zetas,
-            cutoff_s=self.cutoff_s, angular_funcs=angular_funcs)
+            cutoff=self.cutoff, angular_funcs=angular_funcs)
 
         angular_funcs_df = pd.DataFrame(angular_funcs,
                                         index=atom_ids.transpose().tolist()[0],

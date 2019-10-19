@@ -16,9 +16,9 @@ as well as classes in amlearn.featurize.medium_range_order to further
 coarse-grain SRO features to MRO. 
 """
 
-# system = ["Cu65Zr35", "qr_5plus10^10"]
+system = ["Cu65Zr35", "qr_5plus10^10"]
 
-atomic_number_list = [29, 40]
+atomic_number_list = [29, 40]  # Cu, Zr
 stat_ops = ['mean', 'std', 'min', 'max']
 
 lammps_file = "xxx/dump.lmp"
