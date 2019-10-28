@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from functools import reduce
+from itertools import combinations_with_replacement
 from amlearn.featurize.base import create_featurizer_backend, load_radii
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -90,11 +92,10 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
         return radial_funcs_df
 
     def get_feature_names(self):
-        return ["A_{:.3f}".format(i)
-                for i in np.arange(0, self.n_r) * self.delta_r] + \
-               ["B_{:.3f}".format(i)
-                for i in np.arange(0, self.n_r) * self.delta_r]
-
+        return reduce(list.__add__,
+                      ([["{}_{:.3f}".format(str(t), i)
+                         for i in np.arange(0, self.n_r) * self.delta_r]
+                        for t in self.atom_type_symbols]))
 
 class BPAngularFunction(BaseEstimator, TransformerMixin):
     def __init__(self, bds, atom_type_symbols, ksaais, lambdas,
@@ -122,8 +123,8 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
         self.print_freq = print_freq
 
     @classmethod
-    def default_from_system(cls, ref_atom_number, atom_type_symbols, ksaais, lambdas,
-                 zetas, bds, cutoff=None, pbc=None, sigma_AA=None,
+    def default_from_system(cls, ref_atom_number, atom_type_symbols, ksaais,
+                 lambdas, zetas, bds, cutoff=None, pbc=None, sigma_AA=None,
                  radii=None, radius_type="miracle_radius",
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
@@ -179,12 +180,10 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
         return angular_funcs_df
 
     def get_feature_names(self):
-        return ["AA_{:.3f}_{:.3f}_{:.3f}".format(i, j, k)
-                for i, j, k in zip(self.ksaais / self.sigma_AA,
-                                   self.lambdas, self.zetas)] + \
-               ["AB_{:.3f}_{:.3f}_{:.3f}".format(i, j, k)
-                for i, j, k in zip(self.ksaais / self.sigma_AA,
-                                   self.lambdas, self.zetas)] + \
-               ["BB_{:.3f}_{:.3f}_{:.3f}".format(i, j, k)
-                for i, j, k in zip(self.ksaais / self.sigma_AA,
-                                   self.lambdas, self.zetas)]
+        return reduce(list.__add__,
+                      ([["{}_{}_{:.3f}_{:.3f}_{:.3f}".format(
+                          str(t1), str(t2), i, j, k)
+                         for i, j, k in zip(self.ksaais,
+                                            self.lambdas, self.zetas)]
+                        for t1, t2 in combinations_with_replacement(
+                              self.atom_type_symbols, 2)]))
