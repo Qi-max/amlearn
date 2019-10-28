@@ -110,16 +110,16 @@ class TestSRO(AmLearnTest):
             atomic_number_list=[29, 40], save=False,
             radii=None, radius_type="miracle_radius", verbose=1)
 
-        result_df = distance_interstice.fit_transform(
+        df = distance_interstice.fit_transform(
             X=self.sc_voro, lammps_df = self.sc_df)
-        self.assertEqual(len(result_df.columns), 5)
-        self.assertAlmostEqual(result_df.iloc[2]['Dist_interstice_mean_voro'],
+        self.assertEqual(len(df.columns), 5)
+        self.assertAlmostEqual(df.iloc[2]['Dist_interstice_mean_voro'],
                                -0.078468, 6)
-        self.assertAlmostEqual(result_df.iloc[2]['Dist_interstice_std_voro'],
+        self.assertAlmostEqual(df.iloc[2]['Dist_interstice_std_voro'],
                                0.185778, 6)
-        self.assertAlmostEqual(result_df.iloc[2]['Dist_interstice_min_voro'],
+        self.assertAlmostEqual(df.iloc[2]['Dist_interstice_min_voro'],
                                -0.403807, 6)
-        self.assertAlmostEqual(result_df.iloc[2]['Dist_interstice_max_voro'],
+        self.assertAlmostEqual(df.iloc[2]['Dist_interstice_max_voro'],
                                0.199099, 6)
 
     def test_volume_area_interstice(self):
@@ -127,23 +127,23 @@ class TestSRO(AmLearnTest):
             pbc=[1,1,1], atomic_number_list=[29, 40], save=False,
             radii=None, radius_type="miracle_radius", verbose=1)
 
-        result_df = volume_area_interstice.fit_transform(
+        df = volume_area_interstice.fit_transform(
             X=self.sc_voro, bds=self.sc_bds, lammps_df=self.sc_df)
-        self.assertAlmostEqual(result_df.iloc[3]['Volume_interstice_mean_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Volume_interstice_mean_voro'],
                                0.197449, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Volume_interstice_std_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Volume_interstice_std_voro'],
                                0.172989, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Volume_interstice_min_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Volume_interstice_min_voro'],
                                0.000000, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Volume_interstice_max_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Volume_interstice_max_voro'],
                                0.497742, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Area_interstice_mean_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Area_interstice_mean_voro'],
                                0.278797, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Area_interstice_std_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Area_interstice_std_voro'],
                                0.205535, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Area_interstice_min_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Area_interstice_min_voro'],
                                0.000000, 6)
-        self.assertAlmostEqual(result_df.iloc[3]['Area_interstice_max_voro'],
+        self.assertAlmostEqual(df.iloc[3]['Area_interstice_max_voro'],
                                0.570205, 6)
 
     def test_cluster_packing_efficiency(self):
@@ -151,160 +151,160 @@ class TestSRO(AmLearnTest):
             pbc=[1,1,1], atomic_number_list=[29, 40], save=False,
             radii=None, radius_type="miracle_radius", verbose=1)
 
-        result_df = cluster_packing_efficiency.fit_transform(
+        df = cluster_packing_efficiency.fit_transform(
             X=self.sc_voro, bds=self.sc_bds, lammps_df=self.sc_df)
-        self.assertEqual(result_df.iloc[1, 0], 0.826991765889196)
+        self.assertEqual(df.iloc[1, 0], 0.826991765889196)
 
     def test_atomic_pcking_efficiency(self):
         atomic_pcking_efficiency = AtomicPackingEfficiency(
             pbc=[1,1,1], atomic_number_list=[29, 40], save=False,
             radii=None, radius_type="miracle_radius", verbose=1)
 
-        result_df = atomic_pcking_efficiency.fit_transform(
+        df = atomic_pcking_efficiency.fit_transform(
             X=self.sc_voro, bds=self.sc_bds, lammps_df=self.sc_df)
-        self.assertEqual(result_df.iloc[2, 0], 0.05121967206477729)
+        self.assertEqual(df.iloc[2, 0], 0.05121967206477729)
 
     def test_cn_voro_from_voro(self):
         nn = CN(dependent_class="voro", save=False, backend=None)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('CN_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertEqual(result_df['CN_voro'].iloc[0], 10)
-        self.assertEqual(result_df['CN_voro'].iloc[1], 11)
-        self.assertEqual(result_df['CN_voro'].iloc[2], 11)
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('CN_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertEqual(df['CN_voro'].iloc[0], 10)
+        self.assertEqual(df['CN_voro'].iloc[1], 11)
+        self.assertEqual(df['CN_voro'].iloc[2], 11)
 
     def test_cn_voro_from_dist(self):
         nn = CN(dependent_class="dist", save=False, backend=None)
-        result_df = nn.fit_transform(X=self.sc_dist)
-        self.assertTrue('CN_dist' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_dist))
-        self.assertEqual(result_df['CN_dist'].iloc[0], 12)
-        self.assertEqual(result_df['CN_dist'].iloc[1], 12)
-        self.assertEqual(result_df['CN_dist'].iloc[2], 12)
+        df = nn.fit_transform(X=self.sc_dist)
+        self.assertTrue('CN_dist' in df.columns)
+        self.assertEqual(len(df), len(self.sc_dist))
+        self.assertEqual(df['CN_dist'].iloc[0], 12)
+        self.assertEqual(df['CN_dist'].iloc[1], 12)
+        self.assertEqual(df['CN_dist'].iloc[2], 12)
 
     def test_voro_index(self):
         nn = VoroIndex(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('Voronoi_idx_5_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertEqual(result_df['Voronoi_idx_4_voro'].iloc[0], 2)
-        self.assertEqual(result_df['Voronoi_idx_5_voro'].iloc[0], 5)
-        self.assertEqual(result_df['Voronoi_idx_5_voro'].iloc[2], 2)
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('Voronoi_idx_5_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertEqual(df['Voronoi_idx_4_voro'].iloc[0], 2)
+        self.assertEqual(df['Voronoi_idx_5_voro'].iloc[0], 5)
+        self.assertEqual(df['Voronoi_idx_5_voro'].iloc[2], 2)
 
     def test_character_motif(self):
         nn = CharacterMotif(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('is_polytetrahedral_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertEqual(result_df['is_polytetrahedral_voro'].iloc[0], 0)
-        self.assertEqual(result_df['is_<0,0,12,0,0>_voro'].iloc[0], 0)
-        self.assertEqual(result_df['is_polytetrahedral_voro'].iloc[9], 1)
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('is_polytetrahedral_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertEqual(df['is_polytetrahedral_voro'].iloc[0], 0)
+        self.assertEqual(df['is_<0,0,12,0,0>_voro'].iloc[0], 0)
+        self.assertEqual(df['is_polytetrahedral_voro'].iloc[9], 1)
 
     def test_i_fold_symmetry(self):
         nn = IFoldSymmetry(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('5_fold_symm_idx_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['7_fold_symm_idx_voro'].iloc[7],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('5_fold_symm_idx_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['7_fold_symm_idx_voro'].iloc[7],
                                0.1818, 4)
-        self.assertAlmostEqual(result_df['5_fold_symm_idx_voro'].iloc[0],
+        self.assertAlmostEqual(df['5_fold_symm_idx_voro'].iloc[0],
                                0.5)
-        self.assertAlmostEqual(result_df['5_fold_symm_idx_voro'].iloc[1],
+        self.assertAlmostEqual(df['5_fold_symm_idx_voro'].iloc[1],
                                0.2727, 4)
 
     def test_area_wt_i_fold_symmetry(self):
         nn = AreaWtIFoldSymmetry(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('Area_wt_5_fold_symm_idx_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('Area_wt_5_fold_symm_idx_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
         self.assertAlmostEqual(
-            result_df['Area_wt_5_fold_symm_idx_voro'].iloc[0], 0.4219, 4)
+            df['Area_wt_5_fold_symm_idx_voro'].iloc[0], 0.4219, 4)
         self.assertAlmostEqual(
-            result_df['Area_wt_6_fold_symm_idx_voro'].iloc[0], 0.3557, 4)
+            df['Area_wt_6_fold_symm_idx_voro'].iloc[0], 0.3557, 4)
         self.assertAlmostEqual(
-            result_df['Area_wt_4_fold_symm_idx_voro'].iloc[2], 0.1665, 4)
+            df['Area_wt_4_fold_symm_idx_voro'].iloc[2], 0.1665, 4)
 
     def test_vol_wt_i_fold_symmetry(self):
         nn = VolWtIFoldSymmetry(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('Vol_wt_7_fold_symm_idx_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('Vol_wt_7_fold_symm_idx_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
         self.assertAlmostEqual(
-            result_df['Vol_wt_5_fold_symm_idx_voro'].iloc[0], 0.4151, 4)
+            df['Vol_wt_5_fold_symm_idx_voro'].iloc[0], 0.4151, 4)
         self.assertAlmostEqual(
-            result_df['Vol_wt_7_fold_symm_idx_voro'].iloc[0], 0.0000, 4)
+            df['Vol_wt_7_fold_symm_idx_voro'].iloc[0], 0.0000, 4)
         self.assertAlmostEqual(
-            result_df['Vol_wt_7_fold_symm_idx_voro'].iloc[2], 0.1415, 4)
+            df['Vol_wt_7_fold_symm_idx_voro'].iloc[2], 0.1415, 4)
 
     def test_voronoi_area_stats(self):
         nn = VoroAreaStats(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('Facet_area_sum_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['Facet_area_mean_voro'].iloc[0],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('Facet_area_sum_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['Facet_area_mean_voro'].iloc[0],
                                4.4345, 4)
-        self.assertAlmostEqual(result_df['Facet_area_max_voro'].iloc[0],
+        self.assertAlmostEqual(df['Facet_area_max_voro'].iloc[0],
                                10.2436, 4)
-        self.assertAlmostEqual(result_df['Facet_area_std_voro'].iloc[2],
+        self.assertAlmostEqual(df['Facet_area_std_voro'].iloc[2],
                                1.7594, 4)
 
     def test_voro_area_stats_seperate(self):
         nn = VoroAreaStatsSeparate(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('5_edged_area_mean_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['5_edged_area_mean_voro'].iloc[0],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('5_edged_area_mean_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['5_edged_area_mean_voro'].iloc[0],
                                3.7419, 4)
-        self.assertAlmostEqual(result_df['4_edged_area_max_voro'].iloc[1],
+        self.assertAlmostEqual(df['4_edged_area_max_voro'].iloc[1],
                                1.3297, 4)
-        self.assertAlmostEqual(result_df['5_edged_area_mean_voro'].iloc[2],
+        self.assertAlmostEqual(df['5_edged_area_mean_voro'].iloc[2],
                                2.3947, 4)
 
     def test_voronoi_vol_stats(self):
         nn = VoroVolStats(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('Subpolyhedra_vol_sum_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['Subpolyhedra_vol_std_voro'].iloc[0],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('Subpolyhedra_vol_sum_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['Subpolyhedra_vol_std_voro'].iloc[0],
                                1.0287, 4)
-        self.assertAlmostEqual(result_df['Subpolyhedra_vol_std_voro'].iloc[1],
+        self.assertAlmostEqual(df['Subpolyhedra_vol_std_voro'].iloc[1],
                                1.3426, 4)
-        self.assertAlmostEqual(result_df['Subpolyhedra_vol_max_voro'].iloc[2],
+        self.assertAlmostEqual(df['Subpolyhedra_vol_max_voro'].iloc[2],
                                1.5079, 4)
 
     def test_voro_vol_stats_seperate(self):
         nn = VoroVolStatsSeparate(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('5_edged_vol_mean_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['5_edged_vol_sum_voro'].iloc[0],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('5_edged_vol_mean_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['5_edged_vol_sum_voro'].iloc[0],
                                8.3259, 4)
-        self.assertAlmostEqual(result_df['5_edged_vol_sum_voro'].iloc[1],
+        self.assertAlmostEqual(df['5_edged_vol_sum_voro'].iloc[1],
                                4.8705, 4)
-        self.assertAlmostEqual(result_df['4_edged_vol_std_voro'].iloc[2],
+        self.assertAlmostEqual(df['4_edged_vol_std_voro'].iloc[2],
                                0.2231, 4)
 
     def test_dist_stats(self):
         nn = DistStats(save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('distance_std_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['distance_std_voro'].iloc[0],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('distance_std_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['distance_std_voro'].iloc[0],
                                0.1537, 4)
-        self.assertAlmostEqual(result_df['distance_std_voro'].iloc[1],
+        self.assertAlmostEqual(df['distance_std_voro'].iloc[1],
                                0.4675, 4)
-        self.assertAlmostEqual(result_df['distance_max_voro'].iloc[2],
+        self.assertAlmostEqual(df['distance_max_voro'].iloc[2],
                                3.0226, 4)
 
     def test_boop(self):
         atom_coords = self.sc_df[['x', 'y', 'z']].values.astype(np.longdouble)
         nn = BOOP(atom_coords=atom_coords, bds=self.sc_bds, save=False)
-        result_df = nn.fit_transform(X=self.sc_voro)
-        self.assertTrue('Coarse_grained_w_4_voro' in result_df.columns)
-        self.assertEqual(len(result_df), len(self.sc_voro))
-        self.assertAlmostEqual(result_df['q_4_voro'].iloc[0],
+        df = nn.fit_transform(X=self.sc_voro)
+        self.assertTrue('Coarse_grained_w_4_voro' in df.columns)
+        self.assertEqual(len(df), len(self.sc_voro))
+        self.assertAlmostEqual(df['q_4_voro'].iloc[0],
                                0.1990, 4)
-        self.assertAlmostEqual(result_df['q_6_voro'].iloc[1],
+        self.assertAlmostEqual(df['q_6_voro'].iloc[1],
                                0.3339, 4)
-        self.assertAlmostEqual(result_df['q_8_voro'].iloc[2],
+        self.assertAlmostEqual(df['q_8_voro'].iloc[2],
                                0.2384, 4)
