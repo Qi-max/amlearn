@@ -24,6 +24,7 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
         self.atom_type_symbols = atom_type_symbols
         self.delta_r = delta_r
         self.n_r = n_r
+        self.cutoff = cutoff
         self.id_col = id_col
         self.type_col = type_col
         self.coords_cols = ["x", "y", "z"] if coords_cols is None \
