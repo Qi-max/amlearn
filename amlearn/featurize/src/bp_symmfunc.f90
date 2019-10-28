@@ -77,6 +77,7 @@ subroutine bp_radial(n_center_atoms, center_atom_ids, center_atom_coords, &
         end do
     end do
     write(*, *) "finish radial symmfunc for atoms: ", n_atoms
+    write(*, *) ""
 end subroutine bp_radial
 
 
@@ -116,7 +117,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
 !f2py   intent(in) ksaais, lambdas, zetas, n_params, cutoff, print_freq
 !f2py   intent(in, out) angular_funcs
 
-    integer :: atom, i, j, n, k, range, type, type1, type2, n_neigh, p
+    integer :: atom, i, j, n, k, t, range, type, type1, type2, n_neigh, p
     REAL(8) :: rij, rjk, rik, r_ref, cosijk, func
     REAL(8), dimension(3) :: r
     REAL(8), dimension(n_atom_types, 60, 4):: neigh_dists
@@ -153,7 +154,11 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
         do p = 1, n_params
             do type1 = 1, n_atom_types
                 do type2 = type1, n_atom_types
-                    range = type1 + type2 - 1 ! determine the range in the angular_func, valid for ternary?
+                    range = 0
+                    do t = 1, type1 - 1
+                        range = range + n_atom_types - t + 1
+                    end do
+                    range = range + type2 - type1 + 1 ! determine the range in the angular_func, valid for ternary?
                     if (type1 == type2) then
                         do j = 1, neigh_nums(type1)
                             do k = j + 1, neigh_nums(type2)
@@ -194,6 +199,7 @@ subroutine bp_angular(n_center_atoms, center_atom_ids, center_atom_coords, &
         end do
     end do
     write(*, *) "finish angular symmfunc for atoms: ", n_atoms
+    write(*, *) ""
 end subroutine bp_angular
 
 
