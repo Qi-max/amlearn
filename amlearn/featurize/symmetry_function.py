@@ -13,21 +13,17 @@ __email__ = "qiwang.mse@gmail.com"
 
 
 class BPRadialFunction(BaseEstimator, TransformerMixin):
-    def __init__(self, ref_atom_number, atom_type_symbols, bds,
-                 delta_r=0.1, n_r=50, cutoff=None, pbc=None,
-                 sigma_AA=None, radii=None, radius_type="miracle_radius",
+    def __init__(self, bds, atom_type_symbols, pbc=None,
+                 delta_r=0.2, n_r=50, cutoff=6.5,
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
                  output_file_prefix='feature_bp_radial_function',
                  print_freq=1000):
-        self.ref_atom_number = ref_atom_number
-        self.atom_type_symbols = atom_type_symbols
         self.bds = bds
+        self.pbc = np.array([1, 1, 1]) if pbc is None else pbc
+        self.atom_type_symbols = atom_type_symbols
         self.delta_r = delta_r
         self.n_r = n_r
-        self.pbc = np.array([1, 1, 1]) if pbc is None else pbc
-        self.radii = load_radii() if radii is None else radii
-        self.radius_type = radius_type
         self.id_col = id_col
         self.type_col = type_col
         self.coords_cols = ["x", "y", "z"] if coords_cols is None \
@@ -39,12 +35,27 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
         self.output_file_prefix = output_file_prefix
         self.print_freq = print_freq
 
-        # general setting
+    @classmethod
+    def default_from_system(cls, bds, atom_type_symbols, ref_atom_number,
+                     delta_r=0.1, n_r=50, cutoff=None, pbc=None,
+                     sigma_AA=None, radii=None, radius_type="miracle_radius",
+                     id_col='id', type_col='type', coords_cols=None,
+                     backend=None, verbose=1, save=True, output_path=None,
+                     output_file_prefix='feature_bp_radial_function',
+                     print_freq=1000):
+        radii = load_radii() if radii is None else radii
         if sigma_AA is None:
             sigma_AA = \
-                self.radii[str(self.ref_atom_number)][self.radius_type] * 2
-        self.delta_r = sigma_AA * self.delta_r
-        self.cutoff = (2.5 * sigma_AA) if cutoff is None else cutoff
+                radii[str(ref_atom_number)][radius_type] * 2
+        delta_r = sigma_AA * delta_r
+        cutoff = (2.5 * sigma_AA) if cutoff is None else cutoff
+
+        return cls(bds=bds, atom_type_symbols=atom_type_symbols, pbc=pbc,
+                 delta_r=delta_r, n_r=n_r, cutoff=cutoff,
+                 id_col=id_col, type_col=type_col, coords_cols=coords_cols,
+                 backend=backend, verbose=verbose, save=save, output_path=output_path,
+                 output_file_prefix=output_file_prefix,
+                 print_freq=print_freq)
 
     def transform(self, X):
         n_atoms = len(X)
@@ -94,7 +105,7 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
         self.radius_type = radius_type
         self.sigma_AA = sigma_AA if sigma_AA is not None else \
             self.radii[str(self.ref_atom_number)][self.radius_type] * 2
-        self.ksaais = ksaais * self.sigma_AA
+        self.ksaais = ksaais * self.sigma_AA  # ksaais are in the unit of sigma_AA
         self.lambdas = lambdas
         self.zetas = zetas
         self.bds = bds
