@@ -43,7 +43,9 @@ zetas = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 2, 1, 2,
                   4, 16, 1, 2, 4, 16, 1, 2, 4, 16])
 
 bp_angular_function = \
-    BPAngularFunction(ref_atom_number, atom_type_symbols,
-                      ksaais, lambdas, zetas, bds, output_path=output_path)
+    BPAngularFunction.default_from_system(
+        bds=bds, atom_type_symbols=atom_type_symbols,
+        ref_atom_number=ref_atom_number, ksaais=ksaais, lambdas=lambdas,
+        zetas=zetas, output_path=output_path)
 
 angular_funcs_df = bp_angular_function.fit_transform(structure)

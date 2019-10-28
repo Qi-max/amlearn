@@ -52,11 +52,15 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
         cutoff = (2.5 * sigma_AA) if cutoff is None else cutoff
 
         return cls(bds=bds, atom_type_symbols=atom_type_symbols, pbc=pbc,
-                 delta_r=delta_r, n_r=n_r, cutoff=cutoff,
-                 id_col=id_col, type_col=type_col, coords_cols=coords_cols,
-                 backend=backend, verbose=verbose, save=save, output_path=output_path,
-                 output_file_prefix=output_file_prefix,
-                 print_freq=print_freq)
+                   delta_r=delta_r, n_r=n_r, cutoff=cutoff,
+                   id_col=id_col, type_col=type_col, coords_cols=coords_cols,
+                   backend=backend, verbose=verbose, save=save,
+                   output_path=output_path,
+                   output_file_prefix=output_file_prefix,
+                   print_freq=print_freq)
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.transform(X)
 
     def transform(self, X):
         n_atoms = len(X)
@@ -93,24 +97,19 @@ class BPRadialFunction(BaseEstimator, TransformerMixin):
 
 
 class BPAngularFunction(BaseEstimator, TransformerMixin):
-    def __init__(self, ref_atom_number, atom_type_symbols, ksaais, lambdas,
-                 zetas, bds, cutoff=None, pbc=None, sigma_AA=None,
-                 radii=None, radius_type="miracle_radius",
+    def __init__(self, bds, atom_type_symbols, ksaais, lambdas,
+                 zetas, pbc=None, cutoff=6.5,
                  id_col='id', type_col='type', coords_cols=None,
                  backend=None, verbose=1, save=True, output_path=None,
                  output_file_prefix='feature_bp_angular_function',
                  print_freq=1000):
-        self.ref_atom_number = ref_atom_number
+        self.bds = bds
         self.atom_type_symbols = atom_type_symbols
-        self.radii = load_radii() if radii is None else radii
-        self.radius_type = radius_type
-        self.sigma_AA = sigma_AA if sigma_AA is not None else \
-            self.radii[str(self.ref_atom_number)][self.radius_type] * 2
-        self.ksaais = ksaais * self.sigma_AA  # ksaais are in the unit of sigma_AA
+        self.ksaais = ksaais
         self.lambdas = lambdas
         self.zetas = zetas
-        self.bds = bds
         self.pbc = np.array([1, 1, 1]) if pbc is None else pbc
+        self.cutoff = cutoff
         self.id_col = id_col
         self.type_col = type_col
         self.coords_cols = ["x", "y", "z"] if coords_cols is None \
@@ -122,8 +121,31 @@ class BPAngularFunction(BaseEstimator, TransformerMixin):
         self.output_file_prefix = output_file_prefix
         self.print_freq = print_freq
 
-        self.cutoff = (2.5 * self.sigma_AA) if cutoff is None else cutoff
+    @classmethod
+    def default_from_system(cls, ref_atom_number, atom_type_symbols, ksaais, lambdas,
+                 zetas, bds, cutoff=None, pbc=None, sigma_AA=None,
+                 radii=None, radius_type="miracle_radius",
+                 id_col='id', type_col='type', coords_cols=None,
+                 backend=None, verbose=1, save=True, output_path=None,
+                 output_file_prefix='feature_bp_angular_function',
+                 print_freq=1000):
+        radii = load_radii() if radii is None else radii
+        sigma_AA = sigma_AA if sigma_AA is not None else \
+            radii[str(ref_atom_number)][radius_type] * 2
+        ksaais = ksaais * sigma_AA  # in this case, ksaais are in the unit of sigma_AA
+        cutoff = (2.5 * sigma_AA) if cutoff is None else cutoff
 
+        return cls(bds=bds, atom_type_symbols=atom_type_symbols,
+                   ksaais=ksaais, lambdas=lambdas, zetas=zetas,
+                   pbc=pbc, cutoff=cutoff,
+                   id_col=id_col, type_col=type_col, coords_cols=coords_cols,
+                   backend=backend, verbose=verbose, save=save,
+                   output_path=output_path,
+                   output_file_prefix=output_file_prefix,
+                   print_freq=print_freq)
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.transform(X)
 
     def transform(self, X):
         n_atoms = len(X)
