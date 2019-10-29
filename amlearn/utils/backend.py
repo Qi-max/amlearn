@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import pickle
@@ -232,14 +233,23 @@ class MLBackend(Backend):
         predict_df = pd.DataFrame(predictions, columns=['predict'])
         predict_df.to_csv(predict_file)
 
-    def _get_model_dir(self, sub_dir='model'):
+    def save_json(self, data, sub_dir='json', name='json_file', seed=None):
+        json_dir = self._get_dir(sub_dir)
+        create_path(json_dir, merge=True)
+        json_file = os.path.join(json_dir,
+                                  '{}.json'.format(name) if seed is None
+                                  else '{}_{}.json'.format(name, seed))
+        with open(json_file, 'w') as wf:
+            json.dump(data, wf)
+
+    def _get_dir(self, sub_dir='model'):
         check_path(self.output_path, 'output_path',
                    'BackendContext.output_path')
 
         return os.path.join(self.output_path, sub_dir)
 
     def save_model(self, model, sub_dir='model', name='model', seed=None):
-        model_dir = self._get_model_dir(sub_dir)
+        model_dir = self._get_dir(sub_dir)
         create_path(model_dir, merge=True)
         model_file = os.path.join(model_dir,
                                   '{}.pkl'.format(name) if seed is None
@@ -247,7 +257,7 @@ class MLBackend(Backend):
         joblib.dump(model, model_file)
 
     def load_model(self, sub_dir='model', name='model', seed=None):
-        model_dir = self._get_model_dir(sub_dir)
+        model_dir = self._get_dir(sub_dir)
         model_file = os.path.join(model_dir,
                                   '{}.pkl'.format(name) if seed is None
                                   else '{}_{}.pkl'.format(name, seed))

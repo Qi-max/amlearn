@@ -6,6 +6,8 @@ to evaluate estimator's performance.
 
 """
 import os
+from collections import OrderedDict
+
 import numpy as np
 
 import time
@@ -15,6 +17,7 @@ from amlearn.learn.sklearn_patch import calc_scores
 from amlearn.utils.data import list_like
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import RegressorMixin
+from sklearn.exceptions import NotFittedError
 from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.utils.testing import all_estimators
@@ -68,8 +71,10 @@ class AmRegressor(AmBaseLearn):
             raise ValueError('regressor {} is unknown, Possible values '
                              'are {}'.format(regressor,
                                              regressors_dict.keys()))
+
         if regressor_params is None:
             regressor_params = {}
+
         self.regressor = \
             regressor if isinstance(regressor, RegressorMixin) \
             else regressors_dict[regressor_name](**regressor_params)
@@ -78,9 +83,10 @@ class AmRegressor(AmBaseLearn):
             'Initialize regression, regressor is : \n\t{}'.format(
                 self.regressor))
 
-    def fit(self, X, y, val_size=0.3, random_state=None, scoring=None,
-            cv_num=1, cv_params=None, save_train_val_idx=True, save_model=True,
-            save_prediction=True, prediction_types='dataframe', **fit_params):
+    def fit(self, X, y, val_size=0.3, scoring=None, random_state=None,
+            cv_num=1, cv_params=None, save_model=True, save_prediction=True,
+            save_train_val_idx=True, save_feature_importances=True,
+            prediction_types='dataframe', **fit_params):
         """Fit the amlearn regressor model.
 
         Args:
@@ -117,11 +123,13 @@ class AmRegressor(AmBaseLearn):
             self
         """
         self.scoring = scoring
+        self.feature_names_ = X.columns
         self._fit_cv(
             X, y, random_state=random_state, scoring=scoring,
             cv_params=cv_params, cv_num=cv_num, val_size=val_size,
             save_model=save_model, save_prediction=save_prediction,
             prediction_types=prediction_types,
+            save_feature_importances=save_feature_importances,
             save_train_val_idx=save_train_val_idx, **fit_params)
         return self
 
@@ -167,6 +175,7 @@ class AmRegressor(AmBaseLearn):
     def _fit_cv(self, X, y, val_size=0.3, random_state=None, scoring=None,
                 cv_num=1, cv_params=None, save_train_val_idx=True,
                 save_model=True, save_prediction=True,
+                save_feature_importances = True,
                 prediction_types='dataframe', **fit_params):
 
         # If user's cv_params contains 'cv_num' parameter, use the max value
@@ -189,7 +198,7 @@ class AmRegressor(AmBaseLearn):
             results, scorers = \
                 cross_validate(estimator=self.regressor, scoring=scoring,
                                fit_params=fit_params, X=X, y=y, cv=cv_num,
-                               return_train_score=True, **cv_params)
+                               **cv_params)
         else:
             results, scorers = self._fit(
                 X, y, self.regressor,
@@ -245,6 +254,9 @@ class AmRegressor(AmBaseLearn):
             score_model = results['estimators'][cv_idx]
             if save_model:
                 self.backend.save_model(score_model, cv_tag)
+            if save_feature_importances:
+                self.backend.save_json(self.feature_importances_dict, cv_tag,
+                                       name='feature_importances')
             if save_train_val_idx:
                 train_idx = results['indices'][cv_idx][0]
                 val_idx = results['indices'][cv_idx][1]
@@ -299,6 +311,23 @@ class AmRegressor(AmBaseLearn):
     def feature_importances_(self):
         check_is_fitted(self, 'best_model_')
         return self.best_model_.feature_importances_
+
+    @property
+    def feature_importances_dict(self):
+        check_is_fitted(self, 'best_model_')
+        feature_importances_dict_ = \
+            sorted(zip(self.get_feature_names(),
+                       self.best_model_.feature_importances_),
+                   key=lambda x: x[1], reverse=True)
+        return OrderedDict(feature_importances_dict_)
+
+    def get_feature_names(self):
+        msg = ("This %(name)s instance is not fitted yet. Call 'fit_transform' "
+               "with appropriate arguments before using this method.")
+
+        if not hasattr(self, 'feature_names_'):
+            raise NotFittedError(msg % {'name': type(self).__name__})
+        return self.feature_names_
 
     @property
     def default_regressor(self):
