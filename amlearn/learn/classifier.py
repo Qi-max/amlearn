@@ -98,9 +98,10 @@ class AmClassifier(AmBaseLearn):
 
     def fit(self, X, y, val_size=0.3, scoring=None, random_state=None,
             cv_num=5, cv_params=None, imblearn=True, imblearn_method=None,
-            imblearn_params=None, save_model=True, save_prediction=True,
+            imblearn_params=None, save_model=True, save_score=True,
+            save_prediction=True, prediction_types='dataframe',
             save_train_val_idx=True, save_feature_importances=True,
-            prediction_types='dataframe', **fit_params):
+            **fit_params):
         """Fit the amlearn classifier model.
 
         Args:
@@ -159,21 +160,23 @@ class AmClassifier(AmBaseLearn):
                 imblearn_method=imblearn_method,
                 imblearn_params=imblearn_params, save_model=save_model,
                 save_prediction=save_prediction,
+                prediction_types=prediction_types,
                 save_feature_importances=save_feature_importances,
                 save_train_val_idx=save_train_val_idx,
-                prediction_types=prediction_types, **fit_params)
+                **fit_params)
         else:
             self._fit_cv(
                 X, y, random_state=random_state, scoring=scoring,
                 cv_params=cv_params, cv_num=cv_num, val_size=val_size,
-                save_model=save_model, save_prediction=save_prediction,
+                save_model=save_model, save_score=save_score,
+                save_prediction=save_prediction,
                 prediction_types=prediction_types,
                 save_feature_importances=save_feature_importances,
                 save_train_val_idx=save_train_val_idx, **fit_params)
         return self
 
     def _fit(self, X, y, classifier, val_size=0.3, random_state=None,
-             scoring=None, return_train_score=False, **fit_params):
+             scoring=None, return_train_score=True, **fit_params):
         ret = dict()
         indices = range(np.array(X).shape[0])
         X_train, X_val, y_train, y_val, train_idx, val_idx = \
@@ -212,7 +215,7 @@ class AmClassifier(AmBaseLearn):
 
     def _fit_cv(self, X, y, random_state=None, scoring=None,
                 cv_num=1, cv_params=None, val_size=0.3,
-                save_model=False, save_prediction=False,
+                save_model=False, save_score=True, save_prediction=False,
                 prediction_types='dataframe', save_feature_importances=True,
                 save_train_val_idx=False, **fit_params):
 
@@ -232,6 +235,7 @@ class AmClassifier(AmBaseLearn):
         if 'scoring' in cv_params.keys():
             cv_params.pop('scoring')
 
+        return_train_score = cv_params.get('return_train_score', True)
         if cv_num > 1:
             np.random.seed(random_state)
             results, scorers = \
@@ -240,10 +244,9 @@ class AmClassifier(AmBaseLearn):
                                **cv_params)
         else:
             results, scorers = self._fit(
-                X, y, self.classifier,
-                val_size=val_size, random_state=random_state,
-                return_train_score=cv_params.get('return_train_score', False),
-                scoring=scoring, **fit_params)
+                X, y, self.classifier, val_size=val_size,
+                return_train_score=return_train_score,
+                random_state=random_state, scoring=scoring, **fit_params)
 
             cv_num = 1
 
@@ -259,8 +262,8 @@ class AmClassifier(AmBaseLearn):
 
         # get temporary path, if self.tmp_path_ exist get it (most create by
         # imblearn), else get self.backend.tmp_path
-        tmp_path = self.tmp_path_ \
-            if hasattr(self, 'tmp_path_') else self.backend.tmp_path
+        # tmp_path = self.tmp_path_ \
+        #     if hasattr(self, 'tmp_path_') else self.backend.tmp_path
 
         if not self.imblearn:
             self.backend.logger.info(
@@ -269,8 +272,24 @@ class AmClassifier(AmBaseLearn):
                     time.time() - cv_start_time,
                     self.score_name, self.best_score_))
 
-        if save_model or save_train_val_idx or save_prediction \
+        if save_model or save_score or save_train_val_idx or save_prediction \
                 or save_feature_importances:
+            imblearn_output_path = \
+                os.path.join(self.backend.output_path, self.imblearn_tag)
+            create_path(imblearn_output_path)
+            if save_score:
+                write_file(
+                    os.path.join(imblearn_output_path, 'mean_scores.txt'),
+                    '{}\n{}\n{}'.format(
+                        ','.join(list(scorers.keys())),
+                        ','.join([
+                            str(np.mean(results['test_{}'.format(score_name)]))
+                            for score_name in scorers.keys()]),
+                        ','.join([
+                            str(np.mean(results['train_{}'.format(score_name)]))
+                            for score_name in scorers.keys()])
+                        if return_train_score else -1))
+
             check_path_while_saving(self.backend.tmp_path)
             check_path_while_saving(self.backend.output_path)
             for cv_idx in range(cv_num):
@@ -279,6 +298,19 @@ class AmClassifier(AmBaseLearn):
                 cv_output_path = \
                     os.path.join(self.backend.output_path, sub_path)
                 create_path(cv_output_path)
+
+                if save_score:
+                    write_file(os.path.join(cv_output_path, 'scores.txt'),
+                               '{}\n{}\n{}'.format(
+                                   ','.join(list(scorers.keys())),
+                                   ','.join([str(results['test_{}'.format(
+                                       score_name)][cv_idx])
+                                             for score_name in scorers.keys()]),
+                                   ','.join([str(results['train_{}'.format(
+                                       score_name)][cv_idx])
+                                             for score_name in scorers.keys()])
+                                   if return_train_score else -1))
+
                 score_model = results['estimators'][cv_idx]
                 if save_model:
                     self.backend.save_model(score_model, sub_path,
@@ -316,9 +348,9 @@ class AmClassifier(AmBaseLearn):
     def _fit_imblearn(self, X, y, random_state=None, scoring=None,
                       imblearn_method=None, imblearn_params=None,
                       cv_num=1, cv_params=None, val_size=0.3,
-                      save_model=True, save_prediction=True,
-                      save_train_val_idx=True, save_feature_importances=True,
-                      prediction_types='dataframe', **fit_params):
+                      save_model=True, save_score=True, save_prediction=True,
+                      prediction_types='dataframe', save_train_val_idx=True,
+                      save_feature_importances=True, **fit_params):
         self.backend.logger.info('Start Imblearn.')
         imblearn_start_time = time.time()
         imblearn = ImblearnPreprocessor()
@@ -355,7 +387,8 @@ class AmClassifier(AmBaseLearn):
             self._fit_cv(
                 X=X_imb, y=y_imb, random_state=random_state, scoring=scoring,
                 cv_params=cv_params, cv_num=cv_num, val_size=val_size,
-                save_model=save_model, save_prediction=save_prediction,
+                save_model=save_model, save_score=save_score,
+                save_prediction=save_prediction,
                 prediction_types=prediction_types,
                 save_feature_importances=save_feature_importances,
                 save_train_val_idx=save_train_val_idx, **fit_params)

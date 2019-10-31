@@ -84,9 +84,10 @@ class AmRegressor(AmBaseLearn):
                 self.regressor))
 
     def fit(self, X, y, val_size=0.3, scoring=None, random_state=None,
-            cv_num=1, cv_params=None, save_model=True, save_prediction=True,
+            cv_num=1, cv_params=None, save_model=True, save_score=True,
+            save_prediction=True, prediction_types='dataframe',
             save_train_val_idx=True, save_feature_importances=True,
-            prediction_types='dataframe', **fit_params):
+            **fit_params):
         """Fit the amlearn regressor model.
 
         Args:
@@ -127,14 +128,14 @@ class AmRegressor(AmBaseLearn):
         self._fit_cv(
             X, y, random_state=random_state, scoring=scoring,
             cv_params=cv_params, cv_num=cv_num, val_size=val_size,
-            save_model=save_model, save_prediction=save_prediction,
-            prediction_types=prediction_types,
+            save_model=save_model, save_score=save_score,
+            save_prediction=save_prediction, prediction_types=prediction_types,
             save_feature_importances=save_feature_importances,
             save_train_val_idx=save_train_val_idx, **fit_params)
         return self
 
     def _fit(self, X, y, regressor, val_size=0.3, random_state=None,
-             scoring=None, return_train_score=False, **fit_params):
+             scoring=None, return_train_score=True, **fit_params):
         result_dict = dict()
         indices = range(np.array(X).shape[0])
         X_train, X_val, y_train, y_val, train_idx, val_idx = \
@@ -174,9 +175,9 @@ class AmRegressor(AmBaseLearn):
 
     def _fit_cv(self, X, y, val_size=0.3, random_state=None, scoring=None,
                 cv_num=1, cv_params=None, save_train_val_idx=True,
-                save_model=True, save_prediction=True,
-                save_feature_importances = True,
-                prediction_types='dataframe', **fit_params):
+                save_model=True, save_score=True, save_prediction=True,
+                prediction_types='dataframe', save_feature_importances=True,
+                **fit_params):
 
         # If user's cv_params contains 'cv_num' parameter, use the max value
         # between function parameter 'cv_num' and cv_params's 'cv_num'.
@@ -193,6 +194,7 @@ class AmRegressor(AmBaseLearn):
         if 'scoring' in cv_params.keys():
             cv_params.pop('scoring')
 
+        return_train_score = cv_params.get('return_train_score', True)
         if cv_num > 1:
             np.random.seed(random_state)
             results, scorers = \
@@ -201,10 +203,9 @@ class AmRegressor(AmBaseLearn):
                                **cv_params)
         else:
             results, scorers = self._fit(
-                X, y, self.regressor,
-                val_size=val_size, random_state=random_state,
-                return_train_score=cv_params.get('return_train_score', False),
-                scoring=scoring, **fit_params)
+                X, y, self.regressor, val_size=val_size,
+                return_train_score=return_train_score,
+                random_state=random_state, scoring=scoring, **fit_params)
             cv_num = 1
 
         # TODO: now if scorers list length is more than 1, score_name only can
@@ -223,33 +224,35 @@ class AmRegressor(AmBaseLearn):
             "It's best {} score is {:.4f}".format(
                 time.time() - cv_start_time,
                 self.score_name, self.best_score_))
-
-        write_file(
-            os.path.join(self.backend.output_path, 'mean_scores.txt'),
-            '{}\n{}\n{}'.format(','.join(list(scorers.keys())),
-                                ','.join([str(np.mean(results['test_{}'.format(
-                                    score_name)]))
-                                          for score_name in scorers.keys()]),
-                                ','.join([str(np.mean(results['train_{}'.format(
-                                    score_name)]))
-                                          for score_name in scorers.keys()])
-                                ))
+        if save_score:
+            write_file(
+                os.path.join(self.backend.output_path, 'mean_scores.txt'),
+                '{}\n{}\n{}'.format(
+                    ','.join(list(scorers.keys())),
+                    ','.join([
+                        str(np.mean(results['test_{}'.format(score_name)]))
+                        for score_name in scorers.keys()]),
+                    ','.join([
+                        str(np.mean(results['train_{}'.format(score_name)]))
+                        for score_name in scorers.keys()])
+                    if return_train_score else -1))
 
         for cv_idx in range(cv_num):
             cv_tag = "cv_{}".format(cv_idx)
             cv_output_path = os.path.join(self.backend.output_path, cv_tag)
             create_path(cv_output_path, merge=True)
 
-            write_file(
-                os.path.join(cv_output_path, 'scores.txt'),
-                '{}\n{}\n{}'.format(','.join(list(scorers.keys())),
-                                ','.join([str(results['test_{}'.format(
-                                    score_name)][cv_idx])
-                                        for score_name in scorers.keys()]),
-                                ','.join([str(results['train_{}'.format(
-                                    score_name)][cv_idx])
-                                          for score_name in scorers.keys()])
-                                ))
+            if save_score:
+                write_file(os.path.join(cv_output_path, 'scores.txt'),
+                           '{}\n{}\n{}'.format(
+                               ','.join(list(scorers.keys())),
+                               ','.join([str(results['test_{}'.format(
+                                   score_name)][cv_idx])
+                                         for score_name in scorers.keys()]),
+                               ','.join([str(results['train_{}'.format(
+                                   score_name)][cv_idx])
+                                         for score_name in scorers.keys()])
+                               if return_train_score else -1))
 
             score_model = results['estimators'][cv_idx]
             if save_model:
