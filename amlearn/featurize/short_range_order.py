@@ -386,7 +386,7 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
 
     @property
     def category(self):
-        return 'Interstice'
+        return 'interstice_sro'
 
 
 class DistanceInterstice(BaseInterstice):
@@ -403,7 +403,7 @@ class DistanceInterstice(BaseInterstice):
             verbose = verbose, output_path=output_path, **nn_kwargs)
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'Dist{}_{}_{}'.format(
+            else 'feature_{}_{}_{}_distance'.format(
             self.category, self.dependent_name_,
             self.radius_type.replace('_radius', ''))
         self.stat_ops = stat_ops if stat_ops != 'all' \
