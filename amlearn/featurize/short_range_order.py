@@ -10,14 +10,14 @@ from abc import ABCMeta
 from functools import lru_cache
 from collections import defaultdict
 from scipy.spatial.qhull import ConvexHull
-from amlearn.featurize.base import load_radii, BaseFeaturize
+from amlearn.featurize.base import BaseFeaturize
 from amlearn.featurize.nearest_neighbor \
     import VoroNN, DistanceNN, BaseNN
 from amlearn.utils.verbose import VerboseReporter
 from amlearn.utils.data import read_imd, read_lammps_dump, \
-    get_isometric_lists, list_like, calc_neighbor_coords
-from amlearn.utils.packing import solid_angle, \
-    triangular_angle, calc_stats, triangle_area, tetra_volume
+    get_isometric_lists, list_like
+from amlearn.utils.packing import load_radii, pbc_image_nn_coords, \
+    solid_angle, triangular_angle, calc_stats, triangle_area, tetra_volume
 
 try:
     from amlearn.featurize.src import voronoi_stats, boop
@@ -51,7 +51,7 @@ class PackingOfSite(object):
 
     def nn_coords(self):
         if not hasattr(self, 'nn_coords_'):
-            self.nn_coords_ = [calc_neighbor_coords(self.coords,
+            self.nn_coords_ = [pbc_image_nn_coords(self.coords,
                                                     neighbor_coords,
                                                     self.bds, self.pbc)
                                for neighbor_coords in self.neighbors_coords]
@@ -386,7 +386,7 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
 
     @property
     def category(self):
-        return 'interstice_sro'
+        return 'Interstice'
 
 
 class DistanceInterstice(BaseInterstice):
@@ -403,7 +403,7 @@ class DistanceInterstice(BaseInterstice):
             verbose = verbose, output_path=output_path, **nn_kwargs)
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
-            else 'feature_{}_{}_{}_distance'.format(
+            else 'Dist{}_{}_{}'.format(
             self.category, self.dependent_name_,
             self.radius_type.replace('_radius', ''))
         self.stat_ops = stat_ops if stat_ops != 'all' \

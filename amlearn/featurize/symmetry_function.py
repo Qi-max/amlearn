@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from functools import reduce
 from itertools import combinations_with_replacement
-from amlearn.featurize.base import create_featurizer_backend, load_radii
+from amlearn.featurize.base import create_featurizer_backend
+from amlearn.utils.packing import load_radii
 from sklearn.base import BaseEstimator, TransformerMixin
 
 try:

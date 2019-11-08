@@ -1,8 +1,25 @@
+import os
+import json
 from math import atan2, pi
 import numpy as np
 
 __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"
+
+module_dir = os.path.dirname(os.path.abspath( __file__))
+
+def load_radii():
+    """Get Periodic Table of Elements dict.
+
+    Returns:
+        PTE_dict_ (dict): The Periodic Table of Elements dict, key is atomic id,
+            value is dict which contains 'symbol', 'covalent_radius' and
+            'miracle_radius'.
+
+    """
+    with open(os.path.join(module_dir, 'PTE.json'), 'r') as rf:
+        PTE_dict_ = json.load(rf)
+    return PTE_dict_
 
 
 def pbc_image_nn_coords(center_coords, neighbor_coords, bds, pbc):

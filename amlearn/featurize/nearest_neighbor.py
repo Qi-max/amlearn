@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 try:
     from amlearn.featurize.src import voronoi_nn, distance_nn
 except ImportError:
-    print("import fortran file voronoi_nn, distance_nn error!\n")
+    print("import fortran file voronoi_nn/distance_nn error!\n")
 
 __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"

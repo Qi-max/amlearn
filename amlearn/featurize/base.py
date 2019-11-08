@@ -22,21 +22,6 @@ __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"
 
 
-def load_radii():
-    """Get Periodic Table of Elements dict.
-
-    Returns:
-        PTE_dict_ (dict): The Periodic Table of Elements dict, key is atomic id,
-            value is dict which contains 'symbol', 'traditional_radius' and
-            'miracle_radius'.
-
-    """
-    with open(os.path.join(module_dir, '..', 'utils',
-                           'PTE.json'), 'r') as rf:
-        PTE_dict_ = json.load(rf)
-    return PTE_dict_
-
-
 @lru_cache(maxsize=5)
 def create_featurizer_backend(output_path='tmp'):
     """Create default featurizer backend.
