@@ -57,7 +57,7 @@ def triangle_area(va, vb, vc):
     Args:
         va/vb/vc (array-like): coordinates of vertex 1, 2, 3.
     Returns:
-        (float): volume of the tetrahedron.
+        (float): area of the triangle.
     """
     a = np.linalg.norm(np.array(va) - np.array(vb))
     b = np.linalg.norm(np.array(va) - np.array(vc))
@@ -72,7 +72,7 @@ def solid_angle(center, va, vb, vc):
         center: coordinates of center atom to calculate the solid angle
         va/vb/vc: coordinates of 3 vertices to form the tetrahedron
     Returns:
-        solid_angle in rad
+        (float): solid_angle in rad
     """
     a = va - center
     b = vb - center
