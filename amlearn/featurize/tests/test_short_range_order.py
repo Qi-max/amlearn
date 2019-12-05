@@ -12,6 +12,7 @@ from amlearn.featurize.short_range_order import PackingOfSite
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
 
+
 class TestSRO(AmLearnTest):
 
     @classmethod
@@ -70,13 +71,10 @@ class TestSRO(AmLearnTest):
                              np.array([.5, .5, .5]), neighbors_type,
                              neighbors_coords, radii=self.bcc_radii,
                              radius_type='miracle_radius')
-        pos_.calculate_hull_facet_angles()
-        pos_.calculate_hull_tetra_angles()
-        pos_.analyze_hull_tetra_interstice()
-        pos_.analyze_hull_facet_interstice()
-        pos_.combine_neighbor_solid_angles()
+        pos_.analyze_area_interstice()
+        pos_.analyze_vol_interstice()
         self.assertEqual(pos_.volume_interstice_list_[0], 0.31982523841216826)
-        self.assertEqual(pos_.area_interstice_list_[0], 0.41095137745191357)
+        self.assertEqual(pos_.area_interstice_list_[0], 0.4109513774519138)
         self.assertEqual(pos_.cluster_packing_efficiency(), 0.6801747615878317)
         self.assertEqual(pos_.atomic_packing_efficiency(), 0.383483)
 
@@ -90,17 +88,14 @@ class TestSRO(AmLearnTest):
                              '4', self.fcc_points[0],
                              neighbors_type, neighbors_coords,
                              radii=self.fcc_radii, radius_type='miracle_radius')
-        pos_.calculate_hull_facet_angles()
-        pos_.calculate_hull_tetra_angles()
-        pos_.analyze_hull_tetra_interstice()
-        pos_.analyze_hull_facet_interstice()
-        pos_.combine_neighbor_solid_angles()
+        pos_.analyze_vol_interstice()
+        pos_.analyze_area_interstice()
         self.assertSetEqual(set(pos_.volume_interstice_list_),
                             {0.27909705048253486, 0.2203644299557469,
                              0.24973074021914088})
         self.assertEqual(set(pos_.area_interstice_list_),
-                         {0.21460183660255128, 0.09310031788289119,
-                          0.444639632730204, 0.21460183660255117,
+                         {0.2146018366025515, 0.09310031788289075,
+                          0.44463963273020424, 0.2146018366025514,
                           0.4446396327302041})
         self.assertEqual(pos_.cluster_packing_efficiency(), 0.7437434130556606)
         self.assertEqual(pos_.atomic_packing_efficiency(), 0.09788699999999995)

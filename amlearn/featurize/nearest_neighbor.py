@@ -99,8 +99,8 @@ class VoroNN(BaseNN):
         neighbor_dist_lists = \
             np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
 
-        (neighbor_num_list, neighbor_id_lists,  neighbor_area_lists,
-         neighbor_vol_lists, neighbor_dist_lists, neighbor_edge_lists)= \
+        neighbor_num_list, neighbor_id_lists,  neighbor_area_lists, \
+        neighbor_vol_lists, neighbor_dist_lists, neighbor_edge_lists= \
             voronoi_nn.voronoi(X[self.type_col].values,
                                X[self.coords_cols].values,
                                self.cutoff, self.allow_neighbor_limit,
@@ -170,7 +170,7 @@ class DistanceNN(BaseNN):
         neighbor_dist_lists = \
             np.zeros((n_atoms, self.n_neighbor_limit), dtype=np.longdouble)
 
-        (neighbor_num_list, neighbor_id_lists, neighbor_dist_lists) = \
+        neighbor_num_list, neighbor_id_lists, neighbor_dist_lists = \
             distance_nn.distance_neighbor(
                 X[self.type_col].values, X[self.coords_cols].values,
                 self.cutoff, self.allow_neighbor_limit, self.pbc,

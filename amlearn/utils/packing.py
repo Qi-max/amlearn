@@ -48,7 +48,6 @@ def triangular_angle(center, va, vb):
     b = vb - center
     cosine_angle = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
     return np.arccos(cosine_angle)
-    # return np.degrees(np.arccos(cosine_angle))
 
 
 def triangle_area(va, vb, vc):
@@ -59,11 +58,9 @@ def triangle_area(va, vb, vc):
     Returns:
         (float): area of the triangle.
     """
-    a = np.linalg.norm(np.array(va) - np.array(vb))
-    b = np.linalg.norm(np.array(va) - np.array(vc))
-    c = np.linalg.norm(np.array(vb) - np.array(vc))
-    s = (a + b + c) / 2
-    return (s * (s - a) * (s - b) * (s - c)) ** 0.5
+    triangle_area = 0.5 * np.linalg.norm(np.cross(np.array(va) - np.array(vc),
+                                                  np.array(vb) - np.array(vc)))
+    return triangle_area
 
 
 def solid_angle(center, va, vb, vc):

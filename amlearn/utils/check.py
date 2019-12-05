@@ -71,11 +71,11 @@ def check_file_name(file_name):
     return file_name
 
 
-def check_output_path(output_path, msg="output path"):
+def check_output_path(output_path, msg="output path", exist_ok=False):
     if os.path.exists(output_path):
         print("{}: {} already exists!".format(msg, output_path))
     else:
-        os.makedirs(output_path)
+        os.makedirs(output_path, exist_ok=exist_ok)
         print("create {}: {} successful!".format(msg, output_path))
 
 
