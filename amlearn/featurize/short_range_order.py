@@ -91,14 +91,13 @@ class PackingOfSite(object):
     def get_solid_angle_lists(self):
         if not hasattr(self, 'solid_angle_lists_'):
             solid_angle_lists = list()
-            nn_coords = np.array(self.nn_coords())
             triplet_array = np.array([[0, 1, 2], [1, 0, 2], [2, 0, 1]])
             for facet_indices in self.convex_hull_simplices():
                 solid_angle_list = list()
                 facet_coords = np.array(self.nn_coords())[facet_indices]
                 for triplet in triplet_array:
-                    solid_angle_ = solid_angle(
-                        *facet_coords[triplet], self.coords)
+                    solid_angle_ = solid_angle(*facet_coords[triplet],
+                                               self.coords)
                     solid_angle_list.append(solid_angle_)
                 solid_angle_lists.append(solid_angle_list)
             self.solid_angle_lists_ = solid_angle_lists
