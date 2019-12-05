@@ -67,21 +67,18 @@ class PackingOfSite(object):
     def analyze_area_interstice(self):
         area_list = list()
         area_interstice_list = list()
-        nn_coords = np.array(self.nn_coords())
-        triplet_set = [(0, 1, 2), (1, 0, 2), (2, 0, 1)]
+        triplet_array = np.array([[0, 1, 2], [1, 0, 2], [2, 0, 1]])
 
         for facet_indices in self.convex_hull_simplices():
             packed_area = 0
-            for facet_idx, triplet in zip(facet_indices, triplet_set):
-                center = nn_coords[facet_indices[triplet[0]]]
-                va = nn_coords[facet_indices[triplet[1]]]
-                vb = nn_coords[facet_indices[triplet[2]]]
-                triangle_angle = triangular_angle(center, va, vb)
+            facet_coords = np.array(self.nn_coords())[facet_indices]
+            for facet_idx, triplet in zip(facet_indices, triplet_array):
+                triangle_angle = triangular_angle(*facet_coords[triplet])
                 r = self.radii[str(self.neighbors_type[facet_idx])][
                     self.radius_type]
                 packed_area += triangle_angle / 2 * pow(r, 2)
 
-            area = triangle_area(*nn_coords[facet_indices])
+            area = triangle_area(*facet_coords)
             area_list.append(area)
 
             area_interstice = 1 - packed_area/area
@@ -95,14 +92,13 @@ class PackingOfSite(object):
         if not hasattr(self, 'solid_angle_lists_'):
             solid_angle_lists = list()
             nn_coords = np.array(self.nn_coords())
-            triplet_set = [(0, 1, 2), (1, 0, 2), (2, 0, 1)]
+            triplet_array = np.array([[0, 1, 2], [1, 0, 2], [2, 0, 1]])
             for facet_indices in self.convex_hull_simplices():
                 solid_angle_list = list()
-                for triplet in triplet_set:
+                facet_coords = np.array(self.nn_coords())[facet_indices]
+                for triplet in triplet_array:
                     solid_angle_ = solid_angle(
-                        nn_coords[facet_indices[triplet[0]]],
-                        nn_coords[facet_indices[triplet[1]]],
-                        nn_coords[facet_indices[triplet[2]]], self.coords)
+                        *facet_coords[triplet], self.coords)
                     solid_angle_list.append(solid_angle_)
                 solid_angle_lists.append(solid_angle_list)
             self.solid_angle_lists_ = solid_angle_lists
@@ -116,7 +112,6 @@ class PackingOfSite(object):
                 zip(self.convex_hull_simplices(), self.get_solid_angle_lists()):
             packed_volume = 0
             facet_coords = np.array(self.nn_coords())[facet_indices]
-
             # calculate neighbors' packed_volume
             for facet_idx, sol_angle in zip(facet_indices, solid_angle_list):
                 if sol_angle == 0:

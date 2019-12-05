@@ -18,9 +18,9 @@ class TestSRO(AmLearnTest):
     @classmethod
     def setUpClass(cls):
         cls.sc_voro=pd.read_pickle(os.path.join(module_dir, 'data',
-                                      'voro_nn.pickle.gz'))
+                                                'voro_nn.pickle.gz'))
         cls.sc_dist=pd.read_pickle(os.path.join(module_dir, 'data',
-                                      'dist_nn.pickle.gz'))
+                                                'dist_nn.pickle.gz'))
 
         cls.sc_df = pd.DataFrame([[2, -0.0804011, -0.7017380, -0.1836090],
                                   [1, 2.5728700, -1.2671900, 0.3945760],
