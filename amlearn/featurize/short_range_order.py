@@ -30,13 +30,6 @@ __email__ = "qiwang.mse@gmail.com"
 class PackingOfSite(object):
     def __init__(self, pbc, bds, atom_type, coords, neighbors_type,
                  neighbors_coords, radii=None, radius_type="miracle_radius"):
-        """
-        Args:
-            radii: list or dict, default: None.
-                If list, index is type, value is radial,
-                If dict, key is type, value is radial.
-                If None, read type radial from '../radii.json'
-        """
         self.pbc = pbc
         self.bds = bds
         self.atom_type = atom_type
@@ -194,10 +187,8 @@ def get_nn_instance(dependent_name, backend, **nn_kwargs):
         backend (Backend): Amlearn Backend object, to prepare amlearn needed
             paths and define the common amlearn's load/save method.
         nn_kwargs: Nearest Neighbor class's keyword arguments.
-
     Returns:
         dependent_class (object): Nearest Neighbor instance.
-
     """
     if dependent_name == "voro":
         dependent_class = VoroNN(backend=backend, **nn_kwargs)
@@ -218,7 +209,6 @@ class BaseSRO(six.with_metaclass(ABCMeta, BaseFeaturize)):
     implements dependency checking. For most SRO depends on the same Nearest
     Neighbor instance, we cache the most recently used Nearest Neighbor
     instance by lru_cache.
-
     Args:
         save (Boolean): save file or not.
         backend (object): Amlearn Backend object, to prepare amlearn needed
@@ -313,7 +303,6 @@ class BaseInterstice(six.with_metaclass(ABCMeta, BaseSRO)):
             bds (list like): X, y, z boundaries.
             lammps_path (DataFrame): If lammps_df is None, then we automatically
                 construct the DataFrame from lammps output path.
-
         Returns:
             self (object): Interstice or Packing instance.
         """
@@ -369,7 +358,6 @@ class DistanceInterstice(BaseInterstice):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
-
         Returns:
             dist_interstice_df (DataFrame): Distance interstice DataFrame, which
                 index is same as X's index, columns is
@@ -439,14 +427,12 @@ class VolumeAreaInterstice(BaseInterstice):
                  "fractional_volume_interstice_tetrahedra_avg",
                  "fractional_volume_interstice_center_v"];
                  default is : ["fractional_volume_interstice_tetrahedra"]
-
             area_types (list like): Can be one or several of the arrays
                 ["area_interstice",
                 "fractional_area_interstice_triangle",
                 "fractional_area_interstice_triangle_avg",
                 "fractional_area_interstice_center_slice_a"]
                 default is : ["fractional_area_interstice_triangle"]
-
         """
         assert dependent_class == "voro" or dependent_class == "voronoi"
         super(VolumeAreaInterstice, self).__init__(
@@ -490,13 +476,12 @@ class VolumeAreaInterstice(BaseInterstice):
                 ['type', 'x', 'y', 'z'...] columns, we will automatic call
                 Nearest Neighbor class to calculate X's output by self.fit()
                 method, then feed it as input to this transform() method.
-
         Returns:
             volume_area_interstice_df (DataFrame): Volume/Area interstice
                 DataFrame, which index is same as X's index, see
                 get_feature_names() method for column names.
         """
-
+        
         X = X.join(self.lammps_df) if self.calculated_X is None \
             else self.calculated_X
 
