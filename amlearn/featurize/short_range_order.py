@@ -134,18 +134,6 @@ class PackingOfSite(object):
         self.volume_list_ = volume_list
         self.volume_interstice_list_ = volume_interstice_list
 
-    def get_neighbor_solid_angle(self):
-        if not hasattr(self, 'neighbor_solid_angle_'):
-            neighbor_solid_angle = [0] * len(self.neighbors_type)
-            # iter convex surface (neighbor indices)
-            for facet_indices, solid_angle_list in \
-                    zip(self.convex_hull_simplices(),
-                        self.get_solid_angle_lists()):
-                for idx, solid_angle_ in zip(facet_indices, solid_angle_list):
-                    neighbor_solid_angle[idx] += solid_angle_
-            self.neighbor_solid_angle_ = neighbor_solid_angle
-        return self.neighbor_solid_angle_
-
     def cluster_packed_volume(self):
         """
         Calculate the cluster volume that is packed with atoms, including the
