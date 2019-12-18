@@ -6,15 +6,15 @@ to evaluate estimator's performance.
 
 """
 import os
-from collections import OrderedDict
-
-import numpy as np
-from copy import copy
-
 import time
+import numpy as np
+
+from copy import copy
+from collections import OrderedDict
 from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import cross_validate
 from amlearn.learn.sklearn_patch import calc_scores
+from amlearn.learn.preprocessor import ImblearnPreprocessor
 from amlearn.utils.backend import check_path_while_saving
 from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
@@ -26,7 +26,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.testing import all_estimators
 from sklearn.utils.validation import check_is_fitted
 
-from amlearn.learn.preprocessor import ImblearnPreprocessor
 
 __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"
@@ -247,7 +246,6 @@ class AmClassifier(AmBaseLearn):
                 X, y, self.classifier, val_size=val_size,
                 return_train_score=return_train_score,
                 random_state=random_state, scoring=scoring, **fit_params)
-
             cv_num = 1
 
         # TODO: now if scoring is more than one, score_name only can be the first of them.
@@ -260,17 +258,10 @@ class AmClassifier(AmBaseLearn):
                         ["cv_{}".format(i) for i in range(cv_num)])),
                 key=lambda x: x[0])
 
-        # get temporary path, if self.tmp_path_ exist get it (most create by
-        # imblearn), else get self.backend.tmp_path
-        # tmp_path = self.tmp_path_ \
-        #     if hasattr(self, 'tmp_path_') else self.backend.tmp_path
-
         if not self.imblearn:
             self.backend.logger.info(
-                "\tCV classification finish in {:.4f} seconds. "
-                "It's best {} score is {:.4f}".format(
-                    time.time() - cv_start_time,
-                    self.score_name, self.best_score_))
+                "\tCV classification finish in {:.4f} seconds.".format(
+                    time.time() - cv_start_time))
 
         if save_model or save_score or save_train_val_idx or save_prediction \
                 or save_feature_importances:
@@ -281,16 +272,17 @@ class AmClassifier(AmBaseLearn):
                 write_file(
                     os.path.join(imblearn_output_path, 'mean_scores.txt'),
                     '{}\n{}\n{}'.format(
-                        ','.join(list(scorers.keys())),
-                        ','.join([
-                            str(np.mean(results['test_{}'.format(score_name)]))
-                            for score_name in scorers.keys()]),
-                        ','.join([
-                            str(np.mean(results['train_{}'.format(score_name)]))
-                            for score_name in scorers.keys()])
+                        ','.join(['dataset'] + list(scorers.keys())),
+                        ','.join(['test'] +
+                                 [str(np.mean(results['test_{}'.format(
+                                     score_name)]))
+                                  for score_name in scorers.keys()]),
+                        ','.join(['train'] +
+                                 [str(np.mean(results['train_{}'.format(
+                                     score_name)]))
+                                  for score_name in scorers.keys()])
                         if return_train_score else -1))
 
-            check_path_while_saving(self.backend.tmp_path)
             check_path_while_saving(self.backend.output_path)
             for cv_idx in range(cv_num):
                 sub_path = os.path.join(self.imblearn_tag,
@@ -302,12 +294,14 @@ class AmClassifier(AmBaseLearn):
                 if save_score:
                     write_file(os.path.join(cv_output_path, 'scores.txt'),
                                '{}\n{}\n{}'.format(
-                                   ','.join(list(scorers.keys())),
-                                   ','.join([str(results['test_{}'.format(
-                                       score_name)][cv_idx])
+                                   ','.join(['dataset'] + list(scorers.keys())),
+                                   ','.join(['test'] +
+                                            [str(results['test_{}'.format(
+                                                score_name)][cv_idx])
                                              for score_name in scorers.keys()]),
-                                   ','.join([str(results['train_{}'.format(
-                                       score_name)][cv_idx])
+                                   ','.join(['train'] +
+                                            [str(results['train_{}'.format(
+                                                score_name)][cv_idx])
                                              for score_name in scorers.keys()])
                                    if return_train_score else -1))
 
@@ -316,8 +310,10 @@ class AmClassifier(AmBaseLearn):
                     self.backend.save_model(score_model, sub_path,
                                             seed=self.seed)
                 if save_feature_importances:
-                    self.backend.save_json(self.feature_importances_dict,
-                                           sub_path, name='feature_importances')
+                    self.backend.save_json(
+                        self.feature_importances_dict(score_model),
+                        sub_path, name='feature_importances')
+
                 if save_train_val_idx:
                     train_idx = results['indices'][cv_idx][0]
                     val_idx = results['indices'][cv_idx][1]
@@ -328,22 +324,36 @@ class AmClassifier(AmBaseLearn):
                                 "\n".join(list(map(str, val_idx))))
 
                 if save_prediction:
-                    predictions = score_model.predict(X)
+                    test_X = X[results['indices'][cv_idx][1]] \
+                        if isinstance(X, np.ndarray) \
+                        else X.iloc[results['indices'][cv_idx][1]]
+                    test_y = y[results['indices'][cv_idx][1]] \
+                        if isinstance(y, np.ndarray) \
+                        else y.iloc[results['indices'][cv_idx][1]]
+                    if hasattr(score_model, 'predict_proba'):
+                        predictions = score_model.predict_proba(test_X)
+                    elif hasattr(score_model, 'decision_function'):
+                        predictions = score_model.decision_function(test_X)
+                    else:
+                        predictions = score_model.predict(test_X)
+                    targets_and_predictions = \
+                        np.array(list(zip(test_y, predictions[:, 1])))
+
                     if not isinstance(prediction_types, list_like()):
                         prediction_types = [prediction_types]
                     for predict_type in prediction_types:
                         if predict_type in self.backend.valid_predictions_type:
                             getattr(self.backend,
                                     'save_predictions_as_{}'.format(
-                                        predict_type))(predictions, sub_path,
-                                                       seed=self.seed)
+                                        predict_type))(targets_and_predictions,
+                                                       sub_path, seed=self.seed)
                         else:
                             raise ValueError(
                                 'predict_type {} is unknown, '
                                 'Possible values are {}'.format(
                                     predict_type,
                                     self.backend.valid_predictions_type))
-        return self
+        return results, scorers
 
     def _fit_imblearn(self, X, y, random_state=None, scoring=None,
                       imblearn_method=None, imblearn_params=None,
@@ -377,6 +387,9 @@ class AmClassifier(AmBaseLearn):
             '\tData imblearn finished in {:.4f} seconds.'.format(
                 time.time() - imblearn_start_time))
 
+        all_results = dict()
+        return_train_score = cv_params.get('return_train_score', True) \
+            if cv_params is not None else True
         for imblearn_idx in range(n_subsets):
             self.backend.logger.info('Start imblearn_{} classification.'.format(
                 imblearn_idx))
@@ -384,7 +397,7 @@ class AmClassifier(AmBaseLearn):
             X_imb = np.array(copy(X))[imblearn_idx, :, :]
             y_imb = np.array(copy(y))[imblearn_idx, :]
             self.imblearn_tag = 'imblearn_{}'.format(imblearn_idx)
-            self._fit_cv(
+            results, scorers = self._fit_cv(
                 X=X_imb, y=y_imb, random_state=random_state, scoring=scoring,
                 cv_params=cv_params, cv_num=cv_num, val_size=val_size,
                 save_model=save_model, save_score=save_score,
@@ -392,23 +405,50 @@ class AmClassifier(AmBaseLearn):
                 prediction_types=prediction_types,
                 save_feature_importances=save_feature_importances,
                 save_train_val_idx=save_train_val_idx, **fit_params)
+
+            for score_name in scorers.keys():
+                if 'test_{}'.format(score_name) in all_results.keys():
+                    if return_train_score:
+                        all_results['train_{}'.format(score_name)] += \
+                            results['train_{}'.format(score_name)]
+                    all_results['test_{}'.format(score_name)] += \
+                        results['test_{}'.format(score_name)]
+                else:
+                    if return_train_score:
+                        all_results['train_{}'.format(score_name)] = \
+                            results['train_{}'.format(score_name)]
+                    else:
+                        all_results['train_{}'.format(score_name)] = [-1]
+                    all_results['test_{}'.format(score_name)] = \
+                        results['test_{}'.format(score_name)]
+
             score_model_list.append(
                 (self.best_score_,
                  (self.best_model_,
                   "imblearn_{}_{}".format(imblearn_idx, self.best_model_tag_))))
             self.backend.logger.info(
-                "\tImblearn_{} classification finish in {:.4f} seconds. "
-                "It's best {} score is {:.4f}".format(
-                    imblearn_idx, time.time() - start_time,
-                    self.score_name, self.best_score_))
+                "\tImblearn_{} classification finish in {:.4f} seconds.".format(
+                    imblearn_idx, time.time() - start_time))
+
+        if save_score:
+            write_file(
+                os.path.join(self.backend.output_path, 'mean_scores.txt'),
+                '{}\n{}\n{}'.format(
+                    ','.join(['dataset'] + list(scorers.keys())),
+                    ','.join(['test'] +
+                             [str(np.mean(all_results['test_{}'.format(
+                                 score_name)] / n_subsets))
+                              for score_name in scorers.keys()]),
+                    ','.join(['train'] +
+                             [str(np.mean(all_results['train_{}'.format(
+                                 score_name)] / n_subsets))
+                              for score_name in scorers.keys()])))
 
         self.best_score_, (self.best_model_, self.best_model_tag_) = \
             max(score_model_list, key=lambda x: x[0])
         self.backend.logger.info('Whole classification finish in {:.4f} '
-                                 'seconds. The best validation {} score '
-                                 'is {:.4f}'.format(
-            time.time() - imblearn_start_time,
-            self.score_name, self.best_score_))
+                                 'seconds.'.format(time.time() -
+                                                   imblearn_start_time))
 
         return self
 
@@ -435,7 +475,6 @@ class AmClassifier(AmBaseLearn):
 
     def save_best_model(self):
         check_is_fitted(self, 'best_model_')
-        check_path_while_saving(self.backend.tmp_path)
         check_path_while_saving(self.backend.output_path)
         model_file = \
             os.path.join(self.backend.output_path,
@@ -454,17 +493,16 @@ class AmClassifier(AmBaseLearn):
         check_is_fitted(self, 'best_model_')
         return self.best_score_
 
-    @property
-    def feature_importances_(self):
+    def feature_importances_(self, model=None):
         check_is_fitted(self, 'best_model_')
-        return self.best_model_.feature_importances_
+        return self.best_model_.feature_importances_ if model is None \
+            else model.feature_importances_
 
-    @property
-    def feature_importances_dict(self):
+    def feature_importances_dict(self, model=None):
         check_is_fitted(self, 'best_model_')
         feature_importances_dict_ = \
             sorted(zip(self.get_feature_names(),
-                       self.best_model_.feature_importances_),
+                       self.feature_importances_(model)),
                    key=lambda x: x[1], reverse=True)
         return OrderedDict(feature_importances_dict_)
 

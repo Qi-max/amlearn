@@ -28,8 +28,6 @@ class BackendContext(object):
     Args:
         output_path: str (default: /tmp/amlearn/task_%pid/output_%timestamp)
             amlearn beckend output path.
-        tmp_path: str (default: /tmp/amlearn/task_%pid/tmp_%timestamp)
-            Amlearn beckend temporary output path.
         delete_tmp_folder: boolean (default: True)
             Whether delete temporary output path after temporary persistence.
         auto_rename: boolean (default: True)
@@ -40,30 +38,23 @@ class BackendContext(object):
             Whether merge path when output file exists.
     """
 
-    def __init__(self, output_path=None, tmp_path=None, delete_tmp_folder=True,
-                 auto_rename=False, overwrite_path=False, merge_path=False):
-        if output_path == tmp_path and (output_path is not None
-                                        and output_path != 'tmp'
-                                        and output_path != 'default'):
-            raise ValueError('output_path should not be same with tmp_path.')
-
-        self.delete_tmp_folder = delete_tmp_folder
+    def __init__(self, output_path=None, auto_rename=False,
+                 overwrite_path=False, merge_path=False):
         self.auto_rename = auto_rename
         self.overwrite_path = overwrite_path
         self.merge_path = merge_path
         class_name = self.__class__.__name__
-        self._prepare_paths(output_path, tmp_path)
+        self._prepare_paths(output_path)
         logger_file = None if self.output_path_ is None else \
             os.path.join(self.output_path_, "amlearn_{}.log".format(class_name))
         setup_logger(logger_file=logger_file)
         self.logger_ = get_logger(class_name)
-        if self.tmp_path is not None and self.output_path is not None :
-            self.logger_.info("\n\t!!! Amlearn temporary output path is : {}\n"
-                              "\t!!! Amlearn output path is : {}\n".format(
-                                self.tmp_path, self.output_path))
+        if self.output_path is not None :
+            self.logger_.info("\n\t!!! Amlearn output path is : {}\n".format(
+                self.output_path))
         else:
-            self.logger_.info("Haven't set beckend output path yet, the log will"
-                              " only print on terminal.")
+            self.logger_.info("Haven't set beckend output path yet, the log "
+                              "will only print on terminal.")
 
     @property
     def output_path(self):
@@ -73,18 +64,8 @@ class BackendContext(object):
                 os.path.expanduser(os.path.expandvars(self.output_path_))
         return self._absoutput_path_
 
-    @property
-    def tmp_path(self):
-        # Return the absolute path with ~ and environment variables expanded.
-        if not hasattr(self, 'abs_tmp_path_'):
-            self.abs_tmp_path_ = None if self.tmp_path_ is None else \
-                os.path.expanduser(os.path.expandvars(self.tmp_path_))
-            if self.abs_tmp_path_ and self.abs_tmp_path_.endswith('/'):
-                self.abs_tmp_path_ = self.abs_tmp_path_[:-1]
-        return self.abs_tmp_path_
 
-    def _prepare_paths(self, output_path=None, tmp_path=None,
-                       auto_rename=False):
+    def _prepare_paths(self, output_path=None, auto_rename=False):
         timestamp = time.time()
         pid = os.getpid()
 
@@ -93,10 +74,6 @@ class BackendContext(object):
                 '/tmp/amlearn/task_%d/output_%d' % (pid, int(timestamp))
         self.output_path_ = output_path
 
-        if tmp_path == 'tmp' or tmp_path == 'default':
-            tmp_path = '/tmp/amlearn/task_%d/tmp_%d' % (pid, int(timestamp))
-        self.tmp_path_ = tmp_path
-
         if output_path is not None:
             if auto_rename and os.path.exists(self.output_path_):
                 self.output_path_ = auto_rename_file(self.output_path_)
@@ -104,14 +81,6 @@ class BackendContext(object):
             create_path(self.output_path_,
                         overwrite=self.overwrite_path, merge=self.merge_path)
             self.output_path_created_ = True
-
-        if tmp_path is not None:
-            if auto_rename and os.path.exists(self.tmp_path_):
-                self.tmp_path_ = auto_rename_file(self.tmp_path_)
-
-            create_path(self.tmp_path_,
-                        overwrite=self.overwrite_path, merge=self.merge_path)
-            self.tmp_path_created_ = True
 
 
 class Backend(object):
@@ -126,36 +95,15 @@ class Backend(object):
 
         self.logger = get_logger(self.__class__.__name__)
 
-        if self.tmp_path is not None:
-            self.internals_path = os.path.join(self.tmp_path, ".amlearn")
-            create_path(self.internals_path, merge=True)
-
     @property
     def output_path(self):
         return self.context.output_path
 
-    @property
-    def tmp_path(self):
-        return self.context.tmp_path
-
-    def tmp_persistence(self, tmp_path):
-        check_path(self.tmp_path, 'tmp_path', 'BackendContext.tmp_path')
-        if self.tmp_path != tmp_path:
-            if tmp_path.startswith(self.tmp_path):
-                sub_path = tmp_path[len(self.tmp_path) + 1:]
-                output_path = os.path.join(self.output_path, sub_path)
-                copy_path(tmp_path, output_path)
-                if self.context.delete_tmp_folder:
-                    delete_path(tmp_path)
-            else:
-                raise ValueError("{} should be Sub_folder of {}".format(
-                    tmp_path, self.tmp_path))
-
     def _get_start_time_filename(self, seed):
-        check_path(self.internals_path, 'internals_path',
-                   'BackendContext.tmp_path')
+        check_path(self.output_path, 'start_time_path',
+                   'BackendContext.output_path')
         seed = int(seed)
-        return os.path.join(self.internals_path, "start_time_%d" % seed)
+        return os.path.join(self.output_path, "start_time_%d" % seed)
 
     def save_start_time(self, seed):
         start_time = time.time()
@@ -181,7 +129,6 @@ class MLBackend(Backend):
     def _get_prediction_output_dir(self, sub_dir='prediction'):
         check_path(self.output_path, 'output_path',
                    'BackendContext.output_path')
-
         return os.path.join(self.output_path, sub_dir)
 
     @property
@@ -230,7 +177,10 @@ class MLBackend(Backend):
                                     '{}.csv'.format(name) if seed is None
                                     else '{}_{}.csv'.format(name, seed))
 
-        predict_df = pd.DataFrame(predictions, columns=['predict'])
+        predict_df = pd.DataFrame(predictions,
+                                  columns=['target', 'predict']
+                                  if isinstance(predictions[0], np.ndarray)
+                                  else ['predict'])
         predict_df.to_csv(predict_file)
 
     def save_json(self, data, sub_dir='json', name='json_file', seed=None):
@@ -300,7 +250,7 @@ def check_path(path, path_tag, setup_path_tag=None):
 def check_path_while_saving(path):
     if path is None:
         raise EnvironmentError(
-            "If you want to save files, please set BackendContext's tmp_path "
-            "and output_path, if you want to auto save files to "
+            "If you want to save files, please set BackendContext's "
+            "output_path, if you want to auto save files to "
             "'/tmp/amlearn/task_%timestamp/output_%pid', "
             "just set backend to 'tmp' or 'default', not None!")
