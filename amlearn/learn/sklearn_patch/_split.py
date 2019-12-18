@@ -1901,7 +1901,6 @@ def check_cv(cv=3, y=None, classifier=False):
         cv = 3
 
     if isinstance(cv, numbers.Integral):
-        print('shuffle False')
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
             return StratifiedKFold(cv, shuffle=True)
