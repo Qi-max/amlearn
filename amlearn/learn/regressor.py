@@ -196,7 +196,10 @@ class AmRegressor(AmBaseLearn):
 
         return_train_score = cv_params.get('return_train_score', True)
         if cv_num > 1:
-            np.random.seed(random_state)
+            if random_state is False:
+                pass
+            else:
+                np.random.seed(random_state)
             results, scorers = \
                 cross_validate(estimator=self.regressor, scoring=scoring,
                                fit_params=fit_params, X=X, y=y, cv=cv_num,
@@ -220,21 +223,21 @@ class AmRegressor(AmBaseLearn):
                 key=lambda x: x[0])
 
         self.backend.logger.info(
-            "\tCV regression finish in {:.4f} seconds. "
-            "It's best {} score is {:.4f}".format(
-                time.time() - cv_start_time,
-                self.score_name, self.best_score_))
+            "\tCV regression finish in {:.4f} seconds.".format(
+                time.time() - cv_start_time))
         if save_score:
             write_file(
                 os.path.join(self.backend.output_path, 'mean_scores.txt'),
                 '{}\n{}\n{}'.format(
-                    ','.join(list(scorers.keys())),
-                    ','.join([
-                        str(np.mean(results['test_{}'.format(score_name)]))
-                        for score_name in scorers.keys()]),
-                    ','.join([
-                        str(np.mean(results['train_{}'.format(score_name)]))
-                        for score_name in scorers.keys()])
+                    ','.join(['dataset'] + list(scorers.keys())),
+                    ','.join(['test'] +
+                             [str(np.mean(results['test_{}'.format(
+                                 score_name)]))
+                              for score_name in scorers.keys()]),
+                    ','.join(['train'] +
+                             [str(np.mean(results['train_{}'.format(
+                                 score_name)]))
+                              for score_name in scorers.keys()])
                     if return_train_score else -1))
 
         for cv_idx in range(cv_num):
@@ -245,12 +248,14 @@ class AmRegressor(AmBaseLearn):
             if save_score:
                 write_file(os.path.join(cv_output_path, 'scores.txt'),
                            '{}\n{}\n{}'.format(
-                               ','.join(list(scorers.keys())),
-                               ','.join([str(results['test_{}'.format(
-                                   score_name)][cv_idx])
+                               ','.join(['dataset'] + list(scorers.keys())),
+                               ','.join(['test'] +
+                                        [str(results['test_{}'.format(
+                                            score_name)][cv_idx])
                                          for score_name in scorers.keys()]),
-                               ','.join([str(results['train_{}'.format(
-                                   score_name)][cv_idx])
+                               ','.join(['train'] +
+                                        [str(results['train_{}'.format(
+                                            score_name)][cv_idx])
                                          for score_name in scorers.keys()])
                                if return_train_score else -1))
 
@@ -258,8 +263,9 @@ class AmRegressor(AmBaseLearn):
             if save_model:
                 self.backend.save_model(score_model, cv_tag)
             if save_feature_importances:
-                self.backend.save_json(self.feature_importances_dict, cv_tag,
-                                       name='feature_importances')
+                self.backend.save_json(
+                    self.feature_importances_dict(score_model), cv_tag,
+                    name='feature_importances')
             if save_train_val_idx:
                 train_idx = results['indices'][cv_idx][0]
                 val_idx = results['indices'][cv_idx][1]
@@ -269,7 +275,12 @@ class AmRegressor(AmBaseLearn):
                 write_file(os.path.join(cv_output_path, 'val_idx.txt'),
                            "\n".join(list(map(str, val_idx))))
             if save_prediction:
-                predictions = score_model.predict(X)
+                predictions = \
+                    score_model.predict(X.iloc[results['indices'][cv_idx][1]])
+                targets_and_predictions = \
+                    np.array(list(zip(y.iloc[results['indices'][cv_idx][1]],
+                                      predictions)))
+
                 if not isinstance(prediction_types, list_like()):
                     prediction_types = [prediction_types]
                 for predict_type in prediction_types:
@@ -277,7 +288,7 @@ class AmRegressor(AmBaseLearn):
                         instance = getattr(self.backend,
                                            'save_predictions_as_{}'.format(
                                                predict_type))
-                        instance(predictions, cv_tag)
+                        instance(targets_and_predictions, cv_tag)
                     else:
                         raise ValueError(
                             'predict_type {} is unknown, '
@@ -310,17 +321,16 @@ class AmRegressor(AmBaseLearn):
         check_is_fitted(self, 'best_model_')
         return self.best_model_
 
-    @property
-    def feature_importances_(self):
+    def feature_importances_(self, model=None):
         check_is_fitted(self, 'best_model_')
-        return self.best_model_.feature_importances_
+        return self.best_model_.feature_importances_ if model is None \
+            else model.feature_importances_
 
-    @property
-    def feature_importances_dict(self):
+    def feature_importances_dict(self, model=None):
         check_is_fitted(self, 'best_model_')
         feature_importances_dict_ = \
             sorted(zip(self.get_feature_names(),
-                       self.best_model_.feature_importances_),
+                       self.feature_importances_(model)),
                    key=lambda x: x[1], reverse=True)
         return OrderedDict(feature_importances_dict_)
 

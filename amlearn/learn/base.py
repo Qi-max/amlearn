@@ -20,11 +20,8 @@ def create_ml_backend(output_path='tmp'):
     """
     output_path = 'tmp' if output_path is None or output_path == 'tmp' \
         else output_path
-    tmp_path = 'tmp' if output_path is None or output_path == 'tmp' \
-        else os.path.join(output_path, 'tmp_{}'.format(int(time.time())))
     backend_context = BackendContext(merge_path=True,
-                                     output_path=output_path,
-                                     tmp_path=tmp_path)
+                                     output_path=output_path)
     featurizer_backend = MLBackend(backend_context)
     return featurizer_backend
 
