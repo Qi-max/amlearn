@@ -7,24 +7,23 @@ to evaluate estimator's performance.
 """
 import os
 import time
+import joblib
 import numpy as np
 
 from copy import copy
 from collections import OrderedDict
 from amlearn.learn.base import AmBaseLearn
-from amlearn.learn.sklearn_patch import cross_validate
-from amlearn.learn.sklearn_patch import calc_scores
+from amlearn.learn.sklearn_patch import calc_scores, cross_validate
 from amlearn.learn.preprocessor import ImblearnPreprocessor
-from amlearn.utils.backend import check_path_while_saving
-from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
+from amlearn.utils.check import appropriate_kwargs
+from amlearn.utils.backend import check_path_while_saving
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import ClassifierMixin
 from sklearn.exceptions import NotFittedError
-from sklearn.externals import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.utils.testing import all_estimators
+from sklearn.utils import all_estimators
 from sklearn.utils.validation import check_is_fitted
+from sklearn.model_selection import train_test_split
 
 
 __author__ = "Qi Wang"

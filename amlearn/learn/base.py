@@ -1,10 +1,7 @@
-import os
-import time
-from abc import ABCMeta, abstractmethod
+import six
 from functools import lru_cache
-
+from abc import ABCMeta, abstractmethod
 from amlearn.utils.backend import BackendContext, MLBackend
-from sklearn.externals import six
 from sklearn.base import BaseEstimator, TransformerMixin
 
 __author__ = "Qi Wang"

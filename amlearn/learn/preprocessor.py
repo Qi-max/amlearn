@@ -1,13 +1,13 @@
-import numpy as np
 import time
+import numpy as np
 import pandas as pd
+from imblearn.utils.testing import all_estimators
 from amlearn.learn.base import BasePreprocessor
 from amlearn.utils.logging import get_logger, setup_logger
-from imblearn.utils.testing import all_estimators
+from sklearn.pipeline import Pipeline
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
 
 __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"

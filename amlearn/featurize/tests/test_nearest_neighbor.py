@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from amlearn.featurize.nearest_neighbor import DistanceNN, VoroNN
 from amlearn.utils.basetest import AmLearnTest
+from amlearn.featurize.nearest_neighbor import DistanceNN, VoroNN
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 

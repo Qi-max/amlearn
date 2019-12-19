@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-from math import atan2, pi
 
 __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"

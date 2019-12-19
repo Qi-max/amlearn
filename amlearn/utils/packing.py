@@ -1,7 +1,7 @@
 import os
 import json
-from math import atan2, pi
 import numpy as np
+from math import atan2
 
 __author__ = "Qi Wang"
 __email__ = "qiwang.mse@gmail.com"
