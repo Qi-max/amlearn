@@ -295,11 +295,11 @@ class AmRegressor(AmBaseLearn):
         return self
 
     def predict(self, X):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_.predict(X)
 
     def calc_score(self, X, y, scoring=None):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         scores, _ = \
             calc_scores(X=X, y=y, estimator=self.best_model_,
                         scoring=scoring if scoring is not None
@@ -307,7 +307,7 @@ class AmRegressor(AmBaseLearn):
         return scores
 
     def save_best_model(self):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         model_file = \
             os.path.join(self.backend.output_path,
                          'best_model_{}.pkl'.format(self.best_model_tag_))
@@ -315,16 +315,16 @@ class AmRegressor(AmBaseLearn):
 
     @property
     def best_model(self):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_
 
     def feature_importances_(self, model=None):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_.feature_importances_ if model is None \
             else model.feature_importances_
 
     def feature_importances_dict(self, model=None):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         feature_importances_dict_ = \
             sorted(zip(self.get_feature_names(),
                        self.feature_importances_(model)),
@@ -348,8 +348,8 @@ class AmRegressor(AmBaseLearn):
                 Default regressor.
 
         """
-        self.default_regressor_ = self.backend.def_env["default_regressor"]
-        return self.default_regressor_
+        self.default_regressor_r = self.backend.def_env["default_regressor"]
+        return self.default_regressor_r
 
     @property
     def valid_components(self):
@@ -359,9 +359,9 @@ class AmRegressor(AmBaseLearn):
             valid_components: numpy.array([[regressor name, object], ...])
                 Valid regressors
         """
-        if not hasattr(self, "valid_components_"):
+        if not hasattr(self, "valid_components_r"):
             regressors = np.array([est for est in all_estimators() if
                                    issubclass(est[1], RegressorMixin)])
 
-            self.valid_components_ = regressors
-        return self.valid_components_
+            self.valid_components_r = regressors
+        return self.valid_components_r
