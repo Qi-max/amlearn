@@ -1,5 +1,5 @@
-from amlearn.utils.backend import MLBackend, BackendContext
 from amlearn.utils.basetest import AmLearnTest
+from amlearn.utils.backend import MLBackend, BackendContext
 
 
 class TestBackend(AmLearnTest):

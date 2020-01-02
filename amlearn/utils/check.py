@@ -1,14 +1,10 @@
 from __future__ import division
 
-import inspect
 import os
 import sys
 import six
-import operator
+import inspect
 import numpy as np
-import pandas as pd
-
-# featurizer check
 from amlearn.utils.data import list_like
 
 __author__ = "Qi Wang"

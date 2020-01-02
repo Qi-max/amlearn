@@ -15,19 +15,17 @@ from __future__ import division
 import warnings
 import numbers
 import time
-
 import numpy as np
 import scipy.sparse as sp
-from amlearn.learn.sklearn_patch._split import check_cv
+from joblib import Parallel, delayed, logger
 
+from amlearn.learn.sklearn_patch._split import check_cv
 from sklearn.base import is_classifier, clone
 from sklearn.utils import indexable, check_random_state, safe_indexing
-from sklearn.utils.deprecation import DeprecationDict
 from sklearn.utils.validation import _is_arraylike, _num_samples
 from sklearn.utils.metaestimators import _safe_split
-from sklearn.externals.joblib import Parallel, delayed, logger
-from sklearn.externals.six.moves import zip
-from sklearn.metrics.scorer import check_scoring, _check_multimetric_scoring
+from sklearn.metrics import check_scoring
+from sklearn.metrics._scorer import _check_multimetric_scoring
 from sklearn.exceptions import FitFailedWarning
 from sklearn.preprocessing import LabelEncoder
 
@@ -37,7 +35,7 @@ __all__ = ['cross_validate', 'cross_val_score', 'cross_val_predict',
 
 def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
                    n_jobs=1, verbose=0, fit_params=None,
-                   pre_dispatch='2*n_jobs', return_train_score="warn"):
+                   pre_dispatch='2*n_jobs', return_train_score=True):
     """Evaluate metric(s) by cross-validation and also record fit/score times.
 
     Read more in the :ref:`User Guide <multimetric_cross_validation>`.
@@ -212,7 +210,7 @@ def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
     test_scores = _aggregate_score_dicts(test_scores)
 
     # TODO: replace by a dict in 0.21
-    ret = DeprecationDict() if return_train_score == 'warn' else {}
+    ret = {}
     ret['fit_time'] = np.array(fit_times)
     ret['score_time'] = np.array(score_times)
     ret['indices'] = np.array(indices)
@@ -223,14 +221,6 @@ def cross_validate(estimator, X, y=None, groups=None, scoring=None, cv=None,
         if return_train_score:
             key = 'train_%s' % name
             ret[key] = np.array(train_scores[name])
-            if return_train_score == 'warn':
-                message = (
-                    'You are accessing a training score ({!r}), '
-                    'which will not be available by default '
-                    'any more in 0.21. If you need training scores, '
-                    'please set return_train_score=True').format(key)
-                # warn on key access
-                ret.add_warning(key, message, FutureWarning)
 
     return ret, scorers
 

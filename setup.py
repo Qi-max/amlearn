@@ -40,7 +40,8 @@ long_description = open(os.path.join(module_dir, 'README.md')).read()
 zip_safe = False
 install_requires = ['numpy>=1.7.0',
                     'scipy>=0.19.0',
-                    'scikit-learn>=0.18.1',
+                    'scikit-learn>=0.22.0',
+                    'imbalanced-learn==0.5.0',
                     'tqdm>=4.11.2',
                     'pandas>=0.20.2',
                     'six>=1.10.0']

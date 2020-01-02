@@ -7,24 +7,23 @@ to evaluate estimator's performance.
 """
 import os
 import time
+import joblib
 import numpy as np
 
 from copy import copy
 from collections import OrderedDict
 from amlearn.learn.base import AmBaseLearn
-from amlearn.learn.sklearn_patch import cross_validate
-from amlearn.learn.sklearn_patch import calc_scores
+from amlearn.learn.sklearn_patch import calc_scores, cross_validate
 from amlearn.learn.preprocessor import ImblearnPreprocessor
-from amlearn.utils.backend import check_path_while_saving
-from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
+from amlearn.utils.check import appropriate_kwargs
+from amlearn.utils.backend import check_path_while_saving
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import ClassifierMixin
 from sklearn.exceptions import NotFittedError
-from sklearn.externals import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.utils.testing import all_estimators
+from sklearn.utils import all_estimators
 from sklearn.utils.validation import check_is_fitted
+from sklearn.model_selection import train_test_split
 
 
 __author__ = "Qi Wang"
@@ -453,11 +452,11 @@ class AmClassifier(AmBaseLearn):
         return self
 
     def predict(self, X):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_.predict(X)
 
     def calc_score(self, X, y, scoring=None):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         scores, _ = \
             calc_scores(X=X, y=y, estimator=self.best_model_,
                         scoring=scoring if scoring is not None
@@ -466,15 +465,15 @@ class AmClassifier(AmBaseLearn):
         return scores
 
     def predict_proba(self, X):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_.predict_proba(X)
 
     def predict_log_proba(self, X):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_.predict_log_proba(X)
 
     def save_best_model(self):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         check_path_while_saving(self.backend.output_path)
         model_file = \
             os.path.join(self.backend.output_path,
@@ -485,21 +484,21 @@ class AmClassifier(AmBaseLearn):
 
     @property
     def best_model(self):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_
 
     @property
     def best_score(self):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_score_
 
     def feature_importances_(self, model=None):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         return self.best_model_.feature_importances_ if model is None \
             else model.feature_importances_
 
     def feature_importances_dict(self, model=None):
-        check_is_fitted(self, 'best_model_')
+        check_is_fitted(self)
         feature_importances_dict_ = \
             sorted(zip(self.get_feature_names(),
                        self.feature_importances_(model)),
@@ -523,8 +522,8 @@ class AmClassifier(AmBaseLearn):
                 Default classifier.
 
         """
-        self.default_classifier_ = self.backend.def_env["default_classifier"]
-        return self.default_classifier_
+        self.default_classifier_c = self.backend.def_env["default_classifier"]
+        return self.default_classifier_c
 
     @property
     def valid_components(self):
@@ -534,9 +533,9 @@ class AmClassifier(AmBaseLearn):
             valid_components: numpy.array([[classifier name, object], ...])
                 Valid classifiers
         """
-        if not hasattr(self, "valid_components_"):
+        if not hasattr(self, "valid_components_c"):
             classifiers = np.array([est for est in all_estimators() if
                                     issubclass(est[1], ClassifierMixin)])
 
-            self.valid_components_ = classifiers
-        return self.valid_components_
+            self.valid_components_c = classifiers
+        return self.valid_components_c

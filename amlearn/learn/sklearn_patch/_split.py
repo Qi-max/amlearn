@@ -13,23 +13,19 @@ functions to split the data based on a preset strategy.
 from __future__ import print_function
 from __future__ import division
 
-import warnings
-from itertools import chain, combinations
-from collections import Iterable
-from math import ceil, floor
 import numbers
-from abc import ABCMeta, abstractmethod
-
+import warnings
 import numpy as np
-
-from sklearn.utils import indexable, check_random_state, safe_indexing
-from sklearn.utils.validation import _num_samples, column_or_1d
-from sklearn.utils.validation import check_array
-from sklearn.utils.multiclass import type_of_target
-from sklearn.externals.six import with_metaclass
-from sklearn.externals.six.moves import zip
-from sklearn.utils.fixes import signature, comb
+from inspect import signature
+from math import ceil, floor
+from collections import Iterable
+from abc import ABCMeta, abstractmethod
+from itertools import chain, combinations
 from sklearn.base import _pprint
+from sklearn.utils import indexable, check_random_state, safe_indexing
+from sklearn.utils.fixes import comb
+from sklearn.utils.multiclass import type_of_target
+from sklearn.utils.validation import _num_samples, column_or_1d, check_array
 
 __all__ = ['BaseCrossValidator',
            'KFold',
@@ -49,7 +45,7 @@ __all__ = ['BaseCrossValidator',
            'check_cv']
 
 
-class BaseCrossValidator(with_metaclass(ABCMeta)):
+class BaseCrossValidator(metaclass=ABCMeta):
     """Base class for all cross-validators
 
     Implementations must define `_iter_test_masks` or `_iter_test_indices`.
@@ -266,7 +262,7 @@ class LeavePOut(BaseCrossValidator):
         return int(comb(_num_samples(X), self.p, exact=True))
 
 
-class _BaseKFold(with_metaclass(ABCMeta, BaseCrossValidator)):
+class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
     """Base class for KFold, GroupKFold, and StratifiedKFold"""
 
     @abstractmethod
@@ -964,7 +960,7 @@ class LeavePGroupsOut(BaseCrossValidator):
         return int(comb(len(np.unique(groups)), self.n_groups, exact=True))
 
 
-class _RepeatedSplits(with_metaclass(ABCMeta)):
+class _RepeatedSplits(metaclass=ABCMeta):
     """Repeated splits for an arbitrary randomized CV splitter.
 
     Repeats splits for cross-validators n times with different randomization
@@ -1159,7 +1155,7 @@ class RepeatedStratifiedKFold(_RepeatedSplits):
             StratifiedKFold, n_repeats, random_state, n_splits=n_splits)
 
 
-class BaseShuffleSplit(with_metaclass(ABCMeta)):
+class BaseShuffleSplit(metaclass=ABCMeta):
     """Base class for ShuffleSplit and StratifiedShuffleSplit"""
 
     def __init__(self, n_splits=10, test_size="default", train_size=None,

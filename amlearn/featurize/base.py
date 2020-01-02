@@ -1,13 +1,10 @@
 import os
-import time
-from functools import lru_cache
-
 import six
-import json
 import numpy as np
+from functools import lru_cache
+from abc import ABCMeta, abstractmethod
 from amlearn.utils.backend import BackendContext, FeatureBackend
 from sklearn.base import BaseEstimator, TransformerMixin
-from abc import ABCMeta, abstractmethod
 
 
 try:

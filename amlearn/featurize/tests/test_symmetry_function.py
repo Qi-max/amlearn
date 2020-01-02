@@ -1,8 +1,7 @@
-import os
-import pandas as pd
 import unittest
-from amlearn.featurize.symmetry_function import BPRadialFunction, BPAngularFunction
+import pandas as pd
 from amlearn.utils.basetest import AmLearnTest
+from amlearn.featurize.symmetry_function import BPRadialFunction, BPAngularFunction
 
 
 class TestSymmetryFunction(AmLearnTest):

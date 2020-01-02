@@ -1,12 +1,12 @@
 import pandas as pd
+from amlearn.utils.basetest import AmLearnTest
 from amlearn.featurize.medium_range_order import MRO
 from amlearn.featurize.nearest_neighbor import VoroNN, DistanceNN
+from amlearn.featurize.pipeline import all_featurizers, \
+    FeaturizePipeline
 from amlearn.featurize.short_range_order import \
     VolumeAreaInterstice, ClusterPackingEfficiency, AtomicPackingEfficiency, \
     BaseInterstice
-from amlearn.utils.basetest import AmLearnTest
-from amlearn.featurize.pipeline import all_featurizers, \
-    FeaturizePipeline
 
 
 class TestSro(AmLearnTest):
