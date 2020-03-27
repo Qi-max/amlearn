@@ -51,6 +51,7 @@ def load_model_and_predict(model_file, X, y=None,
         backend = create_ml_backend(output_path=output_path)
 
     model = joblib.load(model_file)
+    # print(model)
     if isinstance(model, RegressorMixin):
         if task == 'regression' or task is None:
             task = 'regression'
