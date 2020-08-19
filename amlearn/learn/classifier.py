@@ -11,7 +11,7 @@ import joblib
 import numpy as np
 
 from copy import copy
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import calc_scores, cross_validate
 from amlearn.learn.preprocessor import ImblearnPreprocessor
@@ -177,17 +177,27 @@ class AmClassifier(AmBaseLearn):
              scoring=None, return_train_score=True, **fit_params):
         ret = dict()
         indices = range(np.array(X).shape[0])
-        X_train, X_val, y_train, y_val, train_idx, val_idx = \
-            train_test_split(X, y, indices, test_size=val_size,
-                             random_state=random_state)
+        if 'X_val' in fit_params.keys() and 'y_val' in fit_params.keys():
+            train_idx = fit_params['train_idx']
+            val_idx = fit_params['val_idx']
+            X_val = fit_params['X_val']
+            y_val = fit_params['y_val']
+            X_train = X
+            y_train = y
+        else:
+            X_train, X_val, y_train, y_val, train_idx, val_idx = \
+                train_test_split(X, y, indices, test_size=val_size,
+                                 random_state=random_state)
 
         train_idx = list(map(int, train_idx))
         val_idx = list(map(int, val_idx))
 
-        classifier = classifier.fit(X_train, y_train, **fit_params)
+        classifier_params = appropriate_kwargs(fit_params, classifier.fit)
+        classifier = classifier.fit(X_train, y_train, **classifier_params)
         ret['estimators'] = [classifier]
         ret['indices'] = [[train_idx, val_idx]]
 
+        print(Counter(list(y_val)))
         val_scores, scorers = calc_scores(X=X_val, y=y_val,
                                           estimator=classifier,
                                           scoring=scoring)
@@ -236,10 +246,12 @@ class AmClassifier(AmBaseLearn):
         return_train_score = cv_params.get('return_train_score', True)
         if cv_num > 1:
             np.random.seed(random_state)
+            classifier_params = \
+                appropriate_kwargs(fit_params, self.classifier.fit)
             results, scorers = \
                 cross_validate(estimator=self.classifier, scoring=scoring,
-                               fit_params=fit_params, X=X, y=y, cv=cv_num,
-                               **cv_params)
+                               fit_params=classifier_params, X=X, y=y,
+                               cv=cv_num, **cv_params)
         else:
             results, scorers = self._fit(
                 X, y, self.classifier, val_size=val_size,
@@ -306,8 +318,7 @@ class AmClassifier(AmBaseLearn):
 
                 score_model = results['estimators'][cv_idx]
                 if save_model:
-                    self.backend.save_model(score_model, sub_path,
-                                            seed=self.seed)
+                    self.backend.save_model(score_model, sub_path)
                 if save_feature_importances:
                     self.backend.save_json(
                         self.feature_importances_dict(score_model),
@@ -323,12 +334,16 @@ class AmClassifier(AmBaseLearn):
                                 "\n".join(list(map(str, val_idx))))
 
                 if save_prediction:
-                    test_X = X[results['indices'][cv_idx][1]] \
-                        if isinstance(X, np.ndarray) \
-                        else X.iloc[results['indices'][cv_idx][1]]
-                    test_y = y[results['indices'][cv_idx][1]] \
-                        if isinstance(y, np.ndarray) \
-                        else y.iloc[results['indices'][cv_idx][1]]
+                    if 'X_val' in fit_params.keys() and 'y_val' in fit_params.keys():
+                        test_X = fit_params['X_val']
+                        test_y = fit_params['y_val']
+                    else:
+                        test_X = X[results['indices'][cv_idx][1]] \
+                            if isinstance(X, np.ndarray) \
+                            else X.iloc[results['indices'][cv_idx][1]]
+                        test_y = y[results['indices'][cv_idx][1]] \
+                            if isinstance(y, np.ndarray) \
+                            else y.iloc[results['indices'][cv_idx][1]]
                     if hasattr(score_model, 'predict_proba'):
                         predictions = score_model.predict_proba(test_X)
                     elif hasattr(score_model, 'decision_function'):
@@ -344,8 +359,8 @@ class AmClassifier(AmBaseLearn):
                         if predict_type in self.backend.valid_predictions_type:
                             getattr(self.backend,
                                     'save_predictions_as_{}'.format(
-                                        predict_type))(targets_and_predictions,
-                                                       sub_path, seed=self.seed)
+                                        predict_type))(
+                                targets_and_predictions, sub_path)
                         else:
                             raise ValueError(
                                 'predict_type {} is unknown, '
@@ -369,8 +384,19 @@ class AmClassifier(AmBaseLearn):
             imblearn_params = {"random_state": random_state, "n_subsets": 3}
         if 'random_state' not in imblearn_params:
             imblearn_params['random_state'] = random_state
-        X, y = imblearn.fit(X, y, imblearn_method, imblearn_params)
 
+        if 'train_idx' in fit_params.keys() and 'val_idx' in fit_params.keys() and cv_num <= 1:
+            train_idx = fit_params['train_idx']
+            val_idx = fit_params['val_idx']
+            X_val = copy(X.loc[val_idx])
+            y_val = copy(y.loc[val_idx])
+            X = X.loc[train_idx]
+            y = y.loc[train_idx]
+        else:
+            X_val = None
+            y_val = None
+
+        X, y = imblearn.fit(X, y, imblearn_method, imblearn_params)
         score_model_list = list()
         # get the imblearn n_subsets num from X shape.
         if len(X.shape) == 2:
@@ -403,7 +429,8 @@ class AmClassifier(AmBaseLearn):
                 save_prediction=save_prediction,
                 prediction_types=prediction_types,
                 save_feature_importances=save_feature_importances,
-                save_train_val_idx=save_train_val_idx, **fit_params)
+                save_train_val_idx=save_train_val_idx,
+                X_val=X_val, y_val=y_val, **fit_params)
 
             for score_name in scorers.keys():
                 if 'test_{}'.format(score_name) in all_results.keys():
@@ -430,17 +457,18 @@ class AmClassifier(AmBaseLearn):
                     imblearn_idx, time.time() - start_time))
 
         if save_score:
+            print([all_results['test_{}'.format(score_name)] for score_name in scorers.keys()])
             write_file(
                 os.path.join(self.backend.output_path, 'mean_scores.txt'),
                 '{}\n{}\n{}'.format(
                     ','.join(['dataset'] + list(scorers.keys())),
                     ','.join(['test'] +
-                             [str(np.mean(all_results['test_{}'.format(
-                                 score_name)] / n_subsets))
+                             [str(np.mean(np.array(all_results['test_{}'.format(
+                                 score_name)])))
                               for score_name in scorers.keys()]),
                     ','.join(['train'] +
-                             [str(np.mean(all_results['train_{}'.format(
-                                 score_name)] / n_subsets))
+                             [str(np.mean(np.array(all_results['train_{}'.format(
+                                 score_name)])))
                               for score_name in scorers.keys()])))
 
         self.best_score_, (self.best_model_, self.best_model_tag_) = \

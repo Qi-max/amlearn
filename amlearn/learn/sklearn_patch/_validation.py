@@ -25,7 +25,11 @@ from sklearn.utils import indexable, check_random_state, safe_indexing
 from sklearn.utils.validation import _is_arraylike, _num_samples
 from sklearn.utils.metaestimators import _safe_split
 from sklearn.metrics import check_scoring
-from sklearn.metrics._scorer import _check_multimetric_scoring
+try:
+    from sklearn.metrics._scorer import _check_multimetric_scoring
+except:
+    from sklearn.metrics.scorer import _check_multimetric_scoring
+
 from sklearn.exceptions import FitFailedWarning
 from sklearn.preprocessing import LabelEncoder
 

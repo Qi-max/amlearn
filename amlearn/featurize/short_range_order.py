@@ -912,7 +912,7 @@ class CharacterMotif(BaseSRO):
         self.frank_kasper = frank_kasper
         self.edge_min = edge_min
         self.dependent_cols_ = ['Voronoi_idx_{}_voro'.format(idx)
-                                for idx in range(3,8)]
+                                for idx in range(3, 8)]
         self.output_file_prefix = output_file_prefix \
             if output_file_prefix is not None \
             else 'feature_{}_voro_character_motif'.format(self.category)

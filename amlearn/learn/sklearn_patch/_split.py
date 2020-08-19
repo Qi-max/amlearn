@@ -23,7 +23,10 @@ from abc import ABCMeta, abstractmethod
 from itertools import chain, combinations
 from sklearn.base import _pprint
 from sklearn.utils import indexable, check_random_state, safe_indexing
-from sklearn.utils.fixes import comb
+try:
+    from sklearn.utils.fixes import comb
+except ImportError:
+    from scipy.special import comb, logsumexp
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import _num_samples, column_or_1d, check_array
 

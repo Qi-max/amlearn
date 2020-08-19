@@ -12,12 +12,16 @@ import numpy as np
 from collections import OrderedDict
 from amlearn.learn.base import AmBaseLearn
 from amlearn.learn.sklearn_patch import calc_scores, cross_validate
+from amlearn.utils.check import appropriate_kwargs
 from amlearn.utils.data import list_like
 from amlearn.utils.directory import write_file, create_path
 from sklearn.base import RegressorMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.model_selection import train_test_split
-from sklearn.utils import all_estimators
+try:
+    from sklearn.utils import all_estimators
+except:
+    from sklearn.utils.testing import all_estimators
 from sklearn.utils.validation import check_is_fitted
 
 __author__ = "Qi Wang"
@@ -75,6 +79,7 @@ class AmRegressor(AmBaseLearn):
         self.regressor = \
             regressor if isinstance(regressor, RegressorMixin) \
             else regressors_dict[regressor_name](**regressor_params)
+        # self.regressor = regressor
 
         self.backend.logger.info(
             'Initialize regression, regressor is : \n\t{}'.format(
@@ -135,15 +140,25 @@ class AmRegressor(AmBaseLearn):
              scoring=None, return_train_score=True, **fit_params):
         result_dict = dict()
         indices = range(np.array(X).shape[0])
-        X_train, X_val, y_train, y_val, train_idx, val_idx = \
-            train_test_split(X, y, indices,
-                             test_size=val_size, random_state=random_state)
+
+        if 'train_idx' in fit_params.keys() and 'val_idx' in fit_params.keys():
+            train_idx = fit_params['train_idx']
+            val_idx = fit_params['val_idx']
+            X_train = X.loc[train_idx]
+            X_val = X.loc[val_idx]
+            y_train = y.loc[train_idx]
+            y_val = y.loc[val_idx]
+        else:
+            X_train, X_val, y_train, y_val, train_idx, val_idx = \
+                train_test_split(X, y, indices,
+                                 test_size=val_size, random_state=random_state)
 
         train_idx = list(map(int, train_idx))
         val_idx = list(map(int, val_idx))
 
         np.random.seed(random_state)
-        regressor = regressor.fit(X_train, y_train, **fit_params)
+        regressor_params = appropriate_kwargs(fit_params, regressor.fit)
+        regressor = regressor.fit(X_train, y_train, **regressor_params)
         result_dict['estimators'] = [regressor]
         result_dict['indices'] = [[train_idx, val_idx]]
 

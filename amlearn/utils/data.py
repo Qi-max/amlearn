@@ -10,7 +10,7 @@ def list_like():
     return (list, np.ndarray, tuple, pd.Series)
 
 
-def read_lammps_dump(data_path):
+def read_lammps_dump(data_path, sort_index=True):
     if os.path.exists(data_path):
         with open(data_path, 'r') as rf:
             lines = rf.readlines()
@@ -25,6 +25,9 @@ def read_lammps_dump(data_path):
                 cols.append(column_values)
         df = pd.DataFrame(cols, columns=column_names)
         df.index = list(df["id"])
+
+        if sort_index:
+            df = df.sort_index()
         return df, bds
     else:
         raise FileNotFoundError("File {} not found".format(data_path))
