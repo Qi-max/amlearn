@@ -343,7 +343,7 @@ class DistanceInterstice(BaseInterstice):
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_distance'.format(
             self.category, self.dependent_name_,
-            self.radius_type.replace('_radius', ''))
+            self.radius_type.replace('_radius', '') if '_radius' in self.radius_type else self.radius_type)
         self.stat_ops = stat_ops if stat_ops != 'all' \
             else ['sum', 'mean', 'std', 'min', 'max']
         self.dependent_cols_ = [self.neighbor_num_col, self.neighbor_ids_col,
@@ -465,7 +465,7 @@ class VolumeAreaInterstice(BaseInterstice):
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_volume_area'.format(
                     self.category, self.dependent_name_,
-            self.radius_type.replace('_radius', ''))
+            self.radius_type.replace('_radius', '') if '_radius' in self.radius_type else self.radius_type)
 
     def transform(self, X):
         """
@@ -481,7 +481,7 @@ class VolumeAreaInterstice(BaseInterstice):
                 DataFrame, which index is same as X's index, see
                 get_feature_names() method for column names.
         """
-        
+
         X = X.join(self.lammps_df) if self.calculated_X is None \
             else self.calculated_X
 
@@ -659,7 +659,7 @@ class ClusterPackingEfficiency(BaseInterstice):
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_cpe'.format(
             self.category.replace('interstice_', ''), self.dependent_name_,
-            self.radius_type.replace('_radius', ''))
+            self.radius_type.replace('_radius', '') if '_radius' in self.radius_type else self.radius_type)
 
     def transform(self, X):
         """
@@ -752,7 +752,7 @@ class AtomicPackingEfficiency(BaseInterstice):
             if output_file_prefix is not None \
             else 'feature_{}_{}_{}_ape'.format(
             self.category.replace('interstice_', ''), self.dependent_name_,
-            self.radius_type.replace('_radius', ''))
+            self.radius_type.replace('_radius', '') if '_radius' in self.radius_type else self.radius_type)
 
     def transform(self, X):
         """
