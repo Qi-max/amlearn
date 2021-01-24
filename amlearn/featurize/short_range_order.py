@@ -933,10 +933,11 @@ class CharacterMotif(BaseSRO):
     def transform(self, X=None):
         X = X if self.calculated_X is None else self.calculated_X
         voro_idx_lists = get_isometric_lists(
-            X[self.dependent_cols_].values, limit_width=self.neighbor_num_limit)
+            X[self.dependent_cols_].values, len(self.target_voro_idx[0]))
 
         motif_one_hot = np.zeros((len(X),
                                   len(self.target_voro_idx) + self.frank_kasper))
+
         motif_one_hot = \
             voronoi_stats.character_motif(motif_one_hot, voro_idx_lists,
                                           self.edge_min, self.target_voro_idx,
