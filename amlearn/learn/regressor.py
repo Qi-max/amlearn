@@ -68,7 +68,8 @@ class AmRegressor(AmBaseLearn):
         else:
             regressor_name = None
 
-        if regressor_name not in regressors_dict.keys():
+        if regressor_name not in regressors_dict.keys() and \
+                (regressor is None or not issubclass(regressor, RegressorMixin)):
             raise ValueError('regressor {} is unknown, Possible values '
                              'are {}'.format(regressor,
                                              regressors_dict.keys()))
@@ -78,7 +79,9 @@ class AmRegressor(AmBaseLearn):
 
         self.regressor = \
             regressor if isinstance(regressor, RegressorMixin) \
-            else regressors_dict[regressor_name](**regressor_params)
+            else (regressors_dict[regressor_name](**regressor_params)
+                  if regressor_name in regressors_dict.keys()
+                  else regressor(**regressor_params))
         # self.regressor = regressor
 
         self.backend.logger.info(
@@ -141,20 +144,30 @@ class AmRegressor(AmBaseLearn):
         result_dict = dict()
         indices = range(np.array(X).shape[0])
 
-        if 'train_idx' in fit_params.keys() and 'val_idx' in fit_params.keys():
+        if 'train_idx' in fit_params.keys():
             train_idx = fit_params['train_idx']
-            val_idx = fit_params['val_idx']
             X_train = X.loc[train_idx]
-            X_val = X.loc[val_idx]
             y_train = y.loc[train_idx]
-            y_val = y.loc[val_idx]
+            if 'val_idx' in fit_params.keys():
+                val_idx = fit_params['val_idx']
+                X_val = X.loc[val_idx]
+                y_val = y.loc[val_idx]
+                val_idx = list(map(int, val_idx))
+            else:
+                X_val, y_val, val_idx = None, None, list(map(int, train_idx))
+
         else:
-            X_train, X_val, y_train, y_val, train_idx, val_idx = \
-                train_test_split(X, y, indices,
-                                 test_size=val_size, random_state=random_state)
+            if val_size > 0:
+                X_train, X_val, y_train, y_val, train_idx, val_idx = \
+                    train_test_split(X, y, indices,
+                                     test_size=val_size, random_state=random_state)
+                val_idx = list(map(int, val_idx))
+
+            else:
+                X_train, y_train, train_idx = X, y, indices
+                X_val, y_val, val_idx = None, None, list(map(int, train_idx))
 
         train_idx = list(map(int, train_idx))
-        val_idx = list(map(int, val_idx))
 
         np.random.seed(random_state)
         regressor_params = appropriate_kwargs(fit_params, regressor.fit)
@@ -162,9 +175,14 @@ class AmRegressor(AmBaseLearn):
         result_dict['estimators'] = [regressor]
         result_dict['indices'] = [[train_idx, val_idx]]
 
-        val_scores, scorers = calc_scores(X=X_val, y=y_val,
-                                          estimator=regressor,
-                                          scoring=scoring)
+        if val_size > 0:
+            val_scores, scorers = calc_scores(X=X_val, y=y_val,
+                                              estimator=regressor,
+                                              scoring=scoring)
+        else:
+            val_scores, scorers = calc_scores(X=X_train, y=y_train,
+                                              estimator=regressor,
+                                              scoring=scoring)
 
         if return_train_score:
             train_scores, _ = calc_scores(X=X_train, y=y_train,

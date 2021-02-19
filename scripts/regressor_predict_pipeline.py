@@ -1,5 +1,4 @@
 import pandas as pd
-from amlearn.learn.predict_pipeline import PredictPipeline
 from amlearn.learn.regressor import AmRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 
@@ -35,4 +34,10 @@ predict_pipeline = PredictPipeline(output_path=output_path)
 predict_pipeline.predict_pipeline(
     X=features_df[feature_cols], y=target_df[target_col],
     model_file=model_file, task='regression',
+    scoring=['r2', 'neg_mean_absolute_error', 'neg_mean_squared_error'])
+
+# predict
+predictions = load_model_and_predict(
+    X=feature_df[feature_cols], y=target_df[target_col],
+    model_file=model_file, task='regression', output_path=output_path,
     scoring=['r2', 'neg_mean_absolute_error', 'neg_mean_squared_error'])

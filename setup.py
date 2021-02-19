@@ -44,7 +44,8 @@ install_requires = ['numpy>=1.7.0',
                     'imbalanced-learn==0.5.0',
                     'tqdm>=4.11.2',
                     'pandas>=0.20.2',
-                    'six>=1.10.0']
+                    'six>=1.10.0',
+                    'lockfile>=0.12.2']
 
 ext_modules = [Extension(name = 'amlearn.featurize.src.utils',
                          sources = ['amlearn/featurize/src/utils.f90']),

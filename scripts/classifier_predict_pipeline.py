@@ -31,9 +31,7 @@ features_df = pd.read_pickle(features_file)
 target_df = pd.read_csv(target_file, index_col=0)
 
 # prediction
-predict_pipeline = PredictPipeline(output_path=output_path)
-
-predict_pipeline.predict_pipeline(
-    X=features_df[feature_cols], y=target_df[target_col],
-    model_file=model_file, task='classification',
+predictions = load_model_and_predict(
+    X=feature_df[feature_cols], y=target_df[target_col],
+    model_file=model_file, task='classification', output_path=output_path,
     scoring=['roc_auc', 'accuracy', 'f1', 'precision', 'recall'])
